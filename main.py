@@ -12,6 +12,13 @@ def main(config):
 
     ## Main Loop
 
+        # While above compression rate
+        
+        # Generate and apply queries, giving scorings to points
+
+        # Remove x points with the fewest points
+
+        # Collect evaluation data
 
     ## Save results
 

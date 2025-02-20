@@ -17,7 +17,7 @@ sys.path.append(full_path_src)
 sys.path.append(full_path_test)
 
 # All remaining imports
-import testFunctions
+import testFunctions as tF
 import Point as P
 import Trajectory as T
 
@@ -29,7 +29,7 @@ def testTrajectoryCreation():
     traj = T.Trajectory(1, points)
 
     # Assert that it's ID field is initialized correctly
-    assert traj.id == 1
+    tF.printAndAssertEQ(traj.id, 1)
 
 def testTrajectoryClass():
     # Run all test functions for the trajectory class

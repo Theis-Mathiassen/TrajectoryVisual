@@ -4,17 +4,42 @@ import pandas as pd
 import os
 from ast import literal_eval
 
-#data = np.genfromtxt("datasets/train.csv", delimiter=',')
+def load_Tdrive(filename="") : 
 
-df = pd.read_csv("datasets/train.csv", delimiter=',')
+    #data = np.genfromtxt("datasets/train.csv", delimiter=',')
 
-df["POLYLINE"] = df["POLYLINE"].apply(literal_eval)
+    df = pd.read_csv("datasets/small_train.csv", delimiter=',')
 
-def build_Rtree(filename='') :
+    #Preprocessing 
+    df = df.drop(columns=['CALL_TYPE','ORIGIN_CALL','ORIGIN_STAND','TAXI_ID', 'DAY_TYPE'])
+
+    for index in range(len(df)) : 
+        if df['MISSING_DATA'][index] == "True" :
+            df.drop(index=index)
+
+    #Save trimmed data 
+    cwd = os.getcwd()
+    if filename == '' : 
+        if os.path.exists(os.path.join(cwd, 'datasets', 'default.csv')) : 
+            os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'))
+    else :
+        if os.path.exists(os.path.join(cwd, 'datasets', filename)) :
+            os.remove(os.path.join(cwd, 'datasets', filename))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename))
+    
+
+def build_Rtree(dataset, filename='') :
+    # Read csv file as dataframe
+    cwd = os.getcwd()
+    path = os.path.join(cwd, 'datasets', dataset)
+    df = pd.read_csv(path)
+    df["POLYLINE"] = df["POLYLINE"].apply(literal_eval)
+    
+    # Set up properties
     p = index.Property()
     p.dimension = 3
-    #p.dat_extension = 'data'
-    #p.idx_extension = 'index'
+
     if filename=='' :
         Rtree_ = index.Index(properties=p)
     else :
@@ -35,7 +60,10 @@ def build_Rtree(filename='') :
             c+=1
             t+=1
     return Rtree_
-Rtree_ = build_Rtree("test")
+
+load_Tdrive("trimmed_small_train.csv")
+Rtree_ = build_Rtree("trimmed_small_train.csv", "test")
 
 hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
+print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
 print([(n.object) for n in hits])

@@ -19,7 +19,7 @@ sys.path.append(full_path_test)
 
 # All remaining imports
 import testFunctions as tF
-import Point as P
+import Node as P
 
 def testPointCreation():
     # Create a point

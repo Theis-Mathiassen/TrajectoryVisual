@@ -18,7 +18,7 @@ sys.path.append(full_path_test)
 
 # All remaining imports
 import testFunctions as tF
-import Point as P
+import Node as P
 import Trajectory as T
 
 def testTrajectoryCreation():

@@ -1,7 +1,8 @@
 import math
 
-class Point:
-    # id: int
+class Node:
+    score: int
+    id: int
 
     # 2D coordinates
     x: float
@@ -13,32 +14,33 @@ class Point:
     def __init__(self, id, x, y, t):
         # Basic initialization.
         # All values are passed to the object at creation
-        # self.id = id
+        self.id = id
         self.x = x
         self.y = y
         self.t = t
+        self.score = 0
 
     def __str__(self):
         return f"x: {self.x}\ny: {self.y}\ntime: {self.t}\n"
     
     def distanceEuclidean2D(self):
-        # Calculates the norm of the 2D-point vector for this point
+        # Calculates the norm of the 2D-node vector for this node
         return math.sqrt(self.x * self.x + self.y * self.y)
     
     def distanceEuclidean3D(self):
-        # Calculates the norm of the 3D-point vector, 
+        # Calculates the norm of the 3D-node vector, 
         # where the time field is interpreted as the third dimension.
         return math.sqrt(self.x * self.x + self.y * self.y + self.t * self.t)
     
     def pointCosine(self):
-        # Calculates the cosine of the point vector
+        # Calculates the cosine of the node vector
         return (self.x / self.distanceEuclidean2D())
     
     def pointSine(self):
-        # Calculates the sine of the point vector
+        # Calculates the sine of the node vector
         return (self.y / self.distanceEuclidean2D())
     
 
-def pointDiff(point1: Point, point2: Point):
-    # Calculates the difference in the 2D euclidean coordinates between two points
-    return ((point1.x - point2.x), (point1.y - point2.y))
+def pointDiff(node1: Node, node2: Node):
+    # Calculates the difference in the 2D euclidean coordinates between two nodes
+    return ((node1.x - node2.x), (node1.y - node2.y))

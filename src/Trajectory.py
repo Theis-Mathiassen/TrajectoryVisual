@@ -1,18 +1,18 @@
 class Trajectory:
     # ID of the trajectory
-    # All points in the trajectory implicitly assume this ID
+    # All nodes in the trajectory implicitly assume this ID
     id: int
 
-    # A list of all the points in the same trajectory
-    trajectory = []
+    # A list of all the nodes in the same trajectory
+    nodes = []
 
-    def __init__(self, id, points):
+    def __init__(self, id, nodes):
         # ID is assumed to be unique across all trajectories
         self.id = id
 
-        # The parameter is assumed to be a list of 'Point' elements
+        # The parameter is assumed to be a list of 'Node' elements
         # IMPORTANT: This list is assumed to be totally ordered!
-        self.trajectory = points
+        self.nodes = nodes
 
     def __str__(self):
         out = "\n"

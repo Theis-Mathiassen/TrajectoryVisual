@@ -23,10 +23,10 @@ import Trajectory as T
 
 def testTrajectoryCreation():
     # Create a trajectory
-    point1 = P.Point(1, 3.0, 4.0, 1.0)
-    point2 = P.Point(2, 3.0, 4.0, 2.0)
-    points = [point1, point2]
-    traj = T.Trajectory(1, points)
+    Node1 = P.Node(1, 3.0, 4.0, 1.0)
+    Node2 = P.Node(2, 3.0, 4.0, 2.0)
+    Nodes = [Node1, Node2]
+    traj = T.Trajectory(1, Nodes)
 
     # Assert that it's ID field is initialized correctly
     tF.printAndAssertEQ(traj.id, 1)

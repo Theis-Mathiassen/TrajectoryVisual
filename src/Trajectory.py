@@ -18,12 +18,12 @@ class Trajectory:
         out = "\n"
 
         # Get the string representation of each point in the trajectory
-        for i in range(len(self.trajectory)):
-            out += self.trajectory[i].__str__()
+        for i in range(len(self.nodes)):
+            out += self.nodes[i].__str__()
             print("out: " + out)
 
         # Return the full trajectory
         return f"Trajectory: \n[{out}]\n"
     
     def pointCount(self):
-        return len(self.trajectory)
+        return len(self.nodes)

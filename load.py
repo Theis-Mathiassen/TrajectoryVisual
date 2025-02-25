@@ -54,9 +54,11 @@ def build_Rtree(dataset, filename='') :
     c = 0
     delete_rec = {}
     for i in range(len(df)) :
+        t = 0
         for x,y in df["POLYLINE"][i] :
             Rtree_.insert(c, (x, y, df["TIMESTAMP"][i]+(15*t), x, y, df["TIMESTAMP"][i]+(15*t)), obj=(df["TRIP_ID"][i], c))
             c+=1
+            t+=1
     return Rtree_
 
 load_Tdrive("trimmed_small_train.csv")

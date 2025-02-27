@@ -32,6 +32,7 @@ class Node:
         # where the time field is interpreted as the third dimension.
         return math.sqrt(self.x * self.x + self.y * self.y + self.t * self.t)
     
+
     def NodeCosine(self):
         # Calculates the cosine of the node vector
         return (self.x / self.distanceEuclidean2D())

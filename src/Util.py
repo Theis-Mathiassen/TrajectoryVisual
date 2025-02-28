@@ -1,6 +1,6 @@
 from Trajectory import Trajectory
 from Query import Query
-from Point import Node
+from Node import Node
 
 import random
 from rtree import index
@@ -37,13 +37,13 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000):
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
-        tMin = randomTrajectory.nodes[0].t 
-        tMax = randomTrajectory.nodes[-1].t
+        tMin = centerNode.t - temporalWindowSize
+        tMax = centerNode.t + temporalWindowSize
         xMin = centerX - centerToEdge
         xMax = centerX + centerToEdge
         yMin = centerY - centerToEdge

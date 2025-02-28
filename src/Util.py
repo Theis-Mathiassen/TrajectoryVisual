@@ -4,6 +4,7 @@ from Point import Node
 
 import random
 from rtree import index
+import math
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -36,18 +37,20 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index):
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
+        centerX = centerNode.x
+        centerY = centerNode.y
         tMin = randomTrajectory.nodes[0].t 
         tMax = randomTrajectory.nodes[-1].t
-        xMin = None
-        xMax = None
-        yMin = None
-        yMax = None
+        xMin = centerX - centerToEdge
+        xMax = centerX + centerToEdge
+        yMin = centerY - centerToEdge
+        yMax = centerY + centerToEdge
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
     
-    def similarityParams(self, rtree: index.Index):
+    def similarityParams(self, rtree: index.Index, delta = 5000):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         tMin = randomTrajectory.nodes[0].t 
         tMax = randomTrajectory.nodes[-1].t
@@ -55,10 +58,10 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
-        delta = None
+        delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
     
-    def knnParams(self, rtree: index.Index):
+    def knnParams(self, rtree: index.Index, k = 3):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         tMin = self.tMin 
         tMax = self.tMax
@@ -66,7 +69,7 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
-        k = None
+        k = k
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
     
     def clusterParams(self, rtree: index.Index):
@@ -80,3 +83,11 @@ class ParamUtil:
         eps = None
         linesMin = None
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin)
+    
+def lonLatToMetric(lon, lat):
+    earthRadius = 6378137.0
+    east = lon * 0.017453292519943295
+    north = lat * 0.017453292519943295
+    t = math.sin(north)
+    return earthRadius * east, 3189068.5 * math.log((1 + t) / (1 - t))
+    

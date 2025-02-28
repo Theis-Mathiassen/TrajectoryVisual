@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 
 # Find the absolute path of the project directory
 absolute_path = os.path.dirname(__file__)
@@ -18,19 +19,25 @@ sys.path.append(full_path_test)
 
 # All remaining imports
 import testFunctions as tF
-import Node as P
 import Trajectory as T
+import Node as N
+import Plot
 
-def testTrajectoryCreation():
-    # Create a trajectory
-    Node1 = P.Node(1, 3.0, 4.0, 1.0)
-    Node2 = P.Node(2, 3.0, 4.0, 2.0)
-    Nodes = [Node1, Node2]
-    traj = T.Trajectory(1, Nodes)
+def testSinglePlot():
+    p1 = N.Node(1, 2.0, 3.0, 1.0)
+    p2 = N.Node(2, 5.0, 10.0, 2.0)
+    traj = T.Trajectory(1, [p1, p2])
+    Plot.plotTrajectory(traj)
 
-    # Assert that it's ID field is initialized correctly
-    tF.printAndAssertEQ(traj.id, 1)
+def testMultiPlot():
+    p1 = N.Node(1, 2.0, 3.0, 1.0)
+    p2 = N.Node(2, 3.5, 6.0, 2.0)
+    p3 = N.Node(3, 5.0, 10.0, 2.0)
+    traj1 = T.Trajectory(1, [p1, p2, p3])
+    traj2 = T.Trajectory(2, [p1, p3])
+    traj_list = [traj1, traj2]
+    Plot.plotTrajectories(traj_list)
 
-def testTrajectoryClass():
-    # Run all test functions for the trajectory class
-    testTrajectoryCreation()
+def testPlotting():
+    testSinglePlot()
+    testMultiPlot()

@@ -17,15 +17,19 @@ sys.path.append(full_path_src)
 sys.path.append(full_path_test)
 
 # All remaining imports
-import testPoint as tP
+import testNode as tP
 import testTrajectory as tT
+import testPlot as tPP
 
 def testMain():
-    # Run all point testing
-    tP.testPointClass()
+    # Run all Node testing
+    tP.testNodeClass()
 
     # Run all trajectory testing
     tT.testTrajectoryClass()
+
+    # Run all plot testing
+    tPP.testPlotting()
 
 if __name__=="__main__":
     testMain()

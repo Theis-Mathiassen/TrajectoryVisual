@@ -20,7 +20,7 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
 
     if(amount_to_drop <= 0):
         total_nodes = sum([len(x.nodes) for x in trajectories])
-        amount_to_drop = 1 - round(total_nodes * compression_rate)
+        amount_to_drop = total_nodes - round(total_nodes * compression_rate)
     
 
     # Special case for if there are so few nodes we cannot drop enough

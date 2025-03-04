@@ -71,9 +71,10 @@ def build_Rtree(dataset, filename='') :
 
     return Rtree_, Trajectories
 
-load_Tdrive("trimmed_small_train.csv")
-Rtree_, Trajectories = build_Rtree("trimmed_small_train.csv", "test")
+if __name__ == "__main__":
+    load_Tdrive("trimmed_small_train.csv")
+    Rtree_, Trajectories = build_Rtree("trimmed_small_train.csv", "test")
 
-hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
-print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
-print([(n.object) for n in hits])
+    hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
+    print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
+    print([(n.object) for n in hits])

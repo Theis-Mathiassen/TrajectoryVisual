@@ -3,6 +3,8 @@ from Trajectory import Trajectory
 from clusterQuery import ClusterQuery
 import numpy as np
 
+# This code allows testing of simplified trajectories
+
 def getIntersection(trajectoryList1, trajectoryList2):
     return [trajectory for trajectory in trajectoryList1 if trajectory.id in [trajectory.id for trajectory in trajectoryList2]]
 

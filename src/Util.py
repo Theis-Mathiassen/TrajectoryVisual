@@ -1,6 +1,6 @@
 from Trajectory import Trajectory
 from Query import Query
-from Point import Node
+from Node import Node
 
 import random
 from rtree import index
@@ -37,13 +37,13 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000):
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
-        tMin = randomTrajectory.nodes[0].t 
-        tMax = randomTrajectory.nodes[-1].t
+        tMin = centerNode.t - temporalWindowSize
+        tMax = centerNode.t + temporalWindowSize
         xMin = centerX - centerToEdge
         xMax = centerX + centerToEdge
         yMin = centerY - centerToEdge
@@ -84,10 +84,8 @@ class ParamUtil:
         linesMin = None
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin)
     
-def lonLatToMetric(lon, lat):
-    earthRadius = 6378137.0
-    east = lon * 0.017453292519943295
-    north = lat * 0.017453292519943295
-    t = math.sin(north)
-    return earthRadius * east, 3189068.5 * math.log((1 + t) / (1 - t))
+def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
+    north = lat * 110574.0
+    east = lon * 111320.0 * math.cos(0.017453292519943295*lat)
+    return east, north
     

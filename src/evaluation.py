@@ -40,14 +40,12 @@ def getAverageF1ScoreAll(queryWrapper, rtree_original, rtree_simplified):
 
 
 # Synchronized euclidean distance
-# euclidean distance between the actual locaation p_i, and its syncrhonized node on the anchor segment
+# euclidean distance between the actual location p_i, and its syncrhonized node on the anchor segment
 # where synchronized refers to estimated point on the anchor segment at time p_i
 def sed_op(segment):
     if len(segment) <= 2:
-        # print('segment error', 0.0)
         return 0.0
     else:
-        # print('segment', segment)
         ps = segment[0]
         pe = segment[-1]
         e = 0.0
@@ -62,6 +60,7 @@ def sed_op(segment):
 
 # segment error for a single trajectory
 # This code finds the points between retained points. And then finds the max segment error for them
+# See https://github.com/yumengs-exp/MLSimp/blob/main/Utils/query_utils_val.py :90
 def sed_error(ori_traj, sim_traj):
     # Convert code first
     ori_traj = ([node.x, node.y, node.t] for node in ori_traj.nodes)
@@ -89,24 +88,22 @@ def sed_error(ori_traj, sim_traj):
 # Shortest euclidean distance from node to anchor segment
 def ped_op(segment):
     if len(segment) <= 2:
-        # print('segment error', 0.0)
         return 0.0
     else:
         ps = segment[0]
         pe = segment[-1]
         e = 0.0
 
+        A = pe[1] - ps[1]
+        B = ps[0] - pe[0]
+        C = pe[0] * ps[1] - ps[0] * pe[1]
 
-        for i in range(1, len(segment) - 1):
-            pm = segment[i]
-            A = pe[1] - ps[1]
-            B = ps[0] - pe[0]
-            C = pe[0] * ps[1] - ps[0] * pe[1]
-            if A == 0 and B == 0:
-                e = max(e, 0.0)
-            else:
+        if A == 0 and B == 0:
+            e = max(e, 0.0)
+        else:
+            for i in range(1, len(segment) - 1):
+                pm = segment[i]
                 e = max(e, abs((A * pm[0] + B * pm[1] + C) / np.sqrt(A * A + B * B)))
-        # print('segment error', e)
         return e
 
 
@@ -152,4 +149,4 @@ def GetSimplificationError(original_trajectory_list, simplified_trajectory_list)
     avg_SED /= length
     avg_PED /= length
 
-    return avg_SED, avg_PED
+    return avg_SED, avg_PED 

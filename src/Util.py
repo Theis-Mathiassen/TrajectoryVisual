@@ -1,6 +1,6 @@
 from Trajectory import Trajectory
 from Query import Query
-from Point import Node
+from Node import Node
 
 import random
 from rtree import index

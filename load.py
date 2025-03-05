@@ -4,6 +4,9 @@ import pandas as pd
 import os
 from ast import literal_eval
 
+from src.Node import Node
+from src.Trajectory import Trajectory
+
 def load_Tdrive(filename="") : 
 
     #data = np.genfromtxt("datasets/train.csv", delimiter=',')
@@ -53,13 +56,20 @@ def build_Rtree(dataset, filename='') :
 
     c = 0
     delete_rec = {}
+    Trajectories = []
     for i in range(len(df)) :
         t = 0
+        nodes = []
         for x,y in df["POLYLINE"][i] :
             Rtree_.insert(c, (x, y, df["TIMESTAMP"][i]+(15*t), x, y, df["TIMESTAMP"][i]+(15*t)), obj=(df["TRIP_ID"][i], c))
+            nodes.append(Node(c, x, y, t*15))
+
             c+=1
             t+=1
-    return Rtree_
+        
+        Trajectories.append(Trajectory(df["TRIP_ID"][i], nodes))
+
+    return Rtree_, Trajectories
 
 # TEST
 #load_Tdrive("trimmed_small_train.csv")

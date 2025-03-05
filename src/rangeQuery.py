@@ -3,6 +3,7 @@ from Trajectory import Trajectory
 from Node import Node
 from Query import Query
 import numpy as np
+import rangeQuery
 
 class RangeQuery(Query):
     x1: float
@@ -48,21 +49,18 @@ class RangeQuery(Query):
         '''Function takes list of trajectories that are stored and distributes points to nodes in each respective trajectory that also appears in "matches".
         matches is an object containing trajectory id, node id, and bounding box for all nodes intersecting the query. 
         The function will distribute one point to a node in a trajectory based on which is closest to the center of the bounding box for the query.'''
-        def euc_dist_diff(bbox1, bbox2) : 
-            # Calculate center of bounding box for the query
-            centerx = (bbox2[0] + bbox2[3])/2
-            centery = (bbox2[1] + bbox2[4])/2
-            centert = (bbox2[2] + bbox2[5])/2
-
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
-            return np.sqrt(np.power(bbox1[0]-centerx, 2) + np.power(bbox1[1]-centery, 2) + np.power(bbox1[2]-centert, 2)) 
-        
+       
         def give_point(trajectory: Trajectory, node_id) :
             for n in trajectory.nodes :
                 if n.id == node_id :
                     n.score += 1
         
-        q_bbox = [self.x1, self.y1, self.t1, self.x2, self.y2, self.t2]
+        # TODO: Get center points from query
+        centerx = 0
+        centery = 0
+        centert = 0
+        q_bbox = [centerx, centery, centert]
+        
         # Key = Trajectory id, value = (Node id, distance)
         point_dict = dict()
 
@@ -70,7 +68,7 @@ class RangeQuery(Query):
         matches = [(n.object, n.bbox) for n in matches]
 
         for obj, bbox in matches : 
-            dist_current = euc_dist_diff(bbox, q_bbox)
+            dist_current = rangeQuery.euc_dist_diff(bbox, q_bbox)
 
             if obj[0] in point_dict : 
                 dist_prev = point_dict.get(obj[0])[1]

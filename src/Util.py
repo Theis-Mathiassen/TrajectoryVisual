@@ -1,10 +1,11 @@
 from Trajectory import Trajectory
 from Query import Query
-from Node import Node
+from Node import Node, NodeDiff
 
 import random
 from rtree import index
 import math
+import numpy as np
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -89,3 +90,35 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
     east = lon * 111320.0 * math.cos(0.017453292519943295*lat)
     return east, north
     
+    
+# Based on wikipedia article on dynamic time warping https://en.wikipedia.org/wiki/Dynamic_time_warping
+# but changed to a dynamic window size such that we always can compare two trajectories
+def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
+    originNodes = origin.nodes
+    otherNodes = other.nodes
+    DTW = np.ndarray((len(originNodes),len(otherNodes)))
+    
+    w = abs(len(originNodes) - len(otherNodes))
+    
+    for i in range(len(originNodes)):
+        for j in range(len(otherNodes)):
+            DTW[i, j] = math.inf
+            
+    DTW[0, 0] = 0
+    
+    for i in range(1, len(originNodes)):
+        for j in range(max(1, i-w), min(len(otherNodes), i+w)):
+            DTW[i, j] = 0
+            
+    for i in range(1, len(origin)):
+        for j in range(max(1, i-w), min(len(otherNodes), i+w)):
+            cost = euDistance(originNodes[i], otherNodes[j])
+            DTW[i, j] = cost + min(DTW[i-1  , j     ],  # insertion
+                                   DTW[i    , j-1   ],  # deletion
+                                   DTW[i-1  , j-1   ])  # match
+    
+    return DTW[len(originNodes)-1, len(otherNodes)-1]
+
+def euDistance(x : Node, y : Node):
+    diff = NodeDiff(x, y)
+    return math.sqrt(diff[0] * diff[0] + diff[1] * diff[1])

@@ -98,7 +98,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     otherNodes = other.nodes
     DTW = np.ndarray((len(originNodes),len(otherNodes)))
     
-    w = abs(len(originNodes) - len(otherNodes))
+    w = abs(len(originNodes) - len(otherNodes)) + 1
     
     for i in range(len(originNodes)):
         for j in range(len(otherNodes)):
@@ -110,7 +110,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
             DTW[i, j] = 0
             
-    for i in range(1, len(origin)):
+    for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
             cost = euDistance(originNodes[i], otherNodes[j])
             DTW[i, j] = cost + min(DTW[i-1  , j     ],  # insertion

@@ -12,7 +12,7 @@ class SimilarityQuery(Query):
     delta: float
     
     def __init__(self, params):
-        self.trajectory = params["trajectory"]
+        self.trajectory = params["origin"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.delta = params["delta"]

@@ -2,7 +2,7 @@ from Query import Query
 from Trajectory import Trajectory
 import math
 
-class RangeQuery(Query):
+class KnnQuery(Query):
     trajectory: Trajectory
     allTrajectories: list[Trajectory]
     t1: float

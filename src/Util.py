@@ -13,14 +13,14 @@ import numpy as np
 class ParamUtil:
     # init the params to be the bounding box of the Rtree and fix some delta
     def __init__(self, rtree: index.Index, trajectories: list[Trajectory], delta = 0, k = 3, eps = 1, linesMin = 3):
-        boundingBox = rtree.bounds()
+        boundingBox = rtree.bounds
         
         # Establish mbr for the whole Rtree
         self.xMin = boundingBox[0]
-        self.xMax = boundingBox[1]
-        self.yMin = boundingBox[2]
-        self.yMax = boundingBox[3]
-        self.tMin = boundingBox[4]
+        self.xMax = boundingBox[3]
+        self.yMin = boundingBox[1]
+        self.yMax = boundingBox[4]
+        self.tMin = boundingBox[2]
         self.tMax = boundingBox[5]
         
         # List of trajectories and their nodes. Note that every element of trajectory.nodes may not be in a simplified Rtree

@@ -1,21 +1,24 @@
 from Query import Query
+from Node import Node
 from Trajectory import Trajectory
 import math
-from Util import DTWDistanc
+from Util import DTWDistance
 import numpy as np
 
 class KnnQuery(Query):
     trajectory: Trajectory
-    allTrajectories: list[Trajectory]
     t1: float
     t2: float
     
     def __init__(self, params):
-        self.allTrajectories = params["trajectories"]
         self.trajectory = params["origin"]
         self.k = params["k"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
+        self.x1 = params["x1"]
+        self.x2 = params["x2"]
+        self.y1 = params["y1"]
+        self.y2 = params["y2"]
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
@@ -23,27 +26,43 @@ class KnnQuery(Query):
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
-        # Generate a list of trajectory segments within the time window and their ids
-        # Form: (id, segment) : (1: [Node, ..., Node]), (2: [Node, ..., Node]), ...)
-        for trajectory in self.allTrajectories:
-            # Do not look at origin
-            if trajectory.id == self.trajectory.id:
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x1, self.y2, self.t2), objects=True))
+        # Reconstruct trajectories
+        trajectories = {}
+        # For each node
+        for hit in hits:
+            # Extract node info
+            x_idx, y_idx, t_idx, _, _, _ = hit.bbox
+            node_id, trajectory_id = hit.object
+
+            # Ignore origin trajectory
+            if trajectory_id == self.trajectory.id:
                 continue
 
-            segment = self.getSegmentInTimeWindow(trajectory)
-            # If empty, therefore not in time window
-            if (segment == []):
-                continue
-            listOfTrajectorySegments.append(trajectory.id, segment)
+            node = Node(node_id, x_idx, y_idx, t_idx)
+            print(node)
 
-        # If amount of segments <= k we return these arbitrarily
-        if (len(listOfTrajectorySegments) <= self.k):
-            return [x[0] for x in listOfTrajectorySegments] #Returns ids 
+            # Get list of nodes by trajectories
+            if trajectory_id not in trajectories:
+                trajectories[trajectory_id] = []
+
+            trajectories[trajectory_id].append(node)
+
+        # If fewer than k 
+        if self.k <= len(trajectories.keys()):
+            return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
+
+        listOfTrajectorySegments = trajectories.items()
+        
 
         # Use DTW distance to compute similarity
         similarityMeasures = {}
+        
+        # Must be of type trajectory to be accepted
+        originSegmentTrajectory = Trajectory(-1, originSegment)
         for segment in listOfTrajectorySegments:
-            similarityMeasures[segment[0]] = DTWDistanc(originSegment, segment[1])
+            segmentTrajectory = Trajectory(segment[0], segment[1])
+            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
@@ -51,7 +70,7 @@ class KnnQuery(Query):
         # get top k ids
         topKIds = [x[0] for x in similarityMeasures[:self.k]]
 
-        return [trajectory for trajectory in self.allTrajectories if trajectory.id in topKIds]
+        trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
 
 
     def distribute(self, trajectories, matches):
@@ -86,9 +105,9 @@ class KnnQuery(Query):
 
     def getSegmentInTimeWindow(self, trajectory):
         
-        length = len(trajectory)
-        time_start = trajectory[0].t
-        time_end = trajectory[-1].t
+        length = len(trajectory.nodes)
+        time_start = trajectory.nodes[0].t
+        time_end = trajectory.nodes[-1].t
 
         # Check if not in time window
         if (time_start > self.t2 or time_end < self.t1):
@@ -202,11 +221,6 @@ class KnnQuery(Query):
                 toVisit.append(x - 1, y - 1)
         
         return visited
-
-
-
-
-
 
     def euc_dist_diff_2d(p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 

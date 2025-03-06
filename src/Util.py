@@ -95,17 +95,24 @@ def euc_dist_diff_3d(p1, p2) :
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2) + np.power(p1[2]-p2[2], 2)) 
 
 def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
-    ogHead = [origin.nodes[0].x, origin.nodes[0].y]
-    tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
-    timeDiff = np.sqrt(np.pow(origin.nodes[0].t - trajectory.nodes[0].t, 2))
+    '''Function takes an epsilon (spatial distance) and delta (temporal distance), and two trajectories for comparison. This function uses
+    euclidean distance measure for determining the relation to the epsilon.'''
+    if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :
+        ogHead = [origin.nodes[0].x, origin.nodes[0].y]
+        tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
+        timeDiff = np.sqrt(np.power(origin.nodes[0].t - trajectory.nodes[0].t, 2))
 
-    if (len(origin.nodes == 0) and len(trajectory.nodes == 0)) :
+    if (len(origin.nodes) == 0 or len(trajectory.nodes) == 0) :
         return 0
-    elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) :
-        newOrigin = origin.nodes.pop(0)
-        newTrajectory = trajectory.nodes.pop(0)
+    elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) : 
+        newOrigin = origin 
+        newOrigin.nodes.pop(0)
+        newTrajectory = trajectory
+        newTrajectory.nodes.pop(0)
         return lcss(epsilon, delta, newOrigin, newTrajectory)+1
     else :
-        newOrigin = origin.nodes.pop(0)
-        newTrajectory = trajectory.nodes.pop(0)
+        newOrigin = origin
+        newOrigin.nodes.pop(0)
+        newTrajectory = trajectory
+        newTrajectory.nodes.pop(0)
         return max(lcss(epsilon, delta, newOrigin, trajectory), lcss(epsilon, delta, newTrajectory, origin))

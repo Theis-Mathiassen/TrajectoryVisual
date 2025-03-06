@@ -12,6 +12,7 @@ def getF1Score(Query, rtree_original, rtree_simplified):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if Query is ClusterQuery:
+        print('ClusterQuery is not implemented yet.')
         return 0
 
     original_result = Query.run(rtree_original)

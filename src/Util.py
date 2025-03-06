@@ -1,6 +1,7 @@
 from Trajectory import Trajectory
 from Query import Query
 from Node import Node
+import numpy as np
 
 import random
 from rtree import index
@@ -88,4 +89,10 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
     north = lat * 110574.0
     east = lon * 111320.0 * math.cos(0.017453292519943295*lat)
     return east, north
-    
+
+def euc_dist_diff_2d(p1, p2) : 
+            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
+            return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
+def euc_dist_diff_3d(p1, p2) : 
+            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
+            return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2) + np.power(p1[2]-p2[2], 2)) 

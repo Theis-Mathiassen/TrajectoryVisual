@@ -10,3 +10,7 @@ class Query(ABC):
     @abstractmethod
     def run(self, rtree) -> list[Trajectory]:
         pass
+
+    @abstractmethod
+    def distribute(self, trajectories: list[Trajectory], matches) -> None:
+        pass

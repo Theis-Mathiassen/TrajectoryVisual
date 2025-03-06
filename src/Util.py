@@ -2,7 +2,6 @@ from Trajectory import Trajectory
 from Query import Query
 from Node import Node
 import numpy as np
-
 import random
 from rtree import index
 import math
@@ -91,8 +90,22 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
     return east, north
 
 def euc_dist_diff_2d(p1, p2) : 
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2) + np.power(p1[2]-p2[2], 2)) 
+
+def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
+    ogHead = [origin.nodes[0].x, origin.nodes[0].y]
+    tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
+    timeDiff = np.sqrt(np.pow(origin.nodes[0].t - trajectory.nodes[0].t, 2))
+
+    if (len(origin.nodes == 0) and len(trajectory.nodes == 0)) :
+        return 0
+    elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) :
+        newOrigin = origin.nodes.pop(0)
+        newTrajectory = trajectory.nodes.pop(0)
+        return lcss(epsilon, delta, newOrigin, newTrajectory)+1
+    else :
+        newOrigin = origin.nodes.pop(0)
+        newTrajectory = trajectory.nodes.pop(0)
+        return max(lcss(epsilon, delta, newOrigin, trajectory), lcss(epsilon, delta, newTrajectory, origin))

@@ -26,21 +26,20 @@ class KnnQuery(Query):
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x1, self.y2, self.t2), objects=True))
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects=True))
         # Reconstruct trajectories
         trajectories = {}
         # For each node
         for hit in hits:
             # Extract node info
             x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-            node_id, trajectory_id = hit.object
+            trajectory_id, node_id = hit.object
 
             # Ignore origin trajectory
             if trajectory_id == self.trajectory.id:
                 continue
 
             node = Node(node_id, x_idx, y_idx, t_idx)
-            print(node)
 
             # Get list of nodes by trajectories
             if trajectory_id not in trajectories:
@@ -49,11 +48,10 @@ class KnnQuery(Query):
             trajectories[trajectory_id].append(node)
 
         # If fewer than k 
-        if self.k <= len(trajectories.keys()):
+        if len(trajectories.keys()) <= self.k:
             return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
 
         listOfTrajectorySegments = trajectories.items()
-        
 
         # Use DTW distance to compute similarity
         similarityMeasures = {}
@@ -73,35 +71,43 @@ class KnnQuery(Query):
         trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
 
 
+
+        # Get top k trajectories
+        return [x for x in trajectories_output if x.id in topKIds]
+
     def distribute(self, trajectories, matches):
 
         # Current implementation supports DTW
 
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
 
+        originSegmentTrajectory = Trajectory(-1, originSegment)
+
         for trajectory in matches:
 
             # Match trajectory to supplied list
             trajectoryIndex = 0
-            for index, trajectoryInList in trajectories:
+            for index, trajectoryInList in enumerate(trajectories):
                 if trajectoryInList.id == trajectory.id:
                     trajectoryIndex = index
                     break
 
             # Get segment
             segment = self.getSegmentInTimeWindow(trajectory)
+            segmentTrajectory = Trajectory(trajectory.id, segment)
 
             # get scorings for nodes (With DTW) in dictionary form
-            nodeScores = self.DTWDistanceWithScoring(originSegment, segment)
+            nodeScores = self.DTWDistanceWithScoring(originSegmentTrajectory, segmentTrajectory)
 
-            for nodeId, score in nodeScores.items():
-                for nodeIndex, node in trajectories:
-                    if nodeId == node.id:
-                        trajectories[trajectoryIndex].nodes[nodeIndex].score += score
+
+            # Find relevant nodes and add scores. Note that scores are sorted by index in segment
+            for nodeIndex, score in nodeScores.items():
+                for index, node in enumerate(trajectories[trajectoryIndex].nodes):
+                    if node.id == segment[nodeIndex].id:    # Found relevant node
+                        trajectories[trajectoryIndex].nodes[index].score += score
                         break
 
                         
-
 
     def getSegmentInTimeWindow(self, trajectory):
         
@@ -114,6 +120,10 @@ class KnnQuery(Query):
             return []
         
         time_per_segment = (time_end - time_start) / length
+
+        if time_per_segment == 0: # If only one node we must do this, also so we do not divide by 0
+            print("Only one node in trajectory with id: " + str(trajectory.id))
+            return trajectory.nodes
         
         start_index = math.ceil((self.t1 - time_start) / time_per_segment) # Round up so within time window
         end_index = math.floor((self.t2 - time_start) / time_per_segment)  # Round down so within time window
@@ -135,7 +145,7 @@ class KnnQuery(Query):
         originNodes = origin.nodes
         otherNodes = other.nodes
         DTW = np.ndarray((len(originNodes),len(otherNodes)))
-        pathTracker = np.ndarray((len(originNodes),len(otherNodes))) #Keeps track of min path (Insert, delete, match)
+        pathTracker = np.ndarray((len(originNodes),len(otherNodes)), dtype=int) #Keeps track of min path (Insert, delete, match)
         costTracker = np.ndarray((len(originNodes),len(otherNodes))) #Keeps track of cost. This could recalculated later, optimizing for time atm
         
         w = abs(len(originNodes) - len(otherNodes)) + 1
@@ -174,22 +184,28 @@ class KnnQuery(Query):
         #Retrace steps, and find each (x,y) along the optimal route visited
         visited = self.get_visited(pathTracker, len(originNodes), len(otherNodes))
 
+        # Find total cost and each node cost contribution
         totalCost = 0
-        nodeCost = {}
+        nodeCosts = {}
         for (x,y) in visited:
             cost = costTracker[x, y]
             totalCost += cost
 
-            if y not in nodeCost:
-                nodeCost[y] = cost + 1 # We add one such that they cannot get infinite points if cost 0
+            if y not in nodeCosts:
+                nodeCosts[y] = cost
             else:
-                nodeCost[y] += cost
+                nodeCosts[y] += cost
+
 
         nodeScores = {}
-        # Nodes are rewarded, minus their contribution to the total cost. Note that nodes who appear several times get more points
+        # We give each node a point, but minus by their cost contribution
         for (x,y) in visited:
-            score = totalCost - nodeCost[y] / totalCost
-            
+            cost = nodeCosts[y]
+
+            costContribution = cost / totalCost
+
+            score = pow(1 - costContribution, 2)
+
             if y not in nodeScores:
                 nodeScores[y] = score
             else:
@@ -197,13 +213,14 @@ class KnnQuery(Query):
 
         return nodeScores
     
-    def get_visited(pathTracker, length_x, length_y):
+    def get_visited(self, pathTracker, length_x, length_y):
         toVisit = [(length_x - 1, length_y - 1)]
         visited = []
 
         # Go through list and add onto till empty
-        while len(toVisit != 0):
-            (x, y) = toVisit.pop
+        while (len(toVisit) != 0):
+            (x, y) = toVisit.pop(-1)
+
 
             # Continue if already visited or reached edge
             if (x, y) in visited or x == 0 or y == 0:
@@ -211,18 +228,19 @@ class KnnQuery(Query):
 
             visited.append((x, y))
 
-            path = pathTracker(x, y)
+            path = int(pathTracker[x, y])
 
             if path & 1: # If insert
-                toVisit.append(x - 1, y)
+                toVisit.append((x - 1, y))
             if path & 2: # If Deletion
-                toVisit.append(x, y - 1)
+                toVisit.append((x, y - 1))
             if path & 4: # If match
-                toVisit.append(x - 1, y - 1)
+                toVisit.append((x - 1, y - 1))
         
         return visited
 
-    def euc_dist_diff_2d(p1, p2) : 
+    def euc_dist_diff_2d(self, p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
+            return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 

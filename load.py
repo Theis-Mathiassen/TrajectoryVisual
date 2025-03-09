@@ -62,7 +62,7 @@ def build_Rtree(dataset, filename='') :
         nodes = []
         for x,y in df["POLYLINE"][i] :
             Rtree_.insert(c, (x, y, df["TIMESTAMP"][i]+(15*t), x, y, df["TIMESTAMP"][i]+(15*t)), obj=(df["TRIP_ID"][i], c))
-            nodes.append(Node(c, x, y, t*15))
+            nodes.append(Node(c, x, y, df["TIMESTAMP"][i] + (t*15)))
 
             c+=1
             t+=1

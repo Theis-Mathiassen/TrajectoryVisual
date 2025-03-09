@@ -122,6 +122,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
 
 def euc_dist_diff_2d(p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
+            return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 

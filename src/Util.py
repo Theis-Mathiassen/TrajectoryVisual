@@ -13,14 +13,14 @@ import numpy as np
 class ParamUtil:
     # init the params to be the bounding box of the Rtree and fix some delta
     def __init__(self, rtree: index.Index, trajectories: list[Trajectory], delta = 0, k = 3, eps = 1, linesMin = 3):
-        boundingBox = rtree.bounds()
+        boundingBox = rtree.bounds
         
         # Establish mbr for the whole Rtree
         self.xMin = boundingBox[0]
-        self.xMax = boundingBox[1]
-        self.yMin = boundingBox[2]
-        self.yMax = boundingBox[3]
-        self.tMin = boundingBox[4]
+        self.xMax = boundingBox[3]
+        self.yMin = boundingBox[1]
+        self.yMax = boundingBox[4]
+        self.tMin = boundingBox[2]
         self.tMax = boundingBox[5]
         
         # List of trajectories and their nodes. Note that every element of trajectory.nodes may not be in a simplified Rtree
@@ -122,6 +122,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
 
 def euc_dist_diff_2d(p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
+            return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 
             # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 

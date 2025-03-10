@@ -1,3 +1,5 @@
+from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
+
 
 #### main
 def main(config):
@@ -19,6 +21,7 @@ def main(config):
         # Remove x points with the fewest points
 
         # Collect evaluation data
+            # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
 

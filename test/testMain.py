@@ -17,11 +17,16 @@ sys.path.append(full_path_src)
 sys.path.append(full_path_test)
 
 # All remaining imports
+import load
+from src import Trajectory
 import testNode as tP
 import testTrajectory as tT
 import testPlot as tPP
 
 def testMain():
+    load.load_Tdrive()
+    Rtree_, Trajectories = load.build_Rtree('small_train.csv')
+
     # Run all Node testing
     tP.testNodeClass()
 
@@ -29,7 +34,7 @@ def testMain():
     tT.testTrajectoryClass()
 
     # Run all plot testing
-    tPP.testPlotting()
+    tPP.testPlotting(Trajectories, Rtree_)
 
 if __name__=="__main__":
     testMain()

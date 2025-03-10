@@ -1,11 +1,12 @@
 from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
-
+from load import build_Rtree
 
 #### main
 def main(config):
     ## Load Dataset
 
-
+    build_Rtree("trimmed_small_train.csv", "original_Tdrive")
+    build_Rtree("trimmed_small_train.csv", "simplified_Tdrive")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
 

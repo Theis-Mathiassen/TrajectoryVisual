@@ -3,7 +3,6 @@ from Query import Query
 from Node import Node, NodeDiff
 import numpy as np
 
-
 import random
 from rtree import index
 import math
@@ -121,9 +120,32 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     return DTW[len(originNodes)-1, len(otherNodes)-1]
 
 def euc_dist_diff_2d(p1, p2) : 
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2) + np.power(p1[2]-p2[2], 2)) 
+
+def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
+    '''Function takes an epsilon (spatial distance) and delta (temporal distance), and two trajectories for comparison. This function uses
+    euclidean distance measure for determining the relation to the epsilon.'''
+    
+    # Prepare variables, but only if they are needed later.
+    if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :
+        ogHead = [origin.nodes[0].x, origin.nodes[0].y]
+        tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
+        timeDiff = np.abs(origin.nodes[0].t - trajectory.nodes[0].t)
+        
+    if (len(origin.nodes) == 0 or len(trajectory.nodes) == 0) :
+        return 0
+    elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) : 
+        newOrigin = origin 
+        newOrigin.nodes.pop(0)
+        newTrajectory = trajectory
+        newTrajectory.nodes.pop(0)
+        return lcss(epsilon, delta, newOrigin, newTrajectory)+1
+    else :
+        newOrigin = origin
+        newOrigin.nodes.pop(0)
+        newTrajectory = trajectory
+        newTrajectory.nodes.pop(0)
+        return max(lcss(epsilon, delta, newOrigin, trajectory), lcss(epsilon, delta, newTrajectory, origin))
 

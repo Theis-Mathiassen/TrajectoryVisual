@@ -1,4 +1,6 @@
+from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from load import build_Rtree
+
 #### main
 def main(config):
     ## Load Dataset
@@ -20,6 +22,7 @@ def main(config):
         # Remove x points with the fewest points
 
         # Collect evaluation data
+            # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
 

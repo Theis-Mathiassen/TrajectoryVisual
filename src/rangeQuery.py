@@ -53,11 +53,13 @@ class RangeQuery(Query):
         matches is an object containing trajectory id, node id, and bounding box for all nodes intersecting the query.'''
         match self.flag :
             case 1 :
-                return self.winner_takes_all(self, trajectories, matches) # Only 1 node per trajectory gets a point
+                return self.winner_takes_all(self, trajectories, matches) # Only 1 node per trajectory in range gets a point
             case 2 : 
-                return self.shared_equally(self, trajectories, matches, share_one=True) # Divide 1 point among nodes in trajectory
-            case 3: 
-                return self.shared_equally(self, trajectories, matches, share_one=False) # All nodes get 1 point 
+                return self.shared_equally(self, trajectories, matches, share_one=True) # All nodes in range divide 1 point among nodes in trajectory
+            case 3 : 
+                return self.shared_equally(self, trajectories, matches, share_one=False) # All nodes in range get 1 point 
+            case 4 :
+                return self.gradient_points(self, trajectories, matches) # All nodes in range get points based on proximity to center of range query
 
 
 

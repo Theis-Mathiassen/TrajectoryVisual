@@ -4,6 +4,7 @@ from Node import Node
 from Query import Query
 import numpy as np
 import rangeQuery
+from Util import euc_dist_diff_2d
 
 class RangeQuery(Query):
     x1: float
@@ -80,7 +81,7 @@ class RangeQuery(Query):
         matches = [(n.object, n.bbox) for n in matches]
 
         for obj, bbox in matches : 
-            dist_current = rangeQuery.euc_dist_diff(bbox, q_bbox)
+            dist_current = euc_dist_diff_2d(bbox, q_bbox)
 
             if obj[0] in point_dict : 
                 dist_prev = point_dict.get(obj[0])[1]
@@ -127,3 +128,39 @@ class RangeQuery(Query):
             if t in point_dict : 
                 give_point(t, point_dict[t], amount)
 
+
+    def gradient_points(self, trajectories, matches) :
+        def calculate_point(bbox) : 
+            # Points for x and y direction gradient (currently linear and x,y independent). Found by taking 1 subtracted by the normalized distance to the center
+            x_dir_point = 1 - (2*np.abs(bbox[0]-centerx)/(np.abs(self.x1-self.x2))) 
+            y_dir_point = 1 - (2*np.abs(bbox[1]-centery)/(np.abs(self.y1-self.y2)))
+
+            # Weighted gradient (currently x = y = 1/2)
+            return 1/2 * x_dir_point + 1/2 * y_dir_point 
+        
+        def give_point(trajectory : Trajectory, node_id, amount) :
+            for n in trajectory.nodes:
+                if n.id == node_id :
+                    n.score += amount
+
+        # TODO: Get center points from query
+        centerx = 0
+        centery = 0
+        centert = 0
+        q_bbox = [centerx, centery, centert]
+
+        # Key = Trajectory id, value = (Node id, distance)
+        point_dict = dict()
+
+        # Get matches into correct format
+        matches = [(n.object, n.bbox) for n in matches]
+
+        for obj, bbox in matches : 
+            if obj[0] not in point_dict : 
+                point_dict[obj[0]] = []
+            point_dict[obj[0]].append(obj[1], bbox) # Add value (Node id, bbox) to list at index key Trajectory_id
+
+        for t in trajectories :
+            if t in point_dict :
+                for n_id, bbox in point_dict[t] : 
+                    give_point(t, n_id, calculate_point(bbox))

@@ -127,11 +127,13 @@ def euc_dist_diff_3d(p1, p2) :
 def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
     '''Function takes an epsilon (spatial distance) and delta (temporal distance), and two trajectories for comparison. This function uses
     euclidean distance measure for determining the relation to the epsilon.'''
+    
+    # Prepare variables, but only if they are needed later.
     if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :
         ogHead = [origin.nodes[0].x, origin.nodes[0].y]
         tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
-        timeDiff = np.sqrt(np.power(origin.nodes[0].t - trajectory.nodes[0].t, 2))
-
+        timeDiff = np.abs(origin.nodes[0].t - trajectory.nodes[0].t)
+        
     if (len(origin.nodes) == 0 or len(trajectory.nodes) == 0) :
         return 0
     elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) : 

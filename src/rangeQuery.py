@@ -52,9 +52,11 @@ class RangeQuery(Query):
         matches is an object containing trajectory id, node id, and bounding box for all nodes intersecting the query.'''
         match self.flag :
             case 1 :
-                return self.winner_takes_all(self, trajectories, matches)
+                return self.winner_takes_all(self, trajectories, matches) # Only 1 node per trajectory gets a point
             case 2 : 
-                return self.shared_equally(self, trajectories, matches)
+                return self.shared_equally(self, trajectories, matches, share_one=True) # Divide 1 point among nodes in trajectory
+            case 3: 
+                return self.shared_equally(self, trajectories, matches, share_one=False) # All nodes get 1 point 
 
 
 
@@ -94,13 +96,14 @@ class RangeQuery(Query):
                 if t.id == key :
                     give_point(t, value)
 
-    def shared_equally(self, trajectories, matches) : 
-        '''Give 1/m points to all m nodes in the trajectory that appeared in the range query'''
-        def give_point(trajectory: Trajectory, node_ids) :
+    def shared_equally(self, trajectories, matches, share_one) : 
+        '''Share an amount of points with all m nodes in the trajectory that appeared in the range query.
+        With share_one = True, all nodes share 1 point. If share_one = False, all nodes receive one point'''
+        def give_point(trajectory: Trajectory, node_ids, amount) :
             for n in trajectory.nodes :
                 for m in node_ids : 
                     if n.id == m :
-                        n.score += 1/(len(node_ids))
+                        n.score += amount/(len(node_ids))
         # Key = Trajectory id, value = (Node id list)
         point_dict = dict()
 
@@ -115,7 +118,12 @@ class RangeQuery(Query):
             point_dict[obj[0]].append(obj[1])
 
         # Loop through trajectories and check if it appears in the dictionary
+
         for t in trajectories : 
+            if share_one == True :
+                amount = 1
+            else : 
+                amount = len(point_dict[t])
             if t in point_dict : 
-                give_point(t, point_dict[t])
+                give_point(t, point_dict[t], amount)
 

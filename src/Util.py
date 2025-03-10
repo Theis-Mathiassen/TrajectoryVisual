@@ -2,6 +2,7 @@ from Trajectory import Trajectory
 from Query import Query
 from Node import Node, NodeDiff
 import numpy as np
+import copy
 
 import random
 from rtree import index
@@ -127,6 +128,17 @@ def euc_dist_diff_3d(p1, p2) :
 def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
     '''Function takes an epsilon (spatial distance) and delta (temporal distance), and two trajectories for comparison. This function uses
     euclidean distance measure for determining the relation to the epsilon.'''
+
+    # Make deep copies
+    origin = copy.deepcopy(origin)
+    trajectory = copy.deepcopy(trajectory)
+
+    # Then call the actual function. Do this to only deep copy once
+
+    lcssActual(epsilon, delta, origin, trajectory)
+
+def lcssActual(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
+
     
     # Prepare variables, but only if they are needed later.
     if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :

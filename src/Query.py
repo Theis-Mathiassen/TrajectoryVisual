@@ -14,3 +14,6 @@ class Query(ABC):
     @abstractmethod
     def distribute(self, trajectories: list[Trajectory], matches) -> None:
         pass
+    
+    def __iter__(self):
+        return self

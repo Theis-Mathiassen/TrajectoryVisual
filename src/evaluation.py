@@ -1,14 +1,18 @@
+import sys
+sys.path.append("src/")
 from Node import Node
 from Trajectory import Trajectory
 from clusterQuery import ClusterQuery
 import numpy as np
+from Query import Query
+from QueryWrapper import QueryWrapper
 
 # This code allows testing of simplified trajectories
 
 def getIntersection(trajectoryList1, trajectoryList2):
     return [trajectory for trajectory in trajectoryList1 if trajectory.id in [trajectory.id for trajectory in trajectoryList2]]
 
-def getF1Score(Query, rtree_original, rtree_simplified):
+def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if Query is ClusterQuery:
@@ -17,6 +21,10 @@ def getF1Score(Query, rtree_original, rtree_simplified):
 
     original_result = Query.run(rtree_original)
     simplified_result = Query.run(rtree_simplified)
+    
+    if (len(original_result) == 0 or len(simplified_result) == 0):
+        print("fuck!")
+        return 0
 
     intersection = getIntersection(original_result, simplified_result)
 
@@ -28,12 +36,12 @@ def getF1Score(Query, rtree_original, rtree_simplified):
     return f1
 
 
-def getAverageF1ScoreAll(queryWrapper, rtree_original, rtree_simplified):
+def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simplified):
     # Gets average f1 score
-    length = len(queryWrapper.RangeQueries) + len(queryWrapper.KNNQueries) + len(queryWrapper.SimilarityQueries) + len(queryWrapper.ClusterQueries)
+    length = len(queryWrapper.getQueries())
     f1_score = 0
 
-    for Query in [queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
+    for Query in queryWrapper.getQueries():
         f1_score += getF1Score(Query, rtree_original, rtree_simplified)
 
     f1_score /= length
@@ -66,8 +74,8 @@ def sed_op(segment):
 # See https://github.com/yumengs-exp/MLSimp/blob/main/Utils/query_utils_val.py :90
 def sed_error(ori_traj, sim_traj):
     # Convert code first
-    ori_traj = ([node.x, node.y, node.t] for node in ori_traj.nodes)
-    sim_traj = (([node.x, node.y, node.t] for node in sim_traj.nodes))
+    ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes]
     #Original code
 
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
@@ -112,8 +120,8 @@ def ped_op(segment):
 
 def ped_error(ori_traj, sim_traj):
     # Convert code first
-    ori_traj = ([node.x, node.y, node.t] for node in ori_traj.nodes)
-    sim_traj = (([node.x, node.y, node.t] for node in sim_traj.nodes))
+    ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes]
     #Original code
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
     # 1-keep and 0-drop

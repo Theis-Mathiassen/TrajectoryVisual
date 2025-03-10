@@ -56,3 +56,6 @@ class SimilarityQuery(Query):
         trajectories = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectory_hits.items()]
         
         return trajectories
+    
+    def distribute(self, trajectories, matches):
+        return super().distribute(trajectories, matches)

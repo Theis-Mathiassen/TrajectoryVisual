@@ -30,4 +30,4 @@ class QueryWrapper:
             self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
             
     def getQueries(self):
-        return [*self.RangeQueries, *self.SimilarityQueries]
+        return [*self.RangeQueries, *self.SimilarityQueries, *self.KNNQueries, *self.ClusterQueries]

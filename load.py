@@ -12,7 +12,7 @@ def load_Tdrive(filename="") :
 
     #data = np.genfromtxt("datasets/train.csv", delimiter=',')
 
-    df = pd.read_csv("datasets/small_train.csv", delimiter=',')
+    df = pd.read_csv("datasets/train.csv", delimiter=',')
 
     #Preprocessing 
     df = df.drop(columns=['CALL_TYPE','ORIGIN_CALL','ORIGIN_STAND','TAXI_ID', 'DAY_TYPE'])

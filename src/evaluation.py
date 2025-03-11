@@ -23,7 +23,6 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
     simplified_result = Query.run(rtree_simplified)
     
     if (len(original_result) == 0 or len(simplified_result) == 0):
-        print("fuck!")
         return 0
 
     intersection = getIntersection(original_result, simplified_result)

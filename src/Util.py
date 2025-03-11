@@ -50,11 +50,17 @@ class ParamUtil:
         xMax = centerX + centerToEdge
         yMin = centerY - centerToEdge
         yMax = centerY + centerToEdge
+        """ tMin = self.tMin
+        tMax = self.tMax
+        xMin = self.xMin
+        xMax = self.xMax
+        yMin = self.yMin
+        yMax = self.yMax """
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
     
-    def similarityParams(self, rtree: index.Index, delta = 5000):
+    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
-        tMin = randomTrajectory.nodes[0].t 
+        tMin = randomTrajectory.nodes[0].t
         tMax = randomTrajectory.nodes[-1].t
         xMin = self.xMin
         xMax = self.xMax

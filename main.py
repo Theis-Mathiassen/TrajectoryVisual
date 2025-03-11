@@ -9,7 +9,7 @@ from src.dropNodes import dropNodes
 #### main
 def main(config):
     ## Load Dataset
-    load_Tdrive("train_trimmed.csv")
+    #load_Tdrive("train_trimmed.csv")
 
     origRtree, origTrajectories = build_Rtree("train_trimmed.csv", "original_Tdrive")
     simpRtree, simpTrajectories = build_Rtree("train_trimmed.csv", "simplified_Tdrive")

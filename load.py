@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from ast import literal_eval
 from src.Util import lonLatToMetric
+from tqdm import tqdm
 
 from src.Node import Node
 from src.Trajectory import Trajectory
@@ -58,7 +59,7 @@ def build_Rtree(dataset, filename='') :
     c = 0
     delete_rec = {}
     Trajectories = []
-    for i in range(len(df)) :
+    for i in tqdm(range(len(df))) :
         t = 0
         nodes = []
         for x,y in df["POLYLINE"][i] :

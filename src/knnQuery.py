@@ -2,7 +2,7 @@ from Query import Query
 from Node import Node
 from Trajectory import Trajectory
 import math
-from Util import DTWDistance
+from Util import DTWDistance, DTWDistanceWithScoring
 import numpy as np
 
 class KnnQuery(Query):
@@ -97,7 +97,7 @@ class KnnQuery(Query):
             segmentTrajectory = Trajectory(trajectory.id, segment)
 
             # get scorings for nodes (With DTW) in dictionary form
-            nodeScores = self.DTWDistanceWithScoring(originSegmentTrajectory, segmentTrajectory)
+            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, segmentTrajectory)
 
 
             # Find relevant nodes and add scores. Note that scores are sorted by index in segment
@@ -138,109 +138,3 @@ class KnnQuery(Query):
 
         return segment
     
-    # A lot of code copied from Util file
-    # Idea is to find the optimal route for insert delete matches. 
-    # Then the nodes in this path are rewarded based on how little they contributed to overall cost
-    def DTWDistanceWithScoring(self, origin : Trajectory, other : Trajectory) -> int:
-        originNodes = origin.nodes
-        otherNodes = other.nodes
-        DTW = np.ndarray((len(originNodes),len(otherNodes)))
-        pathTracker = np.ndarray((len(originNodes),len(otherNodes)), dtype=int) #Keeps track of min path (Insert, delete, match)
-        costTracker = np.ndarray((len(originNodes),len(otherNodes))) #Keeps track of cost. This could recalculated later, optimizing for time atm
-        
-        w = abs(len(originNodes) - len(otherNodes)) + 1
-        
-        for i in range(len(originNodes)):
-            for j in range(len(otherNodes)):
-                DTW[i, j] = math.inf
-                
-        DTW[0, 0] = 0
-        
-        for i in range(1, len(originNodes)):
-            for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-                DTW[i, j] = 0
-                pathTracker[i, j] = 0
-                
-        for i in range(1, len(originNodes)):
-            for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-                cost = self.euc_dist_diff_2d(originNodes[i], otherNodes[j])
-
-                minimum = min(  DTW[i-1  , j     ],  # insertion
-                                DTW[i    , j-1   ],  # deletion
-                                DTW[i-1  , j-1   ])  # match
-
-                DTW[i, j] = cost + minimum
-
-                costTracker[i, j] = cost
-
-                # Accounts for edge case of the existance of several min paths
-                if minimum == DTW[i - 1, j]: 
-                    pathTracker[i, j] += 1
-                if minimum == DTW[i, j - 1]:
-                    pathTracker[i, j] += 2
-                if minimum == DTW[i - 1, j - 1]:
-                    pathTracker[i, j] += 4
-
-        #Retrace steps, and find each (x,y) along the optimal route visited
-        visited = self.get_visited(pathTracker, len(originNodes), len(otherNodes))
-
-        # Find total cost and each node cost contribution
-        totalCost = 0
-        nodeCosts = {}
-        for (x,y) in visited:
-            cost = costTracker[x, y]
-            totalCost += cost
-
-            if y not in nodeCosts:
-                nodeCosts[y] = cost
-            else:
-                nodeCosts[y] += cost
-
-
-        nodeScores = {}
-        # We give each node a point, but minus by their cost contribution
-        for (x,y) in visited:
-            cost = nodeCosts[y]
-
-            costContribution = cost / totalCost
-
-            score = pow(1 - costContribution, 2)
-
-            if y not in nodeScores:
-                nodeScores[y] = score
-            else:
-                nodeScores[y] += score
-
-        return nodeScores
-    
-    def get_visited(self, pathTracker, length_x, length_y):
-        toVisit = [(length_x - 1, length_y - 1)]
-        visited = []
-
-        # Go through list and add onto till empty
-        while (len(toVisit) != 0):
-            (x, y) = toVisit.pop(-1)
-
-
-            # Continue if already visited or reached edge
-            if (x, y) in visited or x == 0 or y == 0:
-                continue
-
-            visited.append((x, y))
-
-            path = int(pathTracker[x, y])
-
-            if path & 1: # If insert
-                toVisit.append((x - 1, y))
-            if path & 2: # If Deletion
-                toVisit.append((x, y - 1))
-            if path & 4: # If match
-                toVisit.append((x - 1, y - 1))
-        
-        return visited
-
-    def euc_dist_diff_2d(self, p1, p2) : 
-            # Distance measures all 3 dimensions, but maybe the time dimension will simply dominate since that number is so much larger. 
-            return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
-            return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
-

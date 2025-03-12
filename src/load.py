@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import os
 from ast import literal_eval
-from src.Util import lonLatToMetric
+from Util import lonLatToMetric
 
-from src.Node import Node
-from src.Trajectory import Trajectory
+from Node import Node
+from Trajectory import Trajectory
 
 def load_Tdrive(filename="") : 
 

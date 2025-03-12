@@ -10,17 +10,19 @@ class SimilarityQuery(Query):
     t1: float
     t2: float
     delta: float
+    streak: int
     
     def __init__(self, params):
         self.trajectory = params["origin"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.delta = params["delta"]
-        self.scoringSystem = "c"    # Between "c", "a", "c+f", "m"
+        self.scoringSystem = "a"    # Between "c", "a", "c+f", "m"
                                     # C -> Closest
                                     # A -> All
                                     # c+f -> Closest + Farthest
-                                    # m -> moving away
+                                    # m -> moving away for a longer period than streak
+        self.streak = 2
 
 
     def run(self, rtree):
@@ -37,7 +39,8 @@ class SimilarityQuery(Query):
                 point1 = np.array((node.x, node.y))
 
                 # Get all points possibly within range with range query
-                maybe_hits = list((rtree.intersection((x - self.delta, y - self.delta, t, x + self.delta, y + self.delta, t), objects=True)))
+
+                maybe_hits = list(rtree.intersection((x - self.delta, y - self.delta, t, x + self.delta, y + self.delta, t), objects=True))
 
                 for maybe_hit in maybe_hits:
                     (x_idx, y_idx, t_idx, _, _, _) = maybe_hit.bbox
@@ -81,11 +84,16 @@ class SimilarityQuery(Query):
             trajectoriesWithSortedNodes = self.getDistanceSortedTrajectory(matches)
             for (trajectory_id, node_ids) in trajectoriesWithSortedNodes:
                 nodesIdsReward.append((trajectory_id, node_ids[0]))
-                if len(node_ids != 1): # Get furthest only if there is more than 1 node
+                if len(node_ids) != 1: # Get furthest only if there is more than 1 node
                     nodesIdsReward.append((trajectory_id, node_ids[-1]))
 
-        elif self.scoringSystem == "m": #Reward those moving away
-            pass
+        elif self.scoringSystem == "m": #Reward those moving away, with a streak of more than self.streak
+            trajectoriesWithMovingAwayScores = self.getMovingAwayScore(matches)
+
+            for (trajectoryId, movingAwayScores) in trajectoriesWithMovingAwayScores:
+                for (nodeId, streakScore) in movingAwayScores:
+                    if streakScore > self.streak:
+                        nodesIdsReward.append((trajectoryId, nodeId))
 
         # Sort for faster scores
         nodesIdsRewardSorted = sorted(nodesIdsReward, key = lambda x: x[0])
@@ -102,14 +110,14 @@ class SimilarityQuery(Query):
                 relevantTrajectoriesIndex += 1
             
             # Find node index
-            nodeIndex = relevantTrajectoriesSorted[relevantTrajectoriesIndex].nodes.index(node_id)
+            nodeIndex = [x.id for x in relevantTrajectoriesSorted[relevantTrajectoriesIndex].nodes].index(node_id)  # We have to convert to ids so we don't look through pointers
 
             relevantTrajectoriesSorted[relevantTrajectoriesIndex].nodes[nodeIndex].score += 1
             
 
 
     # For each trajectory get a sorted list of node ids based on distance to origin (Ascending)
-    def getDistanceSortedTrajectory(self, matches):
+    def getDistanceSortedTrajectory(self, matches, getWithDistance = False):
         
         trajectoriesWithSortedNodes = [] #In the form (trajectory id, [node id, node id])
 
@@ -120,7 +128,7 @@ class SimilarityQuery(Query):
         for matchTrajectory in matches:
             nodes = {}
 
-            for matchNode in matchTrajectory:
+            for matchNode in matchTrajectory.nodes:
                 minDist = self.delta #Set min to delta, till min is found
 
                 point1 = np.array((matchNode.x, matchNode.y))
@@ -136,19 +144,89 @@ class SimilarityQuery(Query):
                 # Save min distance
                 nodes[matchNode.id] = minDist
             
-            #Sort by distance
-            sortedDict = sorted(nodes.items(), key = lambda x: x[1])
-            sortedList = [x[0] for x in sortedDict]
+            sortedList = []
+            if getWithDistance:
+                sortedList = [(x[0], x[1]) for x in nodes.items()]
+            else:
+                #Sort by distance
+                sortedDict = sorted(nodes.items(), key = lambda x: x[1])
+                sortedList = [x[0] for x in sortedDict]
 
             trajectoriesWithSortedNodes.append((matchTrajectory.id, sortedList))
 
         return trajectoriesWithSortedNodes
    
+    # Gets moving away score for a single trajectory
+    def getMovingAwayScore(self, matches):
+
+        trajectoriesWithSortedNodes = self.getDistanceSortedTrajectory(matches, getWithDistance=True)
+
+        trajectoriesMovingAwayScores = []
+
+        for (trajectoryId, sortedList) in trajectoriesWithSortedNodes:
             
+            movingAwayScores = [] # Of the form (node id, amount of steps where it has been moving id)
 
-arr = [("a", 5), ("b", 10), ("c", 7)]
+            latest = -1
+            streak = 0 # Describes the amount of times we have been moving away
 
-arrSorted = sorted(arr, key = lambda x: x[1])
+            for (node_id, score) in sortedList:
+                if score > latest:
+                    streak += 1
+                else :
+                    streak = 0
+                movingAwayScores.append((node_id, streak))
+            
+                latest = score
 
-print(arrSorted)
+            trajectoriesMovingAwayScores.append((trajectoryId, movingAwayScores))
+        
+        return trajectoriesMovingAwayScores
+
+
+if __name__== "__main__":
+    import os
+    import sys
+    from Util import ParamUtil
+
+
+    currentPath = os.getcwd()
+
+    print("CurrentPath: ", currentPath)
+
+    sys.path.append(currentPath + "/")
+
+    from load import build_Rtree
+
+    rtree, trajectories = build_Rtree("trimmed_small_train.csv", "simplified_Tdrive")
+
+    paramUtil = ParamUtil(rtree, trajectories, delta = 500000000)
+
+    params = paramUtil.similarityParams(rtree, delta= 5000000)
+
+    myQuery = SimilarityQuery(params)
+
+    results = myQuery.run(rtree)
+
+    print("Results len: ", len(results))
+
+    print("Origin id: ", myQuery.trajectory.id)
+    for x in results:
+        print("Result id :", x.id)
+
+
+
+    print("---- Starting distribute ---- \n")
+    myQuery.distribute(trajectories, results)
+
+    for trajectory in trajectories:
+        if trajectory.id in [x.id for x in results]:
+            print("\n----- Trajetory id: " + str(trajectory.id) +" -----")
+            for node in trajectory.nodes:
+                print("Node id: ", node.id, "Node Score: ", node.score)
+
+
+
+
+
 

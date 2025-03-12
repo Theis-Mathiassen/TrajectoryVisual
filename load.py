@@ -92,3 +92,19 @@ if __name__ == "__main__":
     hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
     print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
     print([(n.object) for n in hits])
+
+def datastream(df):
+    c = 0
+    for i in tqdm(range(len(df))) :
+        t = 0
+        nodes = []
+        timestamp = df["TIMESTAMP"][i]
+        for x, y in df["POLYLINE"][i] :
+            x,y = lonLatToMetric(x, y) # Convert to meters
+
+            yield (c, (x, y, timestamp + (15*t), x, y, timestamp + (15*t)), obj=(df["TRIP_ID"][i], c))
+            
+            c+=1
+            t+=1
+
+

@@ -2,6 +2,19 @@ from rtree import index
 import numpy as np
 import pandas as pd
 import os
+import sys
+
+# Find the absolute path of the project directory
+absolute_path = os.path.dirname(__file__)
+
+# Define the relative paths of directories to import from
+relative_path_src = "/src"
+
+full_path_src = os.path.join(absolute_path, relative_path_src)
+
+# Append them to the path variable of the system
+sys.path.append(full_path_src)
+
 from ast import literal_eval
 from src.Util import lonLatToMetric
 

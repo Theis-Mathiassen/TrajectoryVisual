@@ -14,9 +14,7 @@ def main(config):
     #load_Tdrive("train_trimmed.csv")
 
     origRtree, origTrajectories = build_Rtree("trimmed_small_train.csv", "original_Taxi")
-    #copyRtreeDatabase(srcName="original_Taxi", dstName="simplified_Taxi")
-    simpRtree, simpTrajectories = loadRtree("original_Taxi", "simplified_Taxi", origTrajectories)
-    #simpRtree, simpTrajectories = build_Rtree("train_trimmed.csv", "simplified_Tdrive")
+    simpRtree, simpTrajectories = loadRtree(origRtree, "simplified_Taxi", origTrajectories)
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
 

@@ -87,8 +87,17 @@ def build_Rtree(dataset, filename='') :
 #print([(n.object, n.bbox) for n in hits])
 #
 
-def loadRtree(srcFilename : str, dstFilename, trajectories):
+def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):#srcFilename : str, dstFilename, trajectories):
     p = index.Property()
+    p.dimension = 3
+    p.filename = rtreeName
+    p.overwrite = True
+    rtreeCopy = index.Index(pointStream(originalRtree), properties=p)
+    
+    #rtreeCopy.insert(pointStream(originalRtree))
+    trajectoriesCopy = copy.deepcopy(trajectories)
+    return rtreeCopy, trajectoriesCopy
+    """ p = index.Property()
     p.dimension = 3
     #p.dat_extension = "original_Taxi" + ".dat"
     p.overwrite = True
@@ -96,7 +105,7 @@ def loadRtree(srcFilename : str, dstFilename, trajectories):
     #p.idx_extension = "original_Taxi" + ".idx"
     Rtree_ = index.Index(srcFilename, properties = p)
     trajectoriesCopy = copy.deepcopy(trajectories)
-    return Rtree_, trajectoriesCopy
+    return Rtree_, trajectoriesCopy """
     
 
 def datastream(df):
@@ -112,6 +121,12 @@ def datastream(df):
             
             c+=1
             t+=1
+
+def pointStream(rtree : index.Index):
+    bounds = rtree.bounds
+    points = rtree.intersection(coordinates=(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True)
+    for i, point in enumerate(points):
+        yield (i, tuple(point.bbox), i)
 
 
 def copyRtreeDatabase(srcName, dstName):

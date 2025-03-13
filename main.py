@@ -2,8 +2,10 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from load import build_Rtree, load_Tdrive
+from load import build_Rtree, load_Tdrive, copyRtreeDatabase
 from src.dropNodes import dropNodes
+
+import os
 
 
 #### main
@@ -11,8 +13,8 @@ def main(config):
     ## Load Dataset
     #load_Tdrive("train_trimmed.csv")
 
-    origRtree, origTrajectories = build_Rtree("train_trimmed.csv", "original_Tdrive")
-    simpRtree, simpTrajectories = build_Rtree("train_trimmed.csv", "simplified_Tdrive")
+    #origRtree, origTrajectories = build_Rtree("train_trimmed.csv", "original_Tdrive")
+    #simpRtree, simpTrajectories = build_Rtree("train_trimmed.csv", "simplified_Tdrive")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
 

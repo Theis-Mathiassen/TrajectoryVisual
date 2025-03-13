@@ -1,3 +1,5 @@
 .venv
 datasets/
 *.pyc
+*.dat
+*.idx

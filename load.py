@@ -2,6 +2,7 @@ from rtree import index
 import numpy as np
 import pandas as pd
 import os
+import shutil
 from ast import literal_eval
 from src.Util import lonLatToMetric
 from tqdm import tqdm
@@ -101,10 +102,17 @@ def datastream(df):
         timestamp = df["TIMESTAMP"][i]
         for x, y in df["POLYLINE"][i] :
             x,y = lonLatToMetric(x, y) # Convert to meters
-
-            yield (c, (x, y, timestamp + (15*t), x, y, timestamp + (15*t)), obj=(df["TRIP_ID"][i], c))
+            obj=(df["TRIP_ID"][i], c)
+            yield (c, (x, y, timestamp + (15*t), x, y, timestamp + (15*t)), obj)
             
             c+=1
             t+=1
 
 
+def copyRtree(srcName, dstName):
+    try: 
+        shutil.copy(src=srcName+".dat", dst=dstName+".dat")
+        shutil.copy(src=srcName+".idx", dst=dstName+".idx")
+        print("Succesfully copied the file")
+    except:
+        print("Something went wrong when copying the file!")

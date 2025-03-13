@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import os
 import shutil
+import copy
 from ast import literal_eval
 from src.Util import lonLatToMetric
 from tqdm import tqdm
@@ -86,13 +87,17 @@ def build_Rtree(dataset, filename='') :
 #print([(n.object, n.bbox) for n in hits])
 #
 
-if __name__ == "__main__":
-    load_Tdrive("trimmed_small_train.csv")
-    Rtree_, Trajectories = build_Rtree("trimmed_small_train.csv", "test")
-
-    hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
-    print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
-    print([(n.object) for n in hits])
+def loadRtree(srcFilename : str, dstFilename, trajectories):
+    p = index.Property()
+    p.dimension = 3
+    #p.dat_extension = "original_Taxi" + ".dat"
+    p.overwrite = True
+    p.filename = dstFilename
+    #p.idx_extension = "original_Taxi" + ".idx"
+    Rtree_ = index.Index(srcFilename, properties = p)
+    trajectoriesCopy = copy.deepcopy(trajectories)
+    return Rtree_, trajectoriesCopy
+    
 
 def datastream(df):
     c = 0
@@ -109,10 +114,22 @@ def datastream(df):
             t+=1
 
 
-def copyRtree(srcName, dstName):
+def copyRtreeDatabase(srcName, dstName):
     try: 
         shutil.copy(src=srcName+".dat", dst=dstName+".dat")
         shutil.copy(src=srcName+".idx", dst=dstName+".idx")
         print("Succesfully copied the file")
     except:
         print("Something went wrong when copying the file!")
+
+
+
+
+if __name__ == "__main__":
+    load_Tdrive("trimmed_small_train.csv")
+    Rtree_, Trajectories = build_Rtree("trimmed_small_train.csv", "test")
+
+    hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
+    print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
+    print([(n.object) for n in hits])
+

@@ -13,7 +13,7 @@ def main(config):
     ## Load Dataset
     #load_Tdrive("train_trimmed.csv")
 
-    origRtree, origTrajectories = build_Rtree("trimmed_small_train.csv", "original_Taxi")
+    origRtree, origTrajectories = build_Rtree("train_trimmed.csv", filename="original_Taxi")
     simpRtree, simpTrajectories = loadRtree(origRtree, "simplified_Taxi", origTrajectories)
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
@@ -61,7 +61,7 @@ def main(config):
 if __name__ == "__main__":
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.7]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.99]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["numberOfEachQuery"] = 10      # Number of queries used to simplify database    

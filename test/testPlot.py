@@ -20,6 +20,7 @@ sys.path.append(full_path_test)
 # All remaining imports
 from rangeQuery import RangeQuery as RQ
 from similarityQuery import SimilarityQuery as SQ
+from Util import ParamUtil
 import testFunctions as tF
 import Trajectory as T
 import Node as N
@@ -59,11 +60,13 @@ def testRangeQueryPlot(trajectories, rtree):
     Plot.plotRangeQuery(trajectories, query, rtree)
 
 def testSimilarityQueryPlot(trajectories, rtree):
-    query = SQ({"origin":trajectories[0], "t1":-1000000000000000000.0, "t2":1500000000000000000.0, "delta":1.0})
+    paramUtil = ParamUtil(rtree, trajectories, delta = 50000000000000000)
+    params = paramUtil.similarityParams(rtree, delta = 50000000000000000)
+    query = SQ(params)
     Plot.plotSimilarity(trajectories, query, rtree)
 
 def testPlotting(trajectories, rtree):
     testSinglePlot()
     testMultiPlot()
     testRangeQueryPlot(trajectories, rtree)
-    # testSimilarityQueryPlot(trajectories, rtree)
+    testSimilarityQueryPlot(trajectories, rtree)

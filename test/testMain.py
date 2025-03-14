@@ -25,7 +25,7 @@ import testPlot as tPP
 
 def testMain():
     load.load_Tdrive()
-    Rtree_, Trajectories = load.build_Rtree('small_train.csv')
+    Rtree_, Trajectories = load.build_Rtree("trimmed_small_train.csv", "simplified_Tdrive")
 
     # Run all Node testing
     tP.testNodeClass()

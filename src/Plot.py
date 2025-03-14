@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from Trajectory import Trajectory as T
 import math
 from Node import Node as N
+from Node import NodeDiff
 from rangeQuery import RangeQuery as RQ
 from similarityQuery import SimilarityQuery as SQ
 from rtree import Index
@@ -87,6 +88,29 @@ def plotSimilarity(trajectories: list[T], query: SQ, rtree):
     for i in range(len(q_traj)):
         ids.append(q_traj[i].id)
 
+    # Setup variables for distance tracking and node memoization
+    min_dist = math.inf
+    q_traj_min_node = None
+    res_traj_min_node = None
+    for traj in q_traj:
+        for node in traj.nodes:
+            for q_node in query.trajectory.nodes:
+                delta = np.linalg.norm([q_node.x - node.x, q_node.y - node.y])
+                if delta < min_dist:
+                    min_dist = delta
+                    if traj.id != id:
+                        res_traj_min_node = node
+                        q_traj_min_node = q_node
+
+    # Check if similar nodes have been found
+    if res_traj_min_node != None and q_traj_min_node != None:
+
+        # Plot closest point
+        plt.scatter(res_traj_min_node.x, res_traj_min_node.y)
+
+        # Plot a dotted line to this point from closest vantage within origin trajectory
+        plt.plot([res_traj_min_node.x, q_traj_min_node.x],[res_traj_min_node.y, q_traj_min_node.y], linestyle='dotted')
+
     # Loop over all trajectories in the dataset
     for Trajectory in trajectories:
         xs = []
@@ -101,8 +125,8 @@ def plotSimilarity(trajectories: list[T], query: SQ, rtree):
             plt.plot(xs, ys, linestyle='solid')
         try:
             ids.remove(Trajectory.id)
-            plt.plot(xs, ys, linestyle='solid', alpha=0.7)
+            plt.plot(xs, ys, linestyle='solid', alpha=0.35)
         except:
-            plt.plot(xs, ys, linestyle='dashed', alpha= 0.45)
+            plt.plot(xs, ys, linestyle='dashed', alpha= 0.1)
 
     plt.show()

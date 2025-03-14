@@ -65,7 +65,7 @@ def build_Rtree(dataset, filename='') :
             x,y = lonLatToMetric(x,y) # Convert to meters
 
             Rtree_.insert(c, (x, y, df["TIMESTAMP"][i]+(15*t), x, y, df["TIMESTAMP"][i]+(15*t)), obj=(df["TRIP_ID"][i], c))
-            nodes.append(Node(c, x, y, df["TIMESTAMP"][i]+(15*t)))
+            nodes.append(Node(c, x, y, df["TIMESTAMP"][i] + (t*15)))
 
             c+=1
             t+=1

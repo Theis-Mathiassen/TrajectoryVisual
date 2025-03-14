@@ -61,6 +61,7 @@ def load_Tdrive(src : str, filename="") :
 #Reading the csv in chunks if possible would maybe improve performance, unless this hinders bulk loading the rtree.
 def build_Rtree(dataset, filename='') :
     # Read csv file as dataframe
+    tqdm.pandas()
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path)

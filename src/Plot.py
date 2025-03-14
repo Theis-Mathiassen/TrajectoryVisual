@@ -55,10 +55,9 @@ def plotRangeQuery(trajectories: list[T], query: RQ, rtree: Index):
             ys.append(elem.y)
 
         # Differentiate the plot based on whether or not it was found by the query
-        try:
-            ids.remove(Trajectory.id)
+        if Trajectory.id in ids:
             plt.plot(xs, ys, linestyle='solid')
-        except:
+        else:
             plt.plot(xs, ys, linestyle='dashed', alpha=0.6)
 
     # Plot a rectangle thats equivalent to the range specified by the query
@@ -119,10 +118,9 @@ def plotSimilarity(trajectories: list[T], query: SQ, rtree):
         
         if id == Trajectory.id:
             plt.plot(xs, ys, linestyle='solid')
-        try:
-            ids.remove(Trajectory.id)
+        elif Trajectory.id in ids:
             plt.plot(xs, ys, linestyle='solid', alpha=0.35)
-        except:
+        else:
             plt.plot(xs, ys, linestyle='dashed', alpha= 0.1)
 
     plt.show()

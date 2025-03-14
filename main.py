@@ -11,9 +11,9 @@ import os
 #### main
 def main(config):
     ## Load Dataset
-    #load_Tdrive("train_trimmed.csv")
+    load_Tdrive("small_train.csv","small_train_trimmed.csv")
 
-    origRtree, origTrajectories = build_Rtree("train_trimmed.csv", filename="original_Taxi")
+    origRtree, origTrajectories = build_Rtree("small_train_trimmed.csv", filename="original_Taxi")
     simpRtree, simpTrajectories = loadRtree(origRtree, "simplified_Taxi", origTrajectories)
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 

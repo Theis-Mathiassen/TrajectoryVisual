@@ -12,7 +12,7 @@ from tqdm import tqdm
 from src.Node import Node
 from src.Trajectory import Trajectory
 
-
+chunksize = 10**5
 
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 
@@ -128,7 +128,7 @@ def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):
     #p.overwrite = True
     #bounds = originalRtree.bounds
     #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
-    rtreeCopy = index.Index(pointStream(originalRtree), properties=p)
+    rtreeCopy = index.Index(rtreeName, pointStream(originalRtree), properties=p)
     print("Done!")
     #rtreeCopy.insert(pointStream(originalRtree))
     trajectoriesCopy = copy.deepcopy(trajectories)

@@ -30,7 +30,7 @@ class RangeQuery(Query):
         for hit in hits:
             # Extract node info
             x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-            node_id, trajectory_id = hit.object
+            trajectory_id, node_id = hit.object
 
             node = Node(node_id, x_idx, y_idx, t_idx)
 

@@ -64,7 +64,7 @@ def build_Rtree(dataset, filename='') :
     tqdm.pandas()
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads})
     
     # Set up properties
     p = index.Property()
@@ -84,9 +84,9 @@ def build_Rtree(dataset, filename='') :
             os.remove(filename+'.idx')
             print('remove', filename+'.idx')
     
-    print("Eval polyline...")
+    """ print("Eval polyline...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
-    print("Done!")
+    print("Done!") """
     
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])

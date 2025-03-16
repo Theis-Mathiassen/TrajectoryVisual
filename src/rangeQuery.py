@@ -79,7 +79,7 @@ class RangeQuery(Query):
 
         # TODO: Here we should probably have sorted dictionary and list of trajectories so worst case run time is always N instead of N^2 (not including sort)
         for key, value in point_dict.items() :
-            print(f"Distributing 1 point for trajectory: {key} with node: {value[0]}")
+            #print(f"Distributing 1 point for trajectory: {key} with node: {value[0]}")
             for t in trajectories :
                 if t.id == key :
                     give_point(t, value)

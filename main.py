@@ -62,9 +62,9 @@ def main(config):
 if __name__ == "__main__":
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.9]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["numberOfEachQuery"] = 10      # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 100      # Number of queries used to simplify database    
 
     main(config)

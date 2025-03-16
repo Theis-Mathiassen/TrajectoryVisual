@@ -88,22 +88,27 @@ def build_Rtree(dataset, filename='') :
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
     print("Done!")
     
+    polylines = np.array(df['POLYLINE'])
+    timestamps = np.array(df['TIMESTAMP'])
+    trip_ids = np.array(df['TRIP_ID'])
+    
     print("Creating rtree..")
-    Rtree_ = index.Index(filename, datastream(df), properties=p)
+    Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
     print("Done!")
     
     print("Creating trajectories..")
     c = 0
     delete_rec = {}
     Trajectories = []
-    for i in tqdm(range(len(df))):
+    length = len(trip_ids)
+    for i in tqdm(range(length)):
         t = 0
         nodes = []
-        for x, y in df['POLYLINE'][i]:
-            nodes.append(Node(c, x, y, t*15))
+        for x, y in polylines[i]:
+            nodes.append(Node(c, x, y, timestamps[i] + t*15))
             c += 1
             t += 1
-        Trajectories.append(Trajectory(df['TRIP_ID'][i], nodes))        
+        Trajectories.append(Trajectory(trip_ids[i], nodes))        
     
         
     return Rtree_, Trajectories
@@ -137,13 +142,14 @@ def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):
     
 #Generator function taking a dataframe with columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
 #Yields a rtree point for each point in each polyline
-def datastream(df):
+def datastream(polylines, timestamps, trip_ids):
     c = 0
-    for i in tqdm(range(len(df))) :
+    length = len(trip_ids)
+    for i in tqdm(range(length)) :
         t = 0
-        timestamp = df["TIMESTAMP"][i]
-        for x, y in df["POLYLINE"][i] :
-            obj=(df["TRIP_ID"][i], c)
+        timestamp = timestamps[i]
+        for x, y in polylines[i] :
+            obj=(trip_ids[i], c)
             curTimestamp = timestamp + (15*t)
             yield (c, (x, y, curTimestamp, x, y, curTimestamp), obj)
             

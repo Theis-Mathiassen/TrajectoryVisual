@@ -69,62 +69,117 @@ class ClusterQuery(Query):
         return similar_trajectories
 
     def distribute(self, trajectories, matches):
-        # current impl is very basic, simply adds 1 to the score of each node in the trajectory
-        # todo: make scoring more sophisticated w/ scoring based on directional changes, spatial density etc.?
+        """Distribute points based on spatial proximity and directional similarity."""
+        if not trajectories:
+            return
+
+        def calculate_direction(p1, p2):
+            """Calculate direction vector between two points."""
+            return np.array([p2.x - p1.x, p2.y - p1.y])
+
+        def direction_similarity(dir1, dir2):
+            """Calculate similarity between two direction vectors using dot product."""
+            norm1 = np.linalg.norm(dir1)
+            norm2 = np.linalg.norm(dir2)
+            if norm1 == 0 or norm2 == 0:
+                return 0
+            # Normalize and compute dot product
+            cos_angle = np.dot(dir1, dir2) / (norm1 * norm2)
+            # Convert to a score between 0 and 1
+            return (cos_angle + 1) / 2
+
+        def spatial_proximity(p1, p2):
+            """Calculate spatial proximity score between two points."""
+            dist = np.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2)
+            # Convert distance to a score between 0 and 1 using exponential decay
+            return np.exp(-dist / self.eps)
+
+        # For each trajectory in the cluster
         for trajectory in trajectories:
-            for node in trajectory.nodes:
-                node.score += 1
+            # Skip if trajectory has less than 2 points (needed for direction)
+            if len(trajectory.nodes) < 2:
+                continue
+
+            # Calculate scores for each node
+            for i in range(len(trajectory.nodes)):
+                node = trajectory.nodes[i]
+                spatial_score = 0
+                direction_score = 0
+
+                # Calculate spatial score
+                for origin_node in self.origin.nodes:
+                    spatial_score += spatial_proximity(node, origin_node)
+                spatial_score /= len(self.origin.nodes)  # Normalize
+
+                # Calculate direction score if not at the last point
+                if i < len(trajectory.nodes) - 1:
+                    traj_dir = calculate_direction(node, trajectory.nodes[i + 1])
+                    # Compare with each segment in origin trajectory
+                    dir_scores = []
+                    for j in range(len(self.origin.nodes) - 1):
+                        origin_dir = calculate_direction(self.origin.nodes[j], self.origin.nodes[j + 1])
+                        dir_scores.append(direction_similarity(traj_dir, origin_dir))
+                    direction_score = max(dir_scores) if dir_scores else 0
+
+                # Combine scores (equal weights for simplicity)
+                combined_score = (spatial_score + direction_score) / 2
+                # Scale the score and add to node
+                node.score += int(combined_score * 10)  # Scale to make scores more meaningful
 
 if __name__ == "__main__":
-    # create sample trajectories for testing
+    # Create sample trajectories for testing
     def create_sample_trajectory(id, points):
         nodes = [Node(i, x, y, t) for i, (x, y, t) in enumerate(points)]
         return Trajectory(id, nodes)
 
-    # create some sample trajectories
-    # traj1 and 2 follow similar paths
+    # Create some sample trajectories
+    # Trajectory 1 and 2 follow similar paths
     traj1 = create_sample_trajectory(1, [
         (0, 0, 0), (1, 1, 1), (2, 2, 2), (3, 3, 3)
     ])
     traj2 = create_sample_trajectory(2, [
         (0.1, 0.1, 0), (1.1, 1.1, 1), (2.1, 2.1, 2), (3.1, 3.1, 3)
     ])
-    # traj3 follows a different path
+    # Trajectory 3 follows a different path
     traj3 = create_sample_trajectory(3, [
         (0, 0, 0), (1, 0, 1), (2, 0, 2), (3, 0, 3)
     ])
 
-    # create r-tree index
+    # Create R-tree index
     p = index.Property()
     p.dimension = 3  # 3D index (x, y, t)
     rtree = index.Index(properties=p)
 
-    # insert trajectories into r-tree
+    # Insert trajectories into R-tree
     for traj in [traj1, traj2, traj3]:
         for i, node in enumerate(traj.nodes):
             rtree.insert(
-                traj.id,  # id
+                traj.id,  # ID
                 (node.x, node.y, node.t, node.x, node.y, node.t),  # Bbox (point)
-                obj=(node.id, traj.id)  # we store the node ID & trajectory ID
+                obj=(node.id, traj.id)  # Store node ID and trajectory ID
             )
 
-    # create query parameters
+    # Create query parameters
     params = {
-        "t1": 0,  
-        "t2": 3,  
-        "eps": 0.5,  
-        "linesMin": 2,  
-        "origin": traj1,  
-        "trajectories": [traj1, traj2, traj3]  
+        "t1": 0,  # Start time
+        "t2": 3,  # End time
+        "eps": 0.5,  # Maximum distance for clustering
+        "linesMin": 2,  # Minimum number of lines in a cluster
+        "origin": traj1,  # Use trajectory 1 as query trajectory
+        "trajectories": [traj1, traj2, traj3]  # All available trajectories
     }
 
+    # Create and run cluster query
     query = ClusterQuery(params)
     result = query.run(rtree)
 
+    # Distribute scores
+    query.distribute(result, None)  # matches parameter not used in our implementation
+
     print("\nCluster Query Results:")
     print(f"Number of similar trajectories found: {len(result)}")
-    print("\nSimilar trajectories:")
+    print("\nSimilar trajectories with scores:")
     for traj in result:
-        print(f"Trajectory {traj.id}:")
+        print(f"\nTrajectory {traj.id}:")
         for node in traj.nodes:
-            print(f"  Point: ({node.x}, {node.y}, {node.t})")
+            print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")

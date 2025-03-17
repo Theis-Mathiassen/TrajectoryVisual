@@ -164,16 +164,6 @@ def pointStream(rtree : index.Index):
     for i, point in enumerate(tqdm(points)):
         yield (i, tuple(point.bbox), i)
 
-#Function copying a set of .dat and .idx files with prefix srcName
-def copyRtreeDatabase(srcName, dstName):
-    try: 
-        shutil.copy(src=srcName+".dat", dst=dstName+".dat")
-        shutil.copy(src=srcName+".idx", dst=dstName+".idx")
-        print("Succesfully copied the file")
-    except:
-        print("Something went wrong when copying the file!")
-
-
 
 
 if __name__ == "__main__":

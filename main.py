@@ -2,7 +2,7 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from load import build_Rtree, load_Tdrive, copyRtreeDatabase, loadRtree
+from load import build_Rtree, load_Tdrive, loadRtree
 from src.dropNodes import dropNodes
 
 import os

@@ -2,7 +2,7 @@ from Query import Query
 from Node import Node
 from Trajectory import Trajectory
 import math
-from Util import DTWDistance, DTWDistanceWithScoring
+from Util import DTWDistance, DTWDistanceWithScoring, lcss
 import numpy as np
 
 class KnnQuery(Query):
@@ -13,6 +13,9 @@ class KnnQuery(Query):
     def __init__(self, params):
         self.trajectory = params["origin"]
         self.k = params["k"]
+        self.eps = params["eps"]
+        self.delta = params["delta"]
+        self.flag = params["flag"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.x1 = params["x1"]
@@ -58,9 +61,16 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = Trajectory(-1, originSegment)
-        for segment in listOfTrajectorySegments:
-            segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+
+        if self.flag == 1 :
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+        if self.flag == 2 : 
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = lcss(self.eps, self.delta, originSegmentTrajectory, segmentTrajectory)
+
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)

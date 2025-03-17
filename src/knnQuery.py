@@ -73,7 +73,8 @@ class KnnQuery(Query):
 
 
         # Sort by most similar, where the most similar have the smallest value
-        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
+        reverse = False if (self.flag==1) else True
+        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=reverse)
 
         # get top k ids
         topKIds = [x[0] for x in similarityMeasures[:self.k]]

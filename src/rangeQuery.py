@@ -14,6 +14,9 @@ class RangeQuery(Query):
     t1: float
     t2: float
     flag: int
+    centerx: float
+    centery: float
+    centert: float
     
     def __init__(self, params):
         self.x1 = params["x1"]
@@ -23,6 +26,9 @@ class RangeQuery(Query):
         self.y2 = params["y2"]
         self.t2 = params["t2"]
         self.flag = params["flag"]
+        self.centerx = (self.x2+self.x1)/2
+        self.centery = (self.y2+self.y1)/2
+        self.centert = (self.t2+self.t1)/2
 
     def run(self, rtree):
         # Gets nodes in range query
@@ -94,11 +100,7 @@ class RangeQuery(Query):
                 if n.id == node_id[0] :
                     n.score += 1
 
-        # TODO: Get center points from query
-        centerx = 0
-        centery = 0
-        centert = 0
-        q_bbox = [centerx, centery, centert]
+        q_bbox = [self.centerx, self.centery, self.centert]
 
         # Key = Trajectory id, value = (Node id, distance)
         point_dict = dict()
@@ -159,8 +161,8 @@ class RangeQuery(Query):
         def calculate_point(bbox) : 
             # TODO: Find another way to implement calculate_point. This shit aint workin
             # Points for x and y direction gradient (currently linear and x,y independent). Found by taking 1 subtracted by the normalized distance to the center
-            x_dir_point = 1 - (2*np.abs(bbox[0]-centerx)/(np.abs(self.x1-self.x2))) 
-            y_dir_point = 1 - (2*np.abs(bbox[1]-centery)/(np.abs(self.y1-self.y2)))
+            x_dir_point = 1 - (2*np.abs(bbox[0]-self.centerx)/(np.abs(self.x1-self.x2))) 
+            y_dir_point = 1 - (2*np.abs(bbox[1]-self.centery)/(np.abs(self.y1-self.y2)))
 
             # Weighted gradient (currently x = y = 1/2)
             return 1/2 * x_dir_point + 1/2 * y_dir_point 
@@ -169,12 +171,6 @@ class RangeQuery(Query):
             for n in trajectory.nodes:
                 if n.id == node_id :
                     n.score += amount
-
-        # TODO: Get center points from query
-        centerx = 0
-        centery = 0
-        centert = 0
-        q_bbox = [centerx, centery, centert]
 
         # Key = Trajectory id, value = (Node id, distance)
         point_dict = dict()

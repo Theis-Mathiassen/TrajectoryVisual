@@ -3,7 +3,7 @@ from Trajectory import Trajectory
 from Node import Node
 from Query import Query
 import numpy as np
-import rangeQuery
+from Util import euc_dist_diff_3d
 
 class RangeQuery(Query):
     x1: float
@@ -33,7 +33,6 @@ class RangeQuery(Query):
             trajectory_id, node_id = hit.object
 
             node = Node(node_id, x_idx, y_idx, t_idx)
-            print(node)
 
             # Get list of nodes by trajectories
             if trajectory_id not in trajectories:
@@ -42,7 +41,8 @@ class RangeQuery(Query):
             trajectories[trajectory_id].append(node)
         
         trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
-
+        #print(len(trajectories_output))
+        self.hits = hits
         return trajectories_output
     
     def distribute(self, trajectories, matches):
@@ -65,10 +65,10 @@ class RangeQuery(Query):
         point_dict = dict()
 
         # Get matches into correct format
-        matches = [(n.object, n.bbox) for n in matches]
+        matches = [(n.object, n.bbox) for n in self.hits]
 
         for obj, bbox in matches : 
-            dist_current = rangeQuery.euc_dist_diff(bbox, q_bbox)
+            dist_current = euc_dist_diff_3d(bbox, q_bbox)
 
             if obj[0] in point_dict : 
                 dist_prev = point_dict.get(obj[0])[1]
@@ -79,7 +79,7 @@ class RangeQuery(Query):
 
         # TODO: Here we should probably have sorted dictionary and list of trajectories so worst case run time is always N instead of N^2 (not including sort)
         for key, value in point_dict.items() :
-            print(f"Distributing 1 point for trajectory: {key} with node: {value[0]}")
+            #print(f"Distributing 1 point for trajectory: {key} with node: {value[0]}")
             for t in trajectories :
                 if t.id == key :
                     give_point(t, value)

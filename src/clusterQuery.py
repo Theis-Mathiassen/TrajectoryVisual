@@ -5,6 +5,7 @@ from TRACLUS import traclus
 from sklearn.cluster import OPTICS
 from Node import Node
 from rtree import index
+from Util import euc_dist_diff_3d
 
 class ClusterQuery(Query):
 
@@ -15,24 +16,33 @@ class ClusterQuery(Query):
         self.eps = params["eps"]  # max distance for clustering
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
+        self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
         return np.array([[node.x, node.y] for node in trajectory.nodes])
 
     def _filter_trajectories_by_time(self, trajectories, rtree):
-        """Filter trajectories based on temporal constraints."""
+        """Filter trajectories based on temporal constraints using R-tree."""
+        # use float inf to ensure all trajectories are considered, regardless of their values. So we only filter by time
+        hits = list(rtree.intersection((float('-inf'), float('-inf'), self.t1, 
+                                        float('inf'), float('inf'), self.t2), objects=True))
+        self.hits = hits  
+        # a single hit is stored as: (node_id, trajectory_id)
+
+
         filtered = []
-        for hit in rtree.intersection((float('-inf'), float('-inf'), self.t1,
-                                     float('inf'), float('inf'), self.t2), objects=True):
+        seen_trajectories = set()
+        for hit in hits:
             _, trajectory_id = hit.object
-            # Get unique trajectory IDs that have points in the time window
-            if trajectory_id not in [t.id for t in filtered]:
+            if trajectory_id not in seen_trajectories:
+                seen_trajectories.add(trajectory_id)
                 matching_traj = next((t for t in trajectories if t.id == trajectory_id), None)
                 if matching_traj:
                     filtered.append(matching_traj)
+        
         return filtered
-
+    
     def run(self, rtree):
         # get all trajectories with points in the time window
         trajectories = self._filter_trajectories_by_time(self.params["trajectories"], rtree)
@@ -68,63 +78,43 @@ class ClusterQuery(Query):
 
         return similar_trajectories
 
-    def distribute(self, trajectories, matches):
-        """Distribute points based on spatial proximity and directional similarity."""
+    def distribute(self, trajectories):
+        """Distribute points based on cluster membership and spatial proximity."""
         if not trajectories:
             return
 
-        def calculate_direction(p1, p2):
-            """Calculate direction vector between two points."""
-            return np.array([p2.x - p1.x, p2.y - p1.y])
+        def give_point(trajectory: Trajectory, node_id):
+            for n in trajectory.nodes:
+                if n.id == node_id:
+                    n.score += 1
 
-        def direction_similarity(dir1, dir2):
-            """Calculate similarity between two direction vectors using dot product."""
-            norm1 = np.linalg.norm(dir1)
-            norm2 = np.linalg.norm(dir2)
-            if norm1 == 0 or norm2 == 0:
-                return 0
-            # Normalize and compute dot product
-            cos_angle = np.dot(dir1, dir2) / (norm1 * norm2)
-            # Convert to a score between 0 and 1
-            return (cos_angle + 1) / 2
+        # Calculate query center (using origin trajectory)
+        center_x = np.mean([node.x for node in self.origin.nodes])
+        center_y = np.mean([node.y for node in self.origin.nodes])
+        center_t = np.mean([node.t for node in self.origin.nodes])
+        q_bbox = [center_x, center_y, center_t]
 
-        def spatial_proximity(p1, p2):
-            """Calculate spatial proximity score between two points."""
-            dist = np.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2)
-            # Convert distance to a score between 0 and 1 using exponential decay
-            return np.exp(-dist / self.eps)
+        # Key = Trajectory id, value = (Node id, distance)
+        point_dict = dict()
 
-        # For each trajectory in the cluster
-        for trajectory in trajectories:
-            # Skip if trajectory has less than 2 points (needed for direction)
-            if len(trajectory.nodes) < 2:
-                continue
+        # get the hits into correct format
+        matches = [(n.object, n.bbox) for n in self.hits]
 
-            # Calculate scores for each node
-            for i in range(len(trajectory.nodes)):
-                node = trajectory.nodes[i]
-                spatial_score = 0
-                direction_score = 0
+        for obj, bbox in matches:
+            dist_current = euc_dist_diff_3d(bbox, q_bbox)
 
-                # Calculate spatial score
-                for origin_node in self.origin.nodes:
-                    spatial_score += spatial_proximity(node, origin_node)
-                spatial_score /= len(self.origin.nodes)  # Normalize
+            if obj[0] in point_dict:
+                dist_prev = point_dict.get(obj[0])[1]
+                if dist_current <= dist_prev:
+                    point_dict[obj[0]] = (obj[1], dist_current)
+            else:
+                point_dict[obj[0]] = (obj[1], dist_current)
 
-                # Calculate direction score if not at the last point
-                if i < len(trajectory.nodes) - 1:
-                    traj_dir = calculate_direction(node, trajectory.nodes[i + 1])
-                    # Compare with each segment in origin trajectory
-                    dir_scores = []
-                    for j in range(len(self.origin.nodes) - 1):
-                        origin_dir = calculate_direction(self.origin.nodes[j], self.origin.nodes[j + 1])
-                        dir_scores.append(direction_similarity(traj_dir, origin_dir))
-                    direction_score = max(dir_scores) if dir_scores else 0
-
-                # Combine scores (equal weights for simplicity)
-                combined_score = (spatial_score + direction_score) / 2
-                # Scale the score and add to node
-                node.score += int(combined_score * 10)  # Scale to make scores more meaningful
+        # distribute points to the closest nodes in each trajectory
+        for key, value in point_dict.items():
+            for t in trajectories:
+                if t.id == key:
+                    give_point(t, value[0])
 
 if __name__ == "__main__":
     # Create sample trajectories for testing
@@ -145,36 +135,34 @@ if __name__ == "__main__":
         (0, 0, 0), (1, 0, 1), (2, 0, 2), (3, 0, 3)
     ])
 
-    # Create R-tree index
+    # create R-tree index
     p = index.Property()
-    p.dimension = 3  # 3D index (x, y, t)
+    p.dimension = 3  
     rtree = index.Index(properties=p)
 
-    # Insert trajectories into R-tree
+    # insert trajectories into R-tree
     for traj in [traj1, traj2, traj3]:
         for i, node in enumerate(traj.nodes):
             rtree.insert(
                 traj.id,  # ID
                 (node.x, node.y, node.t, node.x, node.y, node.t),  # Bbox (point)
-                obj=(node.id, traj.id)  # Store node ID and trajectory ID
+                obj=(node.id, traj.id)  
             )
 
-    # Create query parameters
+    # query params
     params = {
-        "t1": 0,  # Start time
-        "t2": 3,  # End time
-        "eps": 0.5,  # Maximum distance for clustering
-        "linesMin": 2,  # Minimum number of lines in a cluster
-        "origin": traj1,  # Use trajectory 1 as query trajectory
-        "trajectories": [traj1, traj2, traj3]  # All available trajectories
+        "t1": 0,  
+        "t2": 3,  
+        "eps": 0.5,  # max distance for clustering
+        "linesMin": 2,  # min amount of lines in a cluster
+        "origin": traj1,  # query trajectory
+        "trajectories": [traj1, traj2, traj3] 
     }
 
-    # Create and run cluster query
     query = ClusterQuery(params)
     result = query.run(rtree)
 
-    # Distribute scores
-    query.distribute(result, None)  # matches parameter not used in our implementation
+    query.distribute(result)
 
     print("\nCluster Query Results:")
     print(f"Number of similar trajectories found: {len(result)}")

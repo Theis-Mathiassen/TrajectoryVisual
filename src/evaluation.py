@@ -6,6 +6,7 @@ from clusterQuery import ClusterQuery
 import numpy as np
 from Query import Query
 from QueryWrapper import QueryWrapper
+from tqdm import tqdm
 
 # This code allows testing of simplified trajectories
 
@@ -55,7 +56,7 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
     totalLength = 0
     totalF1Score = 0
 
-    def getF1Score(listOfQueries):
+    def getQueryF1Score(listOfQueries, queryTypeString):
         nonlocal totalLength, totalF1Score # allow modification of the outer variables in enclosing scope
         length = len(listOfQueries)
         f1_score = 0
@@ -63,7 +64,8 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
         if length == 0:
             return 0
 
-        for query in listOfQueries:
+        print(f"Running {queryTypeString} queries..")
+        for query in tqdm(listOfQueries):
             f1_score += getF1Score(query, rtree_original, rtree_simplified)
 
         totalLength += length   # Increment
@@ -71,10 +73,10 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
 
         return f1_score / length
 
-    rangeF1Score = getF1Score(rangeQueries)
-    similarityF1Score = getF1Score(similarityQueries)
-    KNNF1Score = getF1Score(KNNQueries)
-    clusterF1Score = getF1Score(clusterQueries)
+    rangeF1Score = getQueryF1Score(rangeQueries, "range")
+    similarityF1Score = getQueryF1Score(similarityQueries, "similarity")
+    KNNF1Score = getQueryF1Score(KNNQueries, "KNN")
+    clusterF1Score = getQueryF1Score(clusterQueries, "cluster")
 
     averageF1Score = totalF1Score / totalLength if totalLength > 0 else 0
 

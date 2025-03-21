@@ -7,6 +7,7 @@ from src.dropNodes import dropNodes
 
 import os
 import sys
+import copy
 from tqdm import tqdm
 
 sys.path.append("src/")
@@ -19,6 +20,7 @@ def main(config):
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
+    ORIGTrajectories = copy.deepcopy(origTrajectories)
 
     ## Setup data collection environment, that is evaluation after each epoch
     origRtreeQueries : QueryWrapper = QueryWrapper(config["numberOfEachQuery"])
@@ -41,7 +43,7 @@ def main(config):
 
         simpRtree, simpTrajectories = loadRtree("simplified_Taxi", simpTrajectories)
 
-        compressionRateScores.append((cr, getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), GetSimplificationError(origTrajectories, simpTrajectories))) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append((cr, getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), GetSimplificationError(ORIGTrajectories, simpTrajectories))) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
         
         # Generate and apply queries, giving scorings to points

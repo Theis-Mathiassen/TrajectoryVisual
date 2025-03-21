@@ -12,7 +12,8 @@ from tqdm import tqdm
 from Node import Node
 from Trajectory import Trajectory
 
-chunksize = 10**5
+CHUNKSIZE = 10**5
+PAGESIZE = 16000
 
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 
@@ -71,6 +72,8 @@ def build_Rtree(dataset, filename='') :
     p.dimension = 3
     p.dat_extension = 'data'
     p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = PAGESIZE
     #p.filename = filename
 
     if filename=='' :

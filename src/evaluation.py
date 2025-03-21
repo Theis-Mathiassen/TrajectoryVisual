@@ -48,7 +48,7 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
     # Gets average f1 score
 
     rangeQueries = queryWrapper.RangeQueries
-    similaritQueries = queryWrapper.SimilarityQueries
+    similarityQueries = queryWrapper.SimilarityQueries
     KNNQueries = queryWrapper.KNNQueries
     clusterQueries = queryWrapper.ClusterQueries
 
@@ -56,8 +56,12 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
     totalF1Score = 0
 
     def getF1Score(listOfQueries):
+        nonlocal totalLength, totalF1Score # allow modification of the outer variables in enclosing scope
         length = len(listOfQueries)
         f1_score = 0
+
+        if length == 0:
+            return 0
 
         for query in listOfQueries:
             f1_score += getF1Score(query, rtree_original, rtree_simplified)
@@ -65,16 +69,14 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
         totalLength += length   # Increment
         totalF1Score += f1_score
 
-        f1_score /= length
-
-        return f1_score
+        return f1_score / length
 
     rangeF1Score = getF1Score(rangeQueries)
-    similarityF1Score = getF1Score(similaritQueries)
+    similarityF1Score = getF1Score(similarityQueries)
     KNNF1Score = getF1Score(KNNQueries)
     clusterF1Score = getF1Score(clusterQueries)
 
-    averageF1Score = totalF1Score / totalLength
+    averageF1Score = totalF1Score / totalLength if totalLength > 0 else 0
 
     return averageF1Score, rangeF1Score, similarityF1Score, KNNF1Score, clusterF1Score
 

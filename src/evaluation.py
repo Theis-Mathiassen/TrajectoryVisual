@@ -36,16 +36,47 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
 
 def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simplified):
+    """
+    Runs queries and returns average F1Scores.
+
+    :returns averageF1Score: Average f1 score for all queries
+    :returns rangeF1Score: Average f1 score for range queries
+    :returns similarityF1Score: Average f1 score for similarity queries
+    :returns KNNF1Score: Average f1 score for KNN queries
+    :returns clusterF1Score: Average f1 score for clustering queries
+    """
     # Gets average f1 score
-    length = len(queryWrapper.getQueries())
-    f1_score = 0
 
-    for Query in queryWrapper.getQueries():
-        f1_score += getF1Score(Query, rtree_original, rtree_simplified)
+    rangeQueries = queryWrapper.RangeQueries
+    similaritQueries = queryWrapper.SimilarityQueries
+    KNNQueries = queryWrapper.KNNQueries
+    clusterQueries = queryWrapper.ClusterQueries
 
-    f1_score /= length
+    totalLength = 0
+    totalF1Score = 0
 
-    return f1_score
+    def getF1Score(listOfQueries):
+        length = len(listOfQueries)
+        f1_score = 0
+
+        for query in listOfQueries:
+            f1_score += getF1Score(query, rtree_original, rtree_simplified)
+
+        totalLength += length   # Increment
+        totalF1Score += f1_score
+
+        f1_score /= length
+
+        return f1_score
+
+    rangeF1Score = getF1Score(rangeQueries)
+    similarityF1Score = getF1Score(similaritQueries)
+    KNNF1Score = getF1Score(KNNQueries)
+    clusterF1Score = getF1Score(clusterQueries)
+
+    averageF1Score = totalF1Score / totalLength
+
+    return averageF1Score, rangeF1Score, similarityF1Score, KNNF1Score, clusterF1Score
 
 
 

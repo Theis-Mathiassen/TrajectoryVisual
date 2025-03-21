@@ -1,7 +1,7 @@
 from rtree import index
-from Trajectory import Trajectory
-from Node import Node
-
+from src.Trajectory import Trajectory
+from src.Node import Node
+from tqdm import tqdm
 
 def getNodes(trajectories):
     nodes = []
@@ -26,8 +26,8 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
     # Special case for if there are so few nodes we cannot drop enough
     amount_to_drop = min(amount_to_drop, len(sorted_nodes))
 
-
-    for i in range(amount_to_drop):
+    print("Dropping nodes..")
+    for i in tqdm(range(amount_to_drop)):
         #Drop a single node
         (node, trajectory_index) = sorted_nodes[i]
         rtree.delete(node.id, (node.x, node.y, node.t, node.x, node.y, node.t))

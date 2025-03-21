@@ -1,9 +1,9 @@
 from rtree import index
-from Trajectory import Trajectory
-from Node import Node
-from Query import Query
+from src.Trajectory import Trajectory
+from src.Node import Node
+from src.Query import Query
 import numpy as np
-from Util import euc_dist_diff_3d
+from src.Util import euc_dist_diff_3d
 
 class RangeQuery(Query):
     x1: float

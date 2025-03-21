@@ -1,13 +1,13 @@
-from Query import Query
-from Trajectory import Trajectory
+from src.Query import Query
+from src.Trajectory import Trajectory
 import numpy as np
-from TRACLUS import traclus
+from src.TRACLUS import traclus
 from sklearn.cluster import OPTICS
-from Node import Node
+from src.Node import Node
 from rtree import index
-from Util import euc_dist_diff_3d
+from src.Util import euc_dist_diff_3d
 
-class ClusterQuery(Query):
+class ClusterQuery(Query): 
 
     def __init__(self, params):
         super().__init__(params)

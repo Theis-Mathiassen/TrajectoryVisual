@@ -1,11 +1,11 @@
-import sys
-sys.path.append("src/")
-from Node import Node
-from Trajectory import Trajectory
-from clusterQuery import ClusterQuery
+#import sys
+#sys.path.append("src/")
+from src.Node import Node
+from src.Trajectory import Trajectory
+from src.clusterQuery import ClusterQuery
 import numpy as np
-from Query import Query
-from QueryWrapper import QueryWrapper
+from src.Query import Query
+from src.QueryWrapper import QueryWrapper
 
 # This code allows testing of simplified trajectories
 
@@ -22,11 +22,12 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
     original_result = Query.run(rtree_original)
     simplified_result = Query.run(rtree_simplified)
     
-    if (len(original_result) == 0 or len(simplified_result) == 0):
-        return 0
 
     intersection = getIntersection(original_result, simplified_result)
 
+    if (len(original_result) == 0 or len(simplified_result) == 0 or len(intersection) == 0):
+        return 0
+    
     precision = len(intersection) / len(simplified_result)
     recall = len(intersection) / len(original_result)
 

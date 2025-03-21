@@ -1,9 +1,9 @@
 from rtree import index
 import os
 import numpy as np
-from Trajectory import Trajectory
-from Node import Node
-from Query import Query
+from src.Trajectory import Trajectory
+from src.Node import Node
+from src.Query import Query
 
 class SimilarityQuery(Query):
     trajectory: Trajectory

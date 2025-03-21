@@ -1,4 +1,4 @@
-from QueryWrapper import QueryWrapper
+from src.QueryWrapper import QueryWrapper
 from tqdm import tqdm
 
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper):

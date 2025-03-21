@@ -2,19 +2,21 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from load import build_Rtree, load_Tdrive, loadRtree
+from src.load import build_Rtree, load_Tdrive, loadRtree
 from src.dropNodes import dropNodes
 
 import os
+import sys
 from tqdm import tqdm
 
+sys.path.append("src/")
 #### main
 def main(config):
     ## Load Dataset
     #load_Tdrive("small_train.csv","small_train_trimmed.csv")
     
-    origRtree, origTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="original_Taxi")
-    simpRtree, simpTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="simplified_Taxi")
+    origRtree, origTrajectories = build_Rtree("small_train_trimmed.csv", filename="original_Taxi")
+    simpRtree, simpTrajectories = build_Rtree("small_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
 
@@ -24,6 +26,8 @@ def main(config):
     
     origRtreeQueries.createRangeQueries(origRtree, origRtreeParams)
     origRtreeQueries.createSimilarityQueries(origRtree, origRtreeParams)
+    origRtreeQueries.createKNNQueries(origRtree, origRtreeParams)
+    # origRtreeQueries.createClusterQueries(origRtree, origRtreeParams)
     
     compressionRateScores = list()
 
@@ -65,6 +69,6 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["numberOfEachQuery"] = 100      # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 50      # Number of queries used to simplify database    
 
     main(config)

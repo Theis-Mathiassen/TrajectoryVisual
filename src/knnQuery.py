@@ -1,8 +1,8 @@
-from Query import Query
-from Node import Node
-from Trajectory import Trajectory
+from src.Query import Query
+from src.Node import Node
+from src.Trajectory import Trajectory
+from src.Util import DTWDistance, DTWDistanceWithScoring
 import math
-from Util import DTWDistance, DTWDistanceWithScoring
 import numpy as np
 
 class KnnQuery(Query):

@@ -9,8 +9,8 @@ import json
 from src.Util import lonLatToMetric
 from tqdm import tqdm
 
-from Node import Node
-from Trajectory import Trajectory
+from src.Node import Node
+from src.Trajectory import Trajectory
 
 CHUNKSIZE = 10**5
 PAGESIZE = 16000

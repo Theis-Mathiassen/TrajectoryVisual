@@ -1,6 +1,6 @@
-from Trajectory import Trajectory
-from Query import Query
-from Node import Node, NodeDiff
+from src.Trajectory import Trajectory
+from src.Query import Query
+from src.Node import Node, NodeDiff
 import numpy as np
 import copy
 

@@ -1,9 +1,9 @@
-from Query import Query
-from Util import ParamUtil
-from rangeQuery import RangeQuery
-from clusterQuery import ClusterQuery
-from knnQuery import KnnQuery
-from similarityQuery import SimilarityQuery
+from src.Query import Query
+from src.Util import ParamUtil
+from src.rangeQuery import RangeQuery
+from src.clusterQuery import ClusterQuery
+from src.knnQuery import KnnQuery
+from src.similarityQuery import SimilarityQuery
 
 class QueryWrapper:
     def __init__(self, numberOfEachQuery):
@@ -26,8 +26,7 @@ class QueryWrapper:
             self.SimilarityQueries.append(SimilarityQuery(paramUtil.similarityParams(rtree)))
     
     def createClusterQueries(self, rtree, paramUtil : ParamUtil):
-        for query in range(self.numberOfEachQuery):
-            self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
+        self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
             
     def getQueries(self):
         return [*self.RangeQueries, *self.SimilarityQueries, *self.KNNQueries, *self.ClusterQueries]

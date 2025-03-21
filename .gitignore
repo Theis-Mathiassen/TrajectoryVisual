@@ -17,3 +17,5 @@ datasets/
 *.pyz
 *.pywz
 *.pywz.gz
+*.data
+*.index

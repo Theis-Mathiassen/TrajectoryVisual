@@ -5,7 +5,6 @@ datasets/
 *.idx
 *.png
 *.pdf
-*.txt
 *.csv
 *.json
 *.jsonl

@@ -2,30 +2,31 @@ from rtree import index
 import numpy as np
 import pandas as pd
 import os
-import sys
 
-# Find the absolute path of the project directory
-absolute_path = os.path.dirname(__file__)
-
-# Define the relative paths of directories to import from
-relative_path_src = "/src"
-
-full_path_src = os.path.join(absolute_path, relative_path_src)
-
-# Append them to the path variable of the system
-sys.path.append(full_path_src)
+import shutil
+import copy
 
 from ast import literal_eval
+import json
 from src.Util import lonLatToMetric
+from tqdm import tqdm
 
 from src.Node import Node
 from src.Trajectory import Trajectory
 
-def load_Tdrive(filename="") : 
+CHUNKSIZE = 10**5
+PAGESIZE = 16000
 
-    #data = np.genfromtxt("datasets/train.csv", delimiter=',')
+#Function to load the Taxi dataset, convert columns and trim it. 
+#TO DO: 
+#The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
+def load_Tdrive(src : str, filename="") : 
+    tqdm.pandas()
 
-    df = pd.read_csv("datasets/small_train.csv", delimiter=',')
+    cwd = os.getcwd()
+
+    #Refactor to use a chunksize instead!
+    df = pd.read_csv(os.path.join(cwd, 'datasets', src), delimiter=',')
 
     #Preprocessing 
     df = df.drop(columns=['CALL_TYPE','ORIGIN_CALL','ORIGIN_STAND','TAXI_ID', 'DAY_TYPE'])
@@ -34,8 +35,17 @@ def load_Tdrive(filename="") :
         if df['MISSING_DATA'][index] == "True" :
             df.drop(index=index)
     df = df.drop(columns=['MISSING_DATA'])
+    
+    print("Eval polyline...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
+    print("Done!")
+    print("Convert lon lat to metric...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(rowLonLatToMetric)
+    print("Done!")
+    # map lonlat as preprocessing
+    #df['POLYLINE'] = df['POLYLINE'].apply(lambda a: list(map(lonLatToMetric, a)) )
+    
     #Save trimmed data 
-    cwd = os.getcwd()
     if filename == '' : 
         if os.path.exists(os.path.join(cwd, 'datasets', 'default.csv')) : 
             os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
@@ -45,19 +55,31 @@ def load_Tdrive(filename="") :
             os.remove(os.path.join(cwd, 'datasets', filename))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename))
     
-
+#Build a rtree from csv file and the corresponding trajectories. It is assumed that the csv file contains columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
+#Function is in two parts: Creating the rtree and creating trajectories.
+#Creating the rtree: Happens via bulk load through generator function (datastream). This is a lot faster than inserting each point.
+#Creating trajectories: Create a unique trajectory with id = 'TRIP_ID' and nodes = 'POLYLINE' -> Nodes objects
+#TO DO:
+#Include pagesize param (property of p) for optimizing rtree accesses.
+#Reading the csv in chunks if possible would maybe improve performance, unless this hinders bulk loading the rtree.
 def build_Rtree(dataset, filename='') :
     # Read csv file as dataframe
+    tqdm.pandas()
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
-    df = pd.read_csv(path)
-    df["POLYLINE"] = df["POLYLINE"].apply(literal_eval)
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads})
     
     # Set up properties
     p = index.Property()
     p.dimension = 3
+    p.dat_extension = 'data'
+    p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = PAGESIZE
+    #p.filename = filename
 
     if filename=='' :
+        print("No filename!")
         Rtree_ = index.Index(properties=p)
     else :
         if os.path.exists(filename+'.dat'):
@@ -66,36 +88,88 @@ def build_Rtree(dataset, filename='') :
         if os.path.exists(filename+'.idx'):
             os.remove(filename+'.idx')
             print('remove', filename+'.idx')
-        Rtree_ = index.Index(filename, properties=p)
-
+    
+    """ print("Eval polyline...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
+    print("Done!") """
+    
+    polylines = np.array(df['POLYLINE'])
+    timestamps = np.array(df['TIMESTAMP'])
+    trip_ids = np.array(df['TRIP_ID'])
+    
+    print("Creating rtree..")
+    Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
+    print("Done!")
+    
+    print("Creating trajectories..")
     c = 0
     delete_rec = {}
     Trajectories = []
-    for i in range(len(df)) :
+    length = len(trip_ids)
+    for i in tqdm(range(length)):
         t = 0
         nodes = []
-        for x,y in df["POLYLINE"][i] :
-            x,y = lonLatToMetric(x,y) # Convert to meters
-
-            Rtree_.insert(c, (x, y, df["TIMESTAMP"][i]+(15*t), x, y, df["TIMESTAMP"][i]+(15*t)), obj=(df["TRIP_ID"][i], c))
-            nodes.append(Node(c, x, y, t*15))
-
-            c+=1
-            t+=1
+        for x, y in polylines[i]:
+            nodes.append(Node(c, x, y, timestamps[i] + t*15))
+            c += 1
+            t += 1
+        Trajectories.append(Trajectory(trip_ids[i], nodes))        
+    
         
-        Trajectories.append(Trajectory(df["TRIP_ID"][i], nodes))
-
     return Rtree_, Trajectories
 
+#Convert a polyline row in lon lat coordinates to metric coordinates
+def rowLonLatToMetric(row):
+    nodes = []
+    for x, y in row:
+        nodes.append(list(lonLatToMetric(x, y)))
+    return nodes
 
-# TEST
-#load_Tdrive("trimmed_small_train.csv")
-#Rtree_ = build_Rtree("trimmed_small_train.csv", "test")
-#
-#hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
-#print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
-#print([(n.object, n.bbox) for n in hits])
-#
+#Function to load existing rtree and create a copy of it.
+#TO DO:
+#Fix it. Dont think it works, but maybe it isn't neccesary?
+def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):
+    print("Loading Rtree..")
+    p = index.Property()
+    p.dimension = 3
+    p.dat_extension = 'data'
+    p.idx_extension = 'index'
+    #p.filename = rtreeName
+    #p.overwrite = True
+    #bounds = originalRtree.bounds
+    #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
+    rtreeCopy = index.Index(rtreeName, pointStream(originalRtree), properties=p)
+    print("Done!")
+    #rtreeCopy.insert(pointStream(originalRtree))
+    trajectoriesCopy = copy.deepcopy(trajectories)
+    return rtreeCopy, trajectoriesCopy
+
+    
+#Generator function taking a dataframe with columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
+#Yields a rtree point for each point in each polyline
+def datastream(polylines, timestamps, trip_ids):
+    c = 0
+    length = len(trip_ids)
+    for i in tqdm(range(length)) :
+        t = 0
+        timestamp = timestamps[i]
+        for x, y in polylines[i] :
+            obj=(trip_ids[i], c)
+            curTimestamp = timestamp + (15*t)
+            yield (c, (x, y, curTimestamp, x, y, curTimestamp), obj)
+            
+            c+=1
+            t+=1
+
+#Generator function taking a rtree
+#Yields all points of the rtree 
+def pointStream(rtree : index.Index):
+    bounds = rtree.bounds
+    points = rtree.intersection(coordinates=(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True)
+    for i, point in enumerate(tqdm(points)):
+        yield (i, tuple(point.bbox), i)
+
+
 
 if __name__ == "__main__":
     load_Tdrive("trimmed_small_train.csv")
@@ -104,3 +178,4 @@ if __name__ == "__main__":
     hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
     print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
     print([(n.object) for n in hits])
+

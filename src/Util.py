@@ -64,7 +64,7 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
     
-    def knnParams(self, rtree: index.Index, k = 3):
+    def knnParams(self, rtree: index.Index, k = 3, flag = 1):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
         tMin = self.tMin 
         tMax = self.tMax
@@ -72,8 +72,9 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
+        flag = flag
         k = k
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, flag = flag)
     
     def clusterParams(self, rtree: index.Index):
         tMin = self.tMin 

@@ -10,7 +10,8 @@ from src.QueryWrapper import QueryWrapper
 # This code allows testing of simplified trajectories
 
 def getIntersection(trajectoryList1, trajectoryList2):
-    return [trajectory for trajectory in trajectoryList1 if trajectory.id in [trajectory.id for trajectory in trajectoryList2]]
+    return list(set(trajectoryList1[0]) & set(trajectoryList2[0]))
+    return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
 def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
@@ -22,14 +23,16 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
     original_result = Query.run(rtree_original)
     simplified_result = Query.run(rtree_simplified)
     
+    setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
+    setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
 
-    intersection = getIntersection(original_result, simplified_result)
+    intersection = setOriginal_result & setSimplified_result
 
-    if (len(original_result) == 0 or len(simplified_result) == 0 or len(intersection) == 0):
+    if (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
         return 0
     
-    precision = len(intersection) / len(simplified_result)
-    recall = len(intersection) / len(original_result)
+    precision = len(intersection) / len(setSimplified_result)
+    recall = len(intersection) / len(setOriginal_result)
 
     f1 = 2 * (precision * recall) / (precision + recall)
 
@@ -153,9 +156,9 @@ def GetSimplificationError(original_trajectory_list, simplified_trajectory_list)
     avg_SED = 0
     avg_PED = 0
 
-    for i in range(length):
-        avg_SED += sed_error(original_trajectory_list[i], simplified_trajectory_list[i])[1]
-        avg_PED += ped_error(original_trajectory_list[i], simplified_trajectory_list[i])[1]
+    for key in original_trajectory_list.keys():
+        avg_SED += sed_error(original_trajectory_list.get(key), simplified_trajectory_list.get(key))[1]
+        avg_PED += ped_error(original_trajectory_list.get(key), simplified_trajectory_list.get(key))[1]
 
     avg_SED /= length
     avg_PED /= length

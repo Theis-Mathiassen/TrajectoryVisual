@@ -8,7 +8,7 @@ class Query(ABC):
         
     # run query which returns array of Trajectory class 
     @abstractmethod
-    def run(self, rtree) -> list[Trajectory]:
+    def run(self, rtree):
         pass
 
     @abstractmethod

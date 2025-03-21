@@ -12,7 +12,7 @@ import numpy as np
 # Util to init params for different query types.
 class ParamUtil:
     # init the params to be the bounding box of the Rtree and fix some delta
-    def __init__(self, rtree: index.Index, trajectories: list[Trajectory], delta = 0, k = 3, eps = 1, linesMin = 3):
+    def __init__(self, rtree: index.Index, trajectories: dict, delta = 0, k = 3, eps = 1, linesMin = 3):
         boundingBox = rtree.bounds
         
         # Establish mbr for the whole Rtree
@@ -41,7 +41,7 @@ class ParamUtil:
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
     def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
@@ -57,7 +57,7 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax """
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(self.trajectories)
@@ -127,6 +127,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     return DTW[len(originNodes)-1, len(otherNodes)-1]
 
 def euc_dist_diff_2d(p1, p2) : 
+            return np.sqrt(np.power(p1['x']-p2['x'], 2) + np.power(p1['y']-p2['y'], 2))
             return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 

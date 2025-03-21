@@ -102,16 +102,18 @@ def build_Rtree(dataset, filename='') :
     print("Creating trajectories..")
     c = 0
     delete_rec = {}
-    Trajectories = []
+    Trajectories = {}
     length = len(trip_ids)
     for i in tqdm(range(length)):
         t = 0
         nodes = []
+        if len(polylines[i]) == 0:
+            break
         for x, y in polylines[i]:
             nodes.append(Node(c, x, y, timestamps[i] + t*15))
             c += 1
             t += 1
-        Trajectories.append(Trajectory(trip_ids[i], nodes))        
+        Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), nodes)})        
     
         
     return Rtree_, Trajectories
@@ -126,17 +128,19 @@ def rowLonLatToMetric(row):
 #Function to load existing rtree and create a copy of it.
 #TO DO:
 #Fix it. Dont think it works, but maybe it isn't neccesary?
-def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):
+def loadRtree(rtreeName : str, trajectories):
     print("Loading Rtree..")
     p = index.Property()
     p.dimension = 3
     p.dat_extension = 'data'
     p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = PAGESIZE
     #p.filename = rtreeName
     #p.overwrite = True
     #bounds = originalRtree.bounds
     #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
-    rtreeCopy = index.Index(rtreeName, pointStream(originalRtree), properties=p)
+    rtreeCopy = index.Index(rtreeName, pointStream(trajectories), properties=p)
     print("Done!")
     #rtreeCopy.insert(pointStream(originalRtree))
     trajectoriesCopy = copy.deepcopy(trajectories)
@@ -146,13 +150,15 @@ def loadRtree(originalRtree : index.Index, rtreeName : str, trajectories):
 #Generator function taking a dataframe with columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
 #Yields a rtree point for each point in each polyline
 def datastream(polylines, timestamps, trip_ids):
-    c = 0
     length = len(trip_ids)
+    c = 0
     for i in tqdm(range(length)) :
         t = 0
         timestamp = timestamps[i]
+        if len(polylines[i]) == 0:
+            break
         for x, y in polylines[i] :
-            obj=(trip_ids[i], c)
+            obj=(int(trip_ids[i]), t)
             curTimestamp = timestamp + (15*t)
             yield (c, (x, y, curTimestamp, x, y, curTimestamp), obj)
             
@@ -161,11 +167,12 @@ def datastream(polylines, timestamps, trip_ids):
 
 #Generator function taking a rtree
 #Yields all points of the rtree 
-def pointStream(rtree : index.Index):
-    bounds = rtree.bounds
-    points = rtree.intersection(coordinates=(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True)
-    for i, point in enumerate(tqdm(points)):
-        yield (i, tuple(point.bbox), i)
+def pointStream(trajectories: dict):
+    for trajectory in trajectories.values():
+        for node in trajectory.nodes:
+            obj=(trajectory.id, node.id)
+            yield (trajectory.id, (node.x, node.y, node.t, node.x, node.y, node.t), obj)
+    
 
 
 

@@ -8,15 +8,21 @@ from src.dropNodes import dropNodes
 import os
 import sys
 import copy
+import pickle
 from tqdm import tqdm
 
 sys.path.append("src/")
+
+CSVNAME = 'first_10000_train'
+DATABASENAME = 'original_Taxi'
+SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
+
 #### main
 def main(config):
     ## Load Dataset
-    load_Tdrive("first_10000_train.csv","first_10000_train_trimmed.csv")
+    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
-    origRtree, origTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="original_Taxi")
+    origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
@@ -41,11 +47,16 @@ def main(config):
         giveQueryScorings(origRtree, origTrajectories, origRtreeQueries)
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
-        simpRtree, simpTrajectories = loadRtree("simplified_Taxi", simpTrajectories)
+        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append((cr, getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), GetSimplificationError(ORIGTrajectories, simpTrajectories))) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'avgf1' : getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
+        print(compressionRateScores[-1]['avgf1'])
+        simpRtree.close()
         
+        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+            os.remove(SIMPLIFIEDDATABASENAME + '.data')
+            os.remove(SIMPLIFIEDDATABASENAME + '.index')
         # Generate and apply queries, giving scorings to points
 
         # Remove x points with the fewest points
@@ -54,8 +65,9 @@ def main(config):
             # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
-    for res in compressionRateScores:
-        print(res)
+    with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+        pickle.dump(compressionRateScores, file)
+        file.close()
 
     ## Plot models
 

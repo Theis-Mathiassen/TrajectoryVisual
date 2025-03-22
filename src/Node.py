@@ -1,7 +1,8 @@
 import math
 
 class Node:
-    score: int
+    __slots__ = ['score', 'id', 'x', 'y', 't']
+    """ score: int
     id: int
 
     # 2D coordinates
@@ -9,7 +10,7 @@ class Node:
     y: float
 
     # Timestamp (can be used as a third coordinate for 3D computations)
-    t: float
+    t: float """
 
     def __init__(self, id, x, y, t):
         # Basic initialization.

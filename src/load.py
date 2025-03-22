@@ -75,7 +75,12 @@ def build_Rtree(dataset, filename='') :
     p.leaf_capacity = 1000
     p.pagesize = PAGESIZE
     #p.filename = filename
+    
+    polylines = np.array(df['POLYLINE'])
+    timestamps = np.array(df['TIMESTAMP'])
+    trip_ids = np.array(df['TRIP_ID'])
 
+    """
     if filename=='' :
         print("No filename!")
         Rtree_ = index.Index(properties=p)
@@ -87,16 +92,16 @@ def build_Rtree(dataset, filename='') :
             os.remove(filename+'.idx')
             print('remove', filename+'.idx')
     
-    """ print("Eval polyline...")
+    print("Eval polyline...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
     print("Done!") """
     
-    polylines = np.array(df['POLYLINE'])
-    timestamps = np.array(df['TIMESTAMP'])
-    trip_ids = np.array(df['TRIP_ID'])
     
     print("Creating rtree..")
-    Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
+    if os.path.exists(filename + '.index'):
+        Rtree_ = index.Index(filename, properties=p)
+    else:
+        Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
     print("Done!")
     
     print("Creating trajectories..")

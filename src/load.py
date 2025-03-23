@@ -1,5 +1,6 @@
 from rtree import index
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import os
 import shutil
@@ -79,23 +80,6 @@ def build_Rtree(dataset, filename='') :
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])
     trip_ids = np.array(df['TRIP_ID'])
-
-    """
-    if filename=='' :
-        print("No filename!")
-        Rtree_ = index.Index(properties=p)
-    else :
-        if os.path.exists(filename+'.dat'):
-            os.remove(filename+'.dat')
-            print('remove', filename+'.dat')
-        if os.path.exists(filename+'.idx'):
-            os.remove(filename+'.idx')
-            print('remove', filename+'.idx')
-    
-    print("Eval polyline...")
-    df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
-    print("Done!") """
-    
     
     print("Creating rtree..")
     if os.path.exists(filename + '.index'):
@@ -110,15 +94,17 @@ def build_Rtree(dataset, filename='') :
     Trajectories = {}
     length = len(trip_ids)
     for i in tqdm(range(length)):
-        t = 0
-        nodes = []
         if len(polylines[i]) == 0:
-            break
-        for x, y in polylines[i]:
-            nodes.append(Node(c, x, y, timestamps[i] + t*15))
-            c += 1
-            t += 1
-        Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), nodes)})        
+            pass
+        else:
+            t = 0
+            c = 0
+            nodes = [] #np.array(nparrayStream(polylines[i], timestamps[i]))
+            for x, y in polylines[i]:
+                nodes.append(Node(c, x, y, timestamps[i] + t*15))
+                c += 1
+                t += 1
+            Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
     
         
     return Rtree_, Trajectories
@@ -161,25 +147,33 @@ def datastream(polylines, timestamps, trip_ids):
         t = 0
         timestamp = timestamps[i]
         if len(polylines[i]) == 0:
-            break
-        for x, y in polylines[i] :
-            obj=(int(trip_ids[i]), t)
-            curTimestamp = timestamp + (15*t)
-            yield (c, (x, y, curTimestamp, x, y, curTimestamp), obj)
-            
-            c+=1
-            t+=1
+            pass
+        else:
+            for x, y in polylines[i] :
+                obj=(int(trip_ids[i]), t)
+                curTimestamp = timestamp + (15*t)
+                yield (c, (x, y, curTimestamp, x, y, curTimestamp), obj)
+                
+                c+=1
+                t+=1
 
 #Generator function taking a rtree
 #Yields all points of the rtree 
 def pointStream(trajectories: dict):
     for trajectory in trajectories.values():
-        for node in trajectory.nodes:
-            obj=(trajectory.id, node.id)
-            yield (trajectory.id, (node.x, node.y, node.t, node.x, node.y, node.t), obj)
+        nodes = trajectory.nodes.compressed()
+        for i in range(len(nodes)):
+            obj=(trajectory.id, nodes[i].id)
+            yield (trajectory.id, (nodes[i].x, nodes[i].y, nodes[i].t, nodes[i].x, nodes[i].y, nodes[i].t), obj)
     
 
-
+def nparrayStream(polyline, timestamp):
+    c = 0
+    t = 0
+    for x, y in polyline:
+            yield Node(c, x, y, timestamp + t*15)
+            c += 1
+            t += 1
 
 if __name__ == "__main__":
     load_Tdrive("trimmed_small_train.csv")

@@ -20,7 +20,7 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 #### main
 def main(config):
     ## Load Dataset
-    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
+    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
     origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")

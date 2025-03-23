@@ -4,6 +4,7 @@ from src.Node import Node
 from src.Trajectory import Trajectory
 from src.clusterQuery import ClusterQuery
 import numpy as np
+import numpy.ma as ma
 from src.Query import Query
 from src.QueryWrapper import QueryWrapper
 
@@ -78,7 +79,7 @@ def sed_op(segment):
 def sed_error(ori_traj, sim_traj):
     # Convert code first
     ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
-    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes.compressed()]
     #Original code
 
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
@@ -124,7 +125,7 @@ def ped_op(segment):
 def ped_error(ori_traj, sim_traj):
     # Convert code first
     ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
-    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes.compressed()]
     #Original code
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
     # 1-keep and 0-drop

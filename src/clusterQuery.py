@@ -6,6 +6,7 @@ from sklearn.cluster import OPTICS
 from src.Node import Node
 from rtree import index
 from src.Util import euc_dist_diff_3d
+from collections import defaultdict
 
 class ClusterQuery(Query): 
 
@@ -17,6 +18,7 @@ class ClusterQuery(Query):
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
+        self.returnCluster = False
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
@@ -44,8 +46,11 @@ class ClusterQuery(Query):
         return filtered
     
     def run(self, rtree):
-        # get all trajectories with points in the time window
-        trajectories = self._filter_trajectories_by_time(self.params["trajectories"], rtree)
+        # get all trajectories with points in the time window, unless needs to return all clusters
+        if self.returnCluster:
+            trajectories = self.params["trajectories"]
+        else: 
+            trajectories = self._filter_trajectories_by_time(self.params["trajectories"], rtree)
         
         if not trajectories:
             return []
@@ -53,7 +58,9 @@ class ClusterQuery(Query):
         # convert trajectories to numpy arrays for TRACLUS
         numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
         origin_numpy = self._trajectory_to_numpy(self.origin)
-        numpy_trajectories.append(origin_numpy)  # Add query trajectory
+
+        if not self.returnCluster: # If centered around an origin trajectory
+            numpy_trajectories.append(origin_numpy)  # Add query trajectory
 
         # run TRACLUS
         _, _, _, clusters, cluster_assignments, _ = traclus(
@@ -65,6 +72,14 @@ class ClusterQuery(Query):
             clustering_algorithm=OPTICS,
             progress_bar=False
         )
+
+        if self.returnCluster:  # If should instead "just" return the clusters
+            # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
+            dict_for_clusters = defaultdict(list)
+            for index, value in enumerate(cluster_assignments):
+                dict_for_clusters[value].append(trajectories[index])
+
+            return dict_for_clusters.values()  # Return groupings
 
         # find which cluster contains the query trajectory
         query_idx = len(numpy_trajectories) - 1  # last added trajectory is the query
@@ -160,6 +175,7 @@ if __name__ == "__main__":
     }
 
     query = ClusterQuery(params)
+
     result = query.run(rtree)
 
     query.distribute(result)
@@ -171,3 +187,16 @@ if __name__ == "__main__":
         print(f"\nTrajectory {traj.id}:")
         for node in traj.nodes:
             print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
+
+
+    query.returnCluster = True
+
+    clusters = query.run(rtree)
+
+    print("\n Clusters: \n")
+    for index, cluster in enumerate(clusters):
+        print(f"Cluster {index + 1}:")
+        for trajectory in cluster:
+            print(f"Trajectory {trajectory.id}")
+
+        print("\n")

@@ -7,6 +7,7 @@ import numpy as np
 import numpy.ma as ma
 from src.Query import Query
 from src.QueryWrapper import QueryWrapper
+from itertools import combinations
 
 # This code allows testing of simplified trajectories
 
@@ -19,13 +20,27 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if Query is ClusterQuery:
         print('ClusterQuery is not implemented yet.')
-        return 0
 
-    original_result = Query.run(rtree_original)
-    simplified_result = Query.run(rtree_simplified)
-    
-    setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
-    setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
+        Query.returnCluster = True # Set to return clusters
+
+        def getClusterSet(rtree):
+            clusters = Query.run(rtree)
+            for cluster in clusters:
+                cluster = [trajectory.id for trajectory in cluster]
+            
+            return set(combinations(clusters, 2))
+        
+        setOriginal_result = getClusterSet(rtree_original)
+        setSimplified_result = getClusterSet(rtree_simplified)
+
+
+    else: # For all other queries
+
+        original_result = Query.run(rtree_original)
+        simplified_result = Query.run(rtree_simplified)
+        
+        setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
+        setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
 
     intersection = setOriginal_result & setSimplified_result
 

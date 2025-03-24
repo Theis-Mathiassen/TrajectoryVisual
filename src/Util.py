@@ -194,7 +194,7 @@ def DTWDistanceWithScoring(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(originNodes[i], otherNodes[j])
+            cost = euc_dist_diff_2d(dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t}), dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t}))
 
             minimum = min(  DTW[i-1  , j     ],  # insertion
                             DTW[i    , j-1   ],  # deletion

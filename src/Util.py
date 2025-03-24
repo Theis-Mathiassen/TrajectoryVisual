@@ -60,7 +60,7 @@ class ParamUtil:
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         tMin = randomTrajectory.nodes[0].t
         tMax = randomTrajectory.nodes[-1].t
         xMin = self.xMin
@@ -68,7 +68,7 @@ class ParamUtil:
         yMin = self.yMin
         yMax = self.yMax
         delta = delta
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def knnParams(self, rtree: index.Index, k = 3):
         randomTrajectory: Trajectory = random.choice(self.trajectories)

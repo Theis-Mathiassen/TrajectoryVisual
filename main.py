@@ -9,6 +9,7 @@ import os
 import sys
 import copy
 import pickle
+import math
 from tqdm import tqdm
 
 sys.path.append("src/")
@@ -20,7 +21,7 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 #### main
 def main(config):
     ## Load Dataset
-    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
+    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
     origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
@@ -30,7 +31,7 @@ def main(config):
 
     ## Setup data collection environment, that is evaluation after each epoch
     # ---- Create training queries -----
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"] * config["trainTestSplit"])
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
@@ -39,7 +40,7 @@ def main(config):
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"])
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["TrainTestSplit"] = 0.8          # Train/test split
+    config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 200      # Number of queries used to simplify database    
 
     main(config)

@@ -35,11 +35,14 @@ def load_Tdrive(src : str, filename="") :
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
     print("Done!")
 
+    droppedRows = []
     for index in range(len(df)) : 
         if df['MISSING_DATA'][index] == "True" or len(df['POLYLINE'][index]) == 0:
-            df.drop(index=index)
+            droppedRows.append(index)
+
     df = df.drop(columns=['MISSING_DATA'])
-    
+    df = df.drop(droppedRows)
+        
     print("Convert lon lat to metric...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(rowLonLatToMetric)
     print("Done!")
@@ -49,11 +52,11 @@ def load_Tdrive(src : str, filename="") :
     if filename == '' : 
         if os.path.exists(os.path.join(cwd, 'datasets', 'default.csv')) : 
             os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
-        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'), index=False)
     else :
         if os.path.exists(os.path.join(cwd, 'datasets', filename)) :
             os.remove(os.path.join(cwd, 'datasets', filename))
-        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename), index=False)
     
 #Build a rtree from csv file and the corresponding trajectories. It is assumed that the csv file contains columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
 #Function is in two parts: Creating the rtree and creating trajectories.
@@ -67,7 +70,7 @@ def build_Rtree(dataset, filename='') :
     tqdm.pandas()
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
-    df = pd.read_csv(path, converters={'POLYLINE' : json.loads})
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
     # Set up properties
     p = index.Property()
@@ -89,12 +92,12 @@ def build_Rtree(dataset, filename='') :
         Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
     print("Done!")
     
-    print("Creating trajectories..")
+    #print("Creating trajectories..")
     c = 0
     delete_rec = {}
     Trajectories = {}
     length = len(trip_ids)
-    for i in tqdm(range(length)):
+    for i in tqdm(range(length), desc="Creating trajectories"):
         if len(polylines[i]) == 0:
             pass
         else:
@@ -144,7 +147,7 @@ def loadRtree(rtreeName : str, trajectories):
 def datastream(polylines, timestamps, trip_ids):
     length = len(trip_ids)
     c = 0
-    for i in tqdm(range(length)) :
+    for i in tqdm(range(length), desc="Loading trajectories") :
         t = 0
         timestamp = timestamps[i]
         if len(polylines[i]) == 0:

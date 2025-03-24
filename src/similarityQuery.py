@@ -39,7 +39,7 @@ class SimilarityQuery(Query):
         for node in self.trajectory.nodes.data:
             point1 = np.array((node.x, node.y))
             withinDelta = [(trajectory_id, node_id) for trajectory_id, node_id in maybe_hits if self.trajectories[trajectory_id].nodes.data[node_id].t == node.t and np.linalg.norm(np.array((self.trajectories[trajectory_id].nodes.data[node_id].x, self.trajectories[trajectory_id].nodes.data[node_id].y)) - point1) <= self.delta]
-            hits += withinDelta
+            hits.extend(withinDelta)
         """ trajectory_hits = {}
         # For each node in the trajectory
         for node in self.trajectory.nodes.data:
@@ -203,6 +203,11 @@ class SimilarityQuery(Query):
             originNodes = [originNode for originNode in self.trajectory.nodes.compressed() if any(originNode.t == trajectoryNode.t for trajectoryNode in trajectoryNodes)]
             #originNodes = sorted(originNodes, key = lambda node : node.t)
             nodeDistances = []
+            # Det her er langsommere men mere smooth. Der er stensikkert en måde at speedy det godt op med numpy.
+            """ trajectoryNodes = sorted(trajectoryNodes, key = lambda node : node.t)
+            originNodes = sorted(originNodes, key = lambda node : node.t)
+            for i in range(len(trajectoryNodes)):
+                nodeDistances.append((trajectoryNodes[i]. id, np.linalg.norm(np.array((trajectoryNodes[i].x, trajectoryNodes[i].y)) - np.array((originNodes[i].x, originNodes[i].y))))) """
             for node_id in nodesPerTrajectory[trajectory_id]:
                 node = self.trajectories[trajectory_id].nodes.data[node_id]
                 point1 = np.array((node.x, node.y))
@@ -210,7 +215,7 @@ class SimilarityQuery(Query):
                     if originNode.t == node.t:
                         point2 = np.array((originNode.x, originNode.y))
                         nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
-                        break
+                        break 
             nodeDistances = sorted(nodeDistances, key = lambda node : node[1])
             nodesPerTrajectory[trajectory_id] = nodeDistances
             

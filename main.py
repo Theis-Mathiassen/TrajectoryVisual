@@ -35,7 +35,7 @@ def main(config):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
@@ -44,7 +44,7 @@ def main(config):
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    # origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
     
@@ -54,7 +54,7 @@ def main(config):
 
     ## Main Loop
     print("Main loop..")
-    for cr in tqdm(config["compression_rate"]):        
+    for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 

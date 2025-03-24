@@ -124,6 +124,7 @@ def ped_op(segment):
 
 def ped_error(ori_traj, sim_traj):
     # Convert code first
+    # Maybe use the masked arrays instead
     ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
     sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes.compressed()]
     #Original code

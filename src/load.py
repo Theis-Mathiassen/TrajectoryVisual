@@ -19,6 +19,7 @@ PAGESIZE = 16000
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 
 #The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
+#Drop rows with polylines of length 0..
 def load_Tdrive(src : str, filename="") : 
     tqdm.pandas()
 
@@ -29,20 +30,20 @@ def load_Tdrive(src : str, filename="") :
 
     #Preprocessing 
     df = df.drop(columns=['CALL_TYPE','ORIGIN_CALL','ORIGIN_STAND','TAXI_ID', 'DAY_TYPE'])
-
-    for index in range(len(df)) : 
-        if df['MISSING_DATA'][index] == "True" :
-            df.drop(index=index)
-    df = df.drop(columns=['MISSING_DATA'])
     
     print("Eval polyline...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
     print("Done!")
+
+    for index in range(len(df)) : 
+        if df['MISSING_DATA'][index] == "True" or len(df['POLYLINE'][index]) == 0:
+            df.drop(index=index)
+    df = df.drop(columns=['MISSING_DATA'])
+    
     print("Convert lon lat to metric...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(rowLonLatToMetric)
     print("Done!")
     # map lonlat as preprocessing
-    #df['POLYLINE'] = df['POLYLINE'].apply(lambda a: list(map(lonLatToMetric, a)) )
     
     #Save trimmed data 
     if filename == '' : 

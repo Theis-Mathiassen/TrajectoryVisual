@@ -19,6 +19,8 @@ class KnnQuery(Query):
         self.x2 = params["x2"]
         self.y1 = params["y1"]
         self.y2 = params["y2"]
+        self.trajectories = params["trajectories"]
+
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
@@ -26,20 +28,23 @@ class KnnQuery(Query):
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects=True))
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         # Reconstruct trajectories
         trajectories = {}
         # For each node
         for hit in hits:
             # Extract node info
-            x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-            trajectory_id, node_id = hit.object
+            trajectory_id, node_id = hit
+            x = self.trajectories.get(trajectory_id).nodes[node_id].x
+            y = self.trajectories.get(trajectory_id).nodes[node_id].y
+            t = self.trajectories.get(trajectory_id ).nodes[node_id].t
+
 
             # Ignore origin trajectory
             if trajectory_id == self.trajectory.id:
                 continue
 
-            node = Node(node_id, x_idx, y_idx, t_idx)
+            node = Node(node_id, x, y, t)
 
             # Get list of nodes by trajectories
             if trajectory_id not in trajectories:
@@ -85,12 +90,12 @@ class KnnQuery(Query):
 
         for trajectory in matches:
 
-            # Match trajectory to supplied list
-            trajectoryIndex = 0
-            for index, trajectoryInList in enumerate(trajectories):
-                if trajectoryInList.id == trajectory.id:
-                    trajectoryIndex = index
-                    break
+            ## Match trajectory to supplied list
+            #trajectoryIndex = 0
+            #for index, trajectoryInList in enumerate(trajectories.values()):
+            #    if trajectoryInList.id == trajectory.id:
+            #        trajectoryIndex = index
+            #        break
 
             # Get segment
             segment = self.getSegmentInTimeWindow(trajectory)
@@ -102,9 +107,9 @@ class KnnQuery(Query):
 
             # Find relevant nodes and add scores. Note that scores are sorted by index in segment
             for nodeIndex, score in nodeScores.items():
-                for index, node in enumerate(trajectories[trajectoryIndex].nodes):
+                for index, node in enumerate(trajectories[trajectory.id].nodes):
                     if node.id == segment[nodeIndex].id:    # Found relevant node
-                        trajectories[trajectoryIndex].nodes[index].score += score
+                        trajectories[trajectory.id].nodes[index].score += score
                         break
 
                         

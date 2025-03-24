@@ -10,6 +10,8 @@ import sys
 import copy
 import pickle
 from tqdm import tqdm
+import pandas as pd 
+import os
 
 sys.path.append("src/")
 
@@ -32,9 +34,9 @@ def main(config):
     origRtreeQueries : QueryWrapper = QueryWrapper(config["numberOfEachQuery"])
     origRtreeParams : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-    origRtreeQueries.createRangeQueries(origRtree, origRtreeParams)
+    # origRtreeQueries.createRangeQueries(origRtree, origRtreeParams)
     # origRtreeQueries.createSimilarityQueries(origRtree, origRtreeParams)
-    # origRtreeQueries.createKNNQueries(origRtree, origRtreeParams)
+    origRtreeQueries.createKNNQueries(origRtree, origRtreeParams)
     # origRtreeQueries.createClusterQueries(origRtree, origRtreeParams)
     
     compressionRateScores = list()

@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from src.Node import Node
 from src.Trajectory import Trajectory
+from src.Filter import Filter
 
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
@@ -119,6 +120,56 @@ def rowLonLatToMetric(row):
     for x, y in row:
         nodes.append(list(lonLatToMetric(x, y)))
     return nodes
+
+def loadDatasetWithFilters(rtreeName : str, dataset, filters : list[Filter]):
+    """ Applies a list of filters in sequential order to the data """
+    trajectories = loadDataTrajectories(dataset)
+
+    for filter in filters:
+        filter.filterTrajectories(trajectories)
+    
+    Rtree_, _ = loadRtree(rtreeName, trajectories) # Converts trajectories to rtree
+
+    return Rtree_, trajectories
+    
+def loadDataTrajectories(dataset):
+    """ Loads the trajectories from a dataset """
+    # Read csv file as dataframe
+    tqdm.pandas()
+    cwd = os.getcwd()
+    path = os.path.join(cwd, 'datasets', dataset)
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
+    
+    # Set up properties
+    p = index.Property()
+    p.dimension = 3
+    p.dat_extension = 'data'
+    p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = PAGESIZE
+    #p.filename = filename
+    
+    polylines = np.array(df['POLYLINE'])
+    timestamps = np.array(df['TIMESTAMP'])
+    trip_ids = np.array(df['TRIP_ID'])
+
+        #print("Creating trajectories..")
+    c = 0
+    Trajectories = {}
+    length = len(trip_ids)
+    for i in tqdm(range(length), desc="Creating trajectories"):
+        if len(polylines[i]) == 0:
+            pass
+        else:
+            t = 0
+            c = 0
+            nodes = [] #np.array(nparrayStream(polylines[i], timestamps[i]))
+            for x, y in polylines[i]:
+                nodes.append(Node(c, x, y, timestamps[i] + t*15))
+                c += 1
+                t += 1
+            Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
+    
 
 #Function to load existing rtree and create a copy of it.
 #TO DO:

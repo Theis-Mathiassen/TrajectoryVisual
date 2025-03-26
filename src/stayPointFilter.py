@@ -1,5 +1,19 @@
 import numpy as np 
 from Node import Node
+from Filter import Filter
+
+
+class StayPointFilter(Filter):
+    def __init__(self, consecutive_nodes_for_a_stop = 5, spatial_radius_m = 200, verbose = False):
+        self.consecutive_nodes_for_a_stop = consecutive_nodes_for_a_stop
+        self.spatial_radius_m = spatial_radius_m
+        self.verbose = verbose
+
+    def filterTrajectories(self, trajectories):
+        # Function alters the input trajectory
+        stayPointFilter(trajectories, self.consecutive_nodes_for_a_stop, self.spatial_radius_m, self.verbose)
+
+
 
 
 def get_stay_locations(nodes, consecutive_nodes_for_a_stop = 5,  spatial_radius_m = 200):
@@ -75,7 +89,7 @@ def stayPointFilter(trajectories, consecutive_nodes_for_a_stop = 5,  spatial_rad
 
             node_id = trajectory.nodes[start].id # Copy the first id
 
-            newNodes.append(Node(node_id, x_idx, y_idx, t_max - t_min))
+            newNodes.append(Node(node_id, x_idx, y_idx, t_max - t_min)) # New node with average location
 
 
         # Delete the nodes
@@ -134,5 +148,3 @@ if __name__ == "__main__":
             print(nodes[j])
 
     print("\n\n")
-    for i in reversed(range(1,5)):
-        print(i)

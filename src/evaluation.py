@@ -3,6 +3,7 @@
 from src.Node import Node
 from src.Trajectory import Trajectory
 from src.clusterQuery import ClusterQuery
+from src.similarityQuery import SimilarityQuery
 import numpy as np
 import numpy.ma as ma
 from src.Query import Query

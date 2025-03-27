@@ -84,6 +84,6 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["numberOfEachQuery"] = 2      # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 1      # Number of queries used to simplify database    
 
     main(config)

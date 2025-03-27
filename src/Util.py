@@ -119,7 +119,13 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t}), dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t}))
+            if originNodes is list :
+                ogbox = dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t})
+            else : 
+                ogbox = dict({'x' : originNodes.data[i].x, 'y' : originNodes.data[i].y, 't' : originNodes.data[i].t})
+            otherbox = dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t})
+
+            cost = euc_dist_diff_2d(ogbox , otherbox )
             DTW[i, j] = cost + min(DTW[i-1  , j     ],  # insertion
                                    DTW[i    , j-1   ],  # deletion
                                    DTW[i-1  , j-1   ])  # match

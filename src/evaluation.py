@@ -3,6 +3,7 @@
 from src.Node import Node
 from src.Trajectory import Trajectory
 from src.clusterQuery import ClusterQuery
+from src.knnQuery import KnnQuery
 import numpy as np
 import numpy.ma as ma
 from src.Query import Query
@@ -24,8 +25,12 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
     original_result = Query.run(rtree_original)
     simplified_result = Query.run(rtree_simplified)
     
-    setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
-    setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
+    if isinstance(Query, KnnQuery) :
+        setOriginal_result = set([item.id for item in original_result])
+        setSimplified_result = set([item.id for item in simplified_result])
+    else : 
+        setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
+        setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
 
     intersection = setOriginal_result & setSimplified_result
 

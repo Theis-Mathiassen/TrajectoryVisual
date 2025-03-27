@@ -1,4 +1,5 @@
 from src.QueryWrapper import QueryWrapper
+from src.clusterQuery import ClusterQuery
 from tqdm import tqdm
 
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper):
@@ -8,5 +9,8 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper):
         # Get result of query
         result = Query.run(Rtree)
         # Distribute points
-        Query.distribute(trajectories, result)
+        if not isinstance(Query, ClusterQuery):
+            Query.distribute(trajectories, result)
+        else:
+            Query.distribute(trajectories)
     #print("Done!")

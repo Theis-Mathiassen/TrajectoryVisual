@@ -18,6 +18,7 @@ class ClusterQuery(Query):
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
+        self.params = params
         self.returnCluster = False
 
     def _trajectory_to_numpy(self, trajectory):
@@ -39,7 +40,7 @@ class ClusterQuery(Query):
             _, trajectory_id = hit.object
             if trajectory_id not in seen_trajectories:
                 seen_trajectories.add(trajectory_id)
-                matching_traj = next((t for t in trajectories if t.id == trajectory_id), None)
+                matching_traj = next((t for t in trajectories.keys() if t == trajectory_id), None)
                 if matching_traj:
                     filtered.append(matching_traj)
         
@@ -104,9 +105,12 @@ class ClusterQuery(Query):
                     n.score += 1
 
         # Calculate query center (using origin trajectory)
-        center_x = np.mean([node.x for node in self.origin.nodes])
-        center_y = np.mean([node.y for node in self.origin.nodes])
-        center_t = np.mean([node.t for node in self.origin.nodes])
+        center_x = self.params['x1'] + self.params['x2'] / 2
+        center_y = self.params['y1'] + self.params['y2'] / 2
+        center_t = self.params['t1'] + self.params['t2'] / 2
+        """ center_x = np.mean([node.x for node in self.origin.nodes.data])
+        center_y = np.mean([node.y for node in self.origin.nodes.data])
+        center_t = np.mean([node.t for node in self.origin.nodes.data]) """
         q_bbox = [center_x, center_y, center_t]
 
         # Key = Trajectory id, value = (Node id, distance)
@@ -127,9 +131,10 @@ class ClusterQuery(Query):
 
         # distribute points to the closest nodes in each trajectory
         for key, value in point_dict.items():
-            for t in trajectories:
+            trajectories[key].nodes[value[0]].score += 1
+            """ for t in trajectories.values():
                 if t.id == key:
-                    give_point(t, value[0])
+                    give_point(t, value[0]) """
 
 if __name__ == "__main__":
     # Create sample trajectories for testing

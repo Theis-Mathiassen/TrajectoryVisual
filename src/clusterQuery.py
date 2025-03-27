@@ -53,18 +53,21 @@ class ClusterQuery(Query):
         self.hits = hits  
         # a single hit is stored as: (node_id, trajectory_id)
 
+        # filtered = []
+        # seen_trajectories = set()
+        # for hit in hits:
+        #     _, trajectory_id = hit.object
+        #     if trajectory_id not in seen_trajectories:
+        #         seen_trajectories.add(trajectory_id)
+        #         matching_traj = next((t for t in trajectories.keys() if t == trajectory_id), None)
+        #         if matching_traj:
+        #             filtered.append(matching_traj)
 
-        filtered = []
-        seen_trajectories = set()
-        for hit in hits:
-            _, trajectory_id = hit.object
-            if trajectory_id not in seen_trajectories:
-                seen_trajectories.add(trajectory_id)
-                matching_traj = next((t for t in trajectories.keys() if t == trajectory_id), None)
-                if matching_traj:
-                    filtered.append(matching_traj)
-        
-        return filtered
+        # Convert ids to Trajectory objects
+        hit_trajectory_ids = [trajectory_id for (_, trajectory_id) in [hit.object for hit in hits]]
+        filtered_trajectories = [t for t in trajectories.values() if t.id in hit_trajectory_ids]
+
+        return filtered_trajectories
     
     def run(self, rtree):
         # get all trajectories with points in the time window, unless needs to return all clusters
@@ -125,9 +128,13 @@ class ClusterQuery(Query):
                     n.score += 1
 
         # Calculate query center (using origin trajectory)
-        center_x = self.params['x1'] + self.params['x2'] / 2
-        center_y = self.params['y1'] + self.params['y2'] / 2
-        center_t = self.params['t1'] + self.params['t2'] / 2
+        originTrajectory = self.params["origin"] # This could be made faster with numpy treating this as tensor of size (1,3)
+        firstNode = originTrajectory.nodes[0]
+        lastNode = originTrajectory.nodes[-1]
+
+        center_x = (firstNode.x + lastNode.x) / 2
+        center_y = (firstNode.y + lastNode.y) / 2
+        center_t = (firstNode.t + lastNode.t) / 2
         """ center_x = np.mean([node.x for node in self.origin.nodes.data])
         center_y = np.mean([node.y for node in self.origin.nodes.data])
         center_t = np.mean([node.t for node in self.origin.nodes.data]) """
@@ -140,6 +147,7 @@ class ClusterQuery(Query):
         matches = [(n.object, n.bbox) for n in self.hits]
 
         for obj, bbox in matches:
+            print(obj)
             dist_current = euc_dist_diff_3d(bbox, q_bbox)
 
             if obj[0] in point_dict:
@@ -150,11 +158,16 @@ class ClusterQuery(Query):
                 point_dict[obj[0]] = (obj[1], dist_current)
 
         # distribute points to the closest nodes in each trajectory
+        print(trajectories)
+        print(point_dict)
+
+
+
         for key, value in point_dict.items():
-            trajectories[key].nodes[value[0]].score += 1
-            """ for t in trajectories.values():
+            for t in trajectories.values():
                 if t.id == key:
-                    give_point(t, value[0]) """
+                    give_point(t, value[0])
+            
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
         # convert trajectories to numpy arrays for TRACLUS
@@ -216,6 +229,11 @@ if __name__ == "__main__":
                 obj=(node.id, traj.id)  
             )
 
+    trajectories = {}
+
+    for traj in [traj1, traj2, traj3]:
+        trajectories[traj.id] = traj
+
     # query params
     params = {
         "t1": 0,  
@@ -223,7 +241,7 @@ if __name__ == "__main__":
         "eps": 0.5,  # max distance for clustering
         "linesMin": 2,  # min amount of lines in a cluster
         "origin": traj1,  # query trajectory
-        "trajectories": [traj1, traj2, traj3] 
+        "trajectories": trajectories 
     }
 
     query = ClusterQuery(params)
@@ -259,7 +277,14 @@ if __name__ == "__main__":
 
     traj4 = create_sample_trajectory(4, nodes)
 
-    query.distributeCluster(trajectories=[traj1, traj2, traj3, traj4])
+    trajectories = {}
+
+    for traj in [traj1, traj2, traj3, traj4]:
+        trajectories[traj.id] = traj
+
+
+
+    query.distributeCluster(trajectories)
 
 
     print("\nCluster Query Results:")

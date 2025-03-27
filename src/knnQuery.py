@@ -35,9 +35,9 @@ class KnnQuery(Query):
         for hit in hits:
             # Extract node info
             trajectory_id, node_id = hit
-            x = self.trajectories.get(trajectory_id).nodes[node_id].x
-            y = self.trajectories.get(trajectory_id).nodes[node_id].y
-            t = self.trajectories.get(trajectory_id ).nodes[node_id].t
+            x = self.trajectories.get(trajectory_id).nodes.data[node_id].x
+            y = self.trajectories.get(trajectory_id).nodes.data[node_id].y
+            t = self.trajectories.get(trajectory_id ).nodes.data[node_id].t
 
 
             # Ignore origin trajectory

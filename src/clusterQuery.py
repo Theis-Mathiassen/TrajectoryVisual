@@ -25,8 +25,8 @@ from sklearn.cluster import OPTICS
 from src.Node import Node
 from rtree import index
 from src.Util import euc_dist_diff_3d
-from collections import defaultdict
 from TRACLUS_OurTools import traclus_get_segments
+from collections import defaultdict
 
 class ClusterQuery(Query): 
 
@@ -155,33 +155,6 @@ class ClusterQuery(Query):
             """ for t in trajectories.values():
                 if t.id == key:
                     give_point(t, value[0]) """
-
-    def distributeCluster(self, trajectories, scoreToAward = 1):
-        # convert trajectories to numpy arrays for TRACLUS
-        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-
-        partitions = traclus_get_segments(
-            trajectories=numpy_trajectories,
-            directional=True,
-            use_segments=True,
-            progress_bar=False,
-            return_partitions=True
-        )
-
-        nodesToReward = dict()
-
-        # Find node indicies for each trajectory. Has to be iterative as trajectory lengths vary
-        for trajectoryIndex, (trajectory, partition) in enumerate(zip(numpy_trajectories, partitions)):
-            mask = (trajectory[:, None] == partition).all(axis=2)
-            indices = np.where(mask)[0]
-
-            nodesToReward[trajectoryIndex] = indices
-
-        # Award points
-        for trajectoryIndex, nodeIndexes in nodesToReward.items():
-            for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
-
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
         # convert trajectories to numpy arrays for TRACLUS

@@ -34,8 +34,8 @@ def main(config):
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-    #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
@@ -43,8 +43,8 @@ def main(config):
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
     
@@ -53,7 +53,7 @@ def main(config):
     #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
 
     ## Main Loop
-    print("Main loop..")
+    #print("Main loop..")
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)

@@ -21,7 +21,7 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 #### main
 def main(config):
     ## Load Dataset
-    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
+    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
     origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
@@ -34,19 +34,19 @@ def main(config):
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
-    # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
     
     compressionRateScores = list()
 

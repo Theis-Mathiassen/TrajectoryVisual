@@ -1,3 +1,22 @@
+import os
+import sys
+
+# Find the absolute path of the project directory
+absolute_path = os.path.dirname(__file__)
+
+# Define the relative paths of directories to import from
+relative_path_src = ".."
+relative_path_test = "../src"
+
+# Create the full path for these directories
+full_path_src = os.path.join(absolute_path, relative_path_src)
+full_path_test = os.path.join(absolute_path, relative_path_test)
+
+# Append them to the path variable of the system
+sys.path.append(full_path_src)
+sys.path.append(full_path_test)
+
+
 from src.Query import Query
 from src.Trajectory import Trajectory
 import numpy as np
@@ -7,6 +26,7 @@ from src.Node import Node
 from rtree import index
 from src.Util import euc_dist_diff_3d
 from collections import defaultdict
+from TRACLUS_OurTools import traclus_get_segments
 
 class ClusterQuery(Query): 
 
@@ -136,6 +156,60 @@ class ClusterQuery(Query):
                 if t.id == key:
                     give_point(t, value[0]) """
 
+    def distributeCluster(self, trajectories, scoreToAward = 1):
+        # convert trajectories to numpy arrays for TRACLUS
+        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
+
+        partitions = traclus_get_segments(
+            trajectories=numpy_trajectories,
+            directional=True,
+            use_segments=True,
+            progress_bar=False,
+            return_partitions=True
+        )
+
+        nodesToReward = dict()
+
+        # Find node indicies for each trajectory. Has to be iterative as trajectory lengths vary
+        for trajectoryIndex, (trajectory, partition) in enumerate(zip(numpy_trajectories, partitions)):
+            mask = (trajectory[:, None] == partition).all(axis=2)
+            indices = np.where(mask)[0]
+
+            nodesToReward[trajectoryIndex] = indices
+
+        # Award points
+        for trajectoryIndex, nodeIndexes in nodesToReward.items():
+            for nodeIndex in nodeIndexes:
+                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+
+
+    def distributeCluster(self, trajectories, scoreToAward = 1):
+        # convert trajectories to numpy arrays for TRACLUS
+        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
+
+        partitions = traclus_get_segments(
+            trajectories=numpy_trajectories,
+            directional=True,
+            use_segments=True,
+            progress_bar=False,
+            return_partitions=True
+        )
+
+        nodesToReward = dict()
+
+        # Find node indicies for each trajectory. Has to be iterative as trajectory lengths vary
+        for trajectoryIndex, (trajectory, partition) in enumerate(zip(numpy_trajectories, partitions)):
+            mask = (trajectory[:, None] == partition).all(axis=2)
+            indices = np.where(mask)[0]
+
+            nodesToReward[trajectoryIndex] = indices
+
+        # Award points
+        for trajectoryIndex, nodeIndexes in nodesToReward.items():
+            for nodeIndex in nodeIndexes:
+                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+
+
 if __name__ == "__main__":
     # Create sample trajectories for testing
     def create_sample_trajectory(id, points):
@@ -192,6 +266,44 @@ if __name__ == "__main__":
         print(f"\nTrajectory {traj.id}:")
         for node in traj.nodes:
             print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
+
+    # Reset points
+
+
+    nodes = [(0,0,0)]
+    x = 0
+    y = 0
+    t = 0
+    for i in range(10):
+        t += 1
+        x += 10
+        nodes.append((x, y, t))
+    
+    for i in range(10):
+        t += 1
+        y += 10
+        nodes.append((x, y, t))
+
+    traj4 = create_sample_trajectory(4, nodes)
+
+    query.distributeCluster(trajectories=[traj1, traj2, traj3, traj4])
+
+
+    print("\nCluster Query Results:")
+    print(f"Number of similar trajectories found: {len(result)}")
+    print("\nSimilar trajectories with scores:")
+    for traj in result:
+        print(f"\nTrajectory {traj.id}:")
+        for node in traj.nodes:
+            print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
+
+    print("\n ----- Scoring for all nodes---- \n")
+
+    for traj in [traj1, traj2, traj3, traj4]:
+        print(f"\nTrajectory {traj.id}:")
+        for node in traj.nodes:
+            print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
+
 
 
     query.returnCluster = True

@@ -70,10 +70,13 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3):
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        tMin = self.tMin 
-        tMax = self.tMax
+        trajectoryTemporalLength = abs(randomTrajectory.nodes[-1].t - randomTrajectory.nodes[0].t)
+        padding = max(0, temporalWindowSize - trajectoryTemporalLength)
+        tMin = randomTrajectory.nodes[0].t - padding
+        tMax = randomTrajectory.nodes[-1].t + padding
+        #tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax
         yMin = self.yMin
@@ -102,7 +105,7 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
 # but changed to a dynamic window size such that we always can compare two trajectories
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     originNodes = origin.nodes
-    otherNodes = other.nodes
+    otherNodes = other.nodes.compressed()
     DTW = np.ndarray((len(originNodes),len(otherNodes)))
     
     w = abs(len(originNodes) - len(otherNodes)) + 1

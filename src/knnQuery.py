@@ -24,7 +24,7 @@ class KnnQuery(Query):
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
-
+        return self.run2(rtree)
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
@@ -80,6 +80,54 @@ class KnnQuery(Query):
         # Get top k trajectories
         return [x for x in trajectories_output if x.id in topKIds]
 
+    def run2(self, rtree):
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
+        
+        hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
+        
+        trajectories = {}
+        
+        for trajectory_id, node_id in hits:
+            if trajectory_id not in trajectories:
+                trajectories[trajectory_id] = []
+            trajectories[trajectory_id].append(node_id)
+        
+        
+        for trajectory in trajectories:
+            #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
+            minIndex = min(trajectories[trajectory])
+            maxIndex = max(trajectories[trajectory])
+            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex :maxIndex + 1]
+            
+        
+        if len(trajectories.keys()) <= self.k:
+            return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
+        
+        listOfTrajectorySegments = trajectories.items()
+
+        # Use DTW distance to compute similarity
+        similarityMeasures = {}
+        
+        # Must be of type trajectory to be accepted
+        originSegmentTrajectory = self.trajectory
+        for segment in listOfTrajectorySegments:
+            segmentTrajectory = Trajectory(segment[0], segment[1])
+            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+
+        # Sort by most similar, where the most similar have the smallest value
+        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
+
+        # get top k ids
+        topKIds = [x[0] for x in similarityMeasures[:self.k]]
+
+        trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
+
+
+
+        # Get top k trajectories
+        return [x for x in trajectories_output if x.id in topKIds]
+        
+
     def distribute(self, trajectories, matches):
 
         # Current implementation supports DTW
@@ -98,17 +146,17 @@ class KnnQuery(Query):
             #        break
 
             # Get segment
-            segment = self.getSegmentInTimeWindow(trajectory)
-            segmentTrajectory = Trajectory(trajectory.id, segment)
+            #segment = self.getSegmentInTimeWindow(trajectory)
+            #segmentTrajectory = Trajectory(trajectory.id, segment)
 
             # get scorings for nodes (With DTW) in dictionary form
-            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, segmentTrajectory)
+            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
 
 
             # Find relevant nodes and add scores. Note that scores are sorted by index in segment
             for nodeIndex, score in nodeScores.items():
                 for index, node in enumerate(trajectories[trajectory.id].nodes):
-                    if node.id == segment[nodeIndex].id:    # Found relevant node
+                    if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
                         trajectories[trajectory.id].nodes[index].score += score
                         break
 

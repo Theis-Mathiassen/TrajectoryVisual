@@ -87,7 +87,7 @@ class ClusterQuery(Query):
             numpy_trajectories.append(origin_numpy)  # Add query trajectory
 
         # run TRACLUS
-        _, segments, _, clusters, cluster_assignments, _ = traclus(
+        partitions, _, _, clusters, cluster_assignments, _ = traclus(
             numpy_trajectories,
             max_eps=self.eps,
             min_samples=self.min_lines,
@@ -97,34 +97,52 @@ class ClusterQuery(Query):
             progress_bar=False
         )
 
+        mapSegmentTotrajectoryIndex = self.getTrajectoryForPartitions(partitions)
+
         if self.returnCluster:  # If should instead "just" return the clusters
             # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
             dict_for_clusters = defaultdict(list)
             for index, value in enumerate(cluster_assignments):
-                dict_for_clusters[value].append(trajectories[index])
+                trajectoryIndex = mapSegmentTotrajectoryIndex[index]
+                dict_for_clusters[value].append(trajectories[trajectoryIndex])
 
-            return dict_for_clusters.values()  # Return groupings
+            # Remove duplicates
+            clusters = list(dict_for_clusters.values())
+            clusters = [self.removeDuplicateTrajectories(cluster) for cluster in clusters]
+
+            return clusters  # Return groupings
 
         # find which cluster contains the query trajectory
         query_idx = len(numpy_trajectories) - 1  # last added trajectory is the query
-        query_cluster = cluster_assignments[query_idx]
+        query_cluster_indexes = [idx for idx in range(len(mapSegmentTotrajectoryIndex)) if mapSegmentTotrajectoryIndex[idx] == query_idx]
+        query_clusters = [cluster_assignments[index] for index in query_cluster_indexes]
 
         # get trajectories in the same cluster as the query
-        print(trajectories)
-        print(len(trajectories))
-        print(clusters)
-        print(cluster_assignments)
         similar_trajectories = []
         for idx, cluster_id in enumerate(cluster_assignments):
-            print(idx)
-            if cluster_id == query_cluster and idx != query_idx:
-                similar_trajectories.append(trajectories[idx])
+            if cluster_id in query_clusters and idx not in query_cluster_indexes:
+                trajectoryIndex = mapSegmentTotrajectoryIndex[idx]
+                similar_trajectories.append(trajectories[trajectoryIndex])
+
+        similar_trajectories = self.removeDuplicateTrajectories(similar_trajectories)
 
         return similar_trajectories
     
-    def groupTrajectoryIndexBySegmentsAndCluster(self, segments, clusters):
-        # Segments are grouped on trajectory index
-        pass
+    def removeDuplicateTrajectories(self, clusters):
+        seen = set()
+        return [t for t in clusters if t.id not in seen and not seen.add(t.id)]
+
+    def getTrajectoryForPartitions(self, partitions):
+        """ Get which trajectory index each segment corresponds to """
+
+        mapSegmentTotrajectoryIndex = []
+
+        for index, partition in enumerate(partitions):
+            amount = len(partition) - 1
+            mapSegmentTotrajectoryIndex += [index] * amount
+
+        return mapSegmentTotrajectoryIndex
+
 
 
     def distribute(self, trajectories):

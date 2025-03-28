@@ -72,7 +72,7 @@ class ClusterQuery(Query):
     def run(self, rtree):
         # get all trajectories with points in the time window, unless needs to return all clusters
         if self.returnCluster:
-            trajectories = self.params["trajectories"]
+            trajectories = list(self.params["trajectories"].values())
         else: 
             trajectories = self._filter_trajectories_by_time(self.params["trajectories"], rtree)
         
@@ -87,7 +87,7 @@ class ClusterQuery(Query):
             numpy_trajectories.append(origin_numpy)  # Add query trajectory
 
         # run TRACLUS
-        _, _, _, clusters, cluster_assignments, _ = traclus(
+        _, segments, _, clusters, cluster_assignments, _ = traclus(
             numpy_trajectories,
             max_eps=self.eps,
             min_samples=self.min_lines,
@@ -110,12 +110,22 @@ class ClusterQuery(Query):
         query_cluster = cluster_assignments[query_idx]
 
         # get trajectories in the same cluster as the query
+        print(trajectories)
+        print(len(trajectories))
+        print(clusters)
+        print(cluster_assignments)
         similar_trajectories = []
         for idx, cluster_id in enumerate(cluster_assignments):
+            print(idx)
             if cluster_id == query_cluster and idx != query_idx:
                 similar_trajectories.append(trajectories[idx])
 
         return similar_trajectories
+    
+    def groupTrajectoryIndexBySegmentsAndCluster(self, segments, clusters):
+        # Segments are grouped on trajectory index
+        pass
+
 
     def distribute(self, trajectories):
         """Distribute points based on cluster membership and spatial proximity."""
@@ -158,20 +168,20 @@ class ClusterQuery(Query):
                 point_dict[obj[0]] = (obj[1], dist_current)
 
         # distribute points to the closest nodes in each trajectory
-        print(trajectories)
-        print(point_dict)
 
-
-
+        # This would be vastly faster if we had the dictionary of trajectories available here
+        # For now we leave this here as I think we will use another approach entirely
         for key, value in point_dict.items():
-            for t in trajectories.values():
+            for t in trajectories:
                 if t.id == key:
                     give_point(t, value[0])
             
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
+        """ Distribute points based on the partitioning of the trajectories.  
+        Such that it includes what they determine to be relevant points"""
         # convert trajectories to numpy arrays for TRACLUS
-        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
+        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories.values()]
 
         partitions = traclus_get_segments(
             trajectories=numpy_trajectories,
@@ -181,19 +191,19 @@ class ClusterQuery(Query):
             return_partitions=True
         )
 
-        nodesToReward = dict()
+        nodesToReward = defaultdict(list)
 
         # Find node indicies for each trajectory. Has to be iterative as trajectory lengths vary
-        for trajectoryIndex, (trajectory, partition) in enumerate(zip(numpy_trajectories, partitions)):
+        for (trajectoryId, trajectory, partition) in (zip(trajectories.keys(), numpy_trajectories, partitions)):
             mask = (trajectory[:, None] == partition).all(axis=2)
             indices = np.where(mask)[0]
 
-            nodesToReward[trajectoryIndex] = indices
+            nodesToReward[trajectoryId] = indices
 
         # Award points
-        for trajectoryIndex, nodeIndexes in nodesToReward.items():
+        for trajectoryId, nodeIndexes in nodesToReward.items():
             for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+                trajectories[trajectoryId].nodes[nodeIndex].score += scoreToAward
 
 
 if __name__ == "__main__":
@@ -215,52 +225,6 @@ if __name__ == "__main__":
         (0, 0, 0), (1, 0, 1), (2, 0, 2), (3, 0, 3)
     ])
 
-    # create R-tree index
-    p = index.Property()
-    p.dimension = 3  
-    rtree = index.Index(properties=p)
-
-    # insert trajectories into R-tree
-    for traj in [traj1, traj2, traj3]:
-        for i, node in enumerate(traj.nodes):
-            rtree.insert(
-                traj.id,  # ID
-                (node.x, node.y, node.t, node.x, node.y, node.t),  # Bbox (point)
-                obj=(node.id, traj.id)  
-            )
-
-    trajectories = {}
-
-    for traj in [traj1, traj2, traj3]:
-        trajectories[traj.id] = traj
-
-    # query params
-    params = {
-        "t1": 0,  
-        "t2": 3,  
-        "eps": 0.5,  # max distance for clustering
-        "linesMin": 2,  # min amount of lines in a cluster
-        "origin": traj1,  # query trajectory
-        "trajectories": trajectories 
-    }
-
-    query = ClusterQuery(params)
-
-    result = query.run(rtree)
-
-    query.distribute(result)
-
-    print("\nCluster Query Results:")
-    print(f"Number of similar trajectories found: {len(result)}")
-    print("\nSimilar trajectories with scores:")
-    for traj in result:
-        print(f"\nTrajectory {traj.id}:")
-        for node in traj.nodes:
-            print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
-
-    # Reset points
-
-
     nodes = [(0,0,0)]
     x = 0
     y = 0
@@ -277,10 +241,53 @@ if __name__ == "__main__":
 
     traj4 = create_sample_trajectory(4, nodes)
 
+    # create R-tree index
+    p = index.Property()
+    p.dimension = 3  
+    rtree = index.Index(properties=p)
+
+    # insert trajectories into R-tree
+    for traj in [traj1, traj2, traj3, traj4]:
+        for i, node in enumerate(traj.nodes):
+            rtree.insert(
+                traj.id,  # ID
+                (node.x, node.y, node.t, node.x, node.y, node.t),  # Bbox (point)
+                obj=(node.id, traj.id)  
+            )
+
+
+
     trajectories = {}
 
     for traj in [traj1, traj2, traj3, traj4]:
         trajectories[traj.id] = traj
+
+
+    # query params
+    params = {
+        "t1": 0,  
+        "t2": 3,  
+        "eps": 0.5,  # max distance for clustering
+        "linesMin": 2,  # min amount of lines in a cluster
+        "origin": traj1,  # query trajectory
+        "trajectories": trajectories 
+    }
+
+    query = ClusterQuery(params)
+
+    result = query.run(rtree)
+
+    #query.distribute(result)
+
+    # print("\nCluster Query Results:")
+    # print(f"Number of similar trajectories found: {len(result)}")
+    # print("\nSimilar trajectories with scores:")
+    # for traj in result:
+    #     print(f"\nTrajectory {traj.id}:")
+    #     for node in traj.nodes:
+    #         print(f"  Point: ({node.x}, {node.y}, {node.t}) - Score: {node.score}")
+
+
 
 
 

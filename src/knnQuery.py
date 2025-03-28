@@ -97,7 +97,7 @@ class KnnQuery(Query):
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
             minIndex = min(trajectories[trajectory])
             maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex :maxIndex + 1]
+            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
             
         
         if len(trajectories.keys()) <= self.k:

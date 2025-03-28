@@ -106,6 +106,8 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     originNodes = origin.nodes
     otherNodes = other.nodes.compressed()
+    if len(originNodes) == 0 or len(otherNodes) == 0:
+        return math.inf
     DTW = np.ndarray((len(originNodes),len(otherNodes)))
     
     w = abs(len(originNodes) - len(otherNodes)) + 1

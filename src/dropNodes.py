@@ -33,7 +33,7 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
     # Special case for if there are so few nodes we cannot drop enough
     amount_to_drop = min(amount_to_drop, len(sorted_nodes))
 
-    print("Dropping nodes..")
+    
     nodesToDrop = sorted_nodes[0 : amount_to_drop]
     nodesPerTrajectory = {}
     for node_id, trajectory_id in nodesToDrop:
@@ -41,7 +41,8 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
             nodesPerTrajectory[trajectory_id] = []
         nodesPerTrajectory[trajectory_id].append(node_id)
     
-    for trajectory_id in nodesPerTrajectory.keys():
+    
+    for trajectory_id in tqdm(nodesPerTrajectory.keys(), total=len(nodesPerTrajectory.keys()), desc="Dropping nodes"):
         trajectory = trajectories.get(trajectory_id)
         mask = np.zeros(len(trajectory.nodes))
         droppedNodes = nodesPerTrajectory[trajectory_id]

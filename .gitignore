@@ -19,3 +19,4 @@ datasets/
 *.pywz.gz
 *.data
 *.index
+.DS_Store

@@ -9,6 +9,7 @@ import os
 import sys
 import copy
 import pickle
+import math
 from tqdm import tqdm
 import pandas as pd 
 import os
@@ -31,27 +32,39 @@ def main(config):
     ORIGTrajectories = copy.deepcopy(origTrajectories)
 
     ## Setup data collection environment, that is evaluation after each epoch
-    origRtreeQueries : QueryWrapper = QueryWrapper(config["numberOfEachQuery"])
-    origRtreeParams : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    # ---- Create training queries -----
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-    # origRtreeQueries.createRangeQueries(origRtree, origRtreeParams)
-    # origRtreeQueries.createSimilarityQueries(origRtree, origRtreeParams)
-    origRtreeQueries.createKNNQueries(origRtree, origRtreeParams)
-    # origRtreeQueries.createClusterQueries(origRtree, origRtreeParams)
+
+    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+
+    # ---- Create evaluation queries -----
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+
+    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+
     
     compressionRateScores = list()
 
     #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
 
     ## Main Loop
-    print("Main loop..")
-    for cr in tqdm(config["compression_rate"]):        
-        giveQueryScorings(origRtree, origTrajectories, origRtreeQueries)
+    #print("Main loop..")
+    for cr in tqdm(config["compression_rate"], desc="compression rate"):        
+        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'avgf1' : getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'avgf1' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
         print(compressionRateScores[-1]['avgf1'])
         simpRtree.close()
@@ -84,6 +97,7 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["numberOfEachQuery"] = 1      # Number of queries used to simplify database    
+    config["trainTestSplit"] = 0.8          # Train/test split
+    config["numberOfEachQuery"] = 200      # Number of queries used to simplify database    
 
     main(config)

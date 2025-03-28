@@ -11,6 +11,8 @@ import copy
 import pickle
 import math
 from tqdm import tqdm
+import pandas as pd 
+import os
 
 sys.path.append("src/")
 
@@ -34,6 +36,7 @@ def main(config):
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
+
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
@@ -47,6 +50,7 @@ def main(config):
     origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+
     
     compressionRateScores = list()
 

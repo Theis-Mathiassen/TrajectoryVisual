@@ -170,12 +170,65 @@ def pointStream(rtree : index.Index):
         yield (i, tuple(point.bbox), i)
 
 
+def tDriveToCsv():
+    """
+    Function to convert the T-Drive dataset into a single csv file with TRIP_ID, POLYLINE columns.
+    """
+    cwd = os.getcwd()
+
+    directory = os.fsencode(os.path.join(cwd, 'datasets','taxi_log_2008_by_id'))
+        
+    csvdf = pd.DataFrame(columns=['TRIP_ID', 'POLYLINE'])
+
+    taxiIdx = 0
+
+    super_x = []
+
+    for file in tqdm(os.listdir(directory)):
+        filename = os.fsdecode(file)
+        
+        df = pd.read_csv(os.path.join(os.fsdecode(directory),filename), header=None, delimiter=',', names=['id', 'time', 'lon', 'lat'], parse_dates=['time'], date_format="%Y%m%d%H%M%S") #, date_format="%Y%m%d%H%M%S"
+        
+        if len(df) == 0: 
+            continue
+        df['time'] = pd.to_datetime(df['time'], yearfirst=True).astype(int) // 10**9
+        polyline = df.apply(lambda row : (row['lon'], row['lat'], row['time']), axis=1)
+        super_x.append([df['id'][0], polyline.tolist()])
+        #csvdf = pd.concat([pd.DataFrame({'TRIP_ID' : df['id'][0], 'POLYLINE' : polyline}, columns=['TRIP_ID', 'POLYLINE']), csvdf], ignore_index=True)
+        #csvdf.loc[taxiIdx] = [df['id'][0], polyline]
+        taxiIdx += 1
+        
+    csvdf = pd.concat([csvdf, pd.DataFrame(super_x, columns=['TRIP_ID', 'POLYLINE'])], ignore_index=True, axis=0)
+    csvdf.to_csv(path_or_buf=os.path.join(cwd, 'TDrive'), sep=',', index=False)
+
+def datastreamTriple(polylines, trip_ids):
+    """
+    datastream where polylines is an array of (x, y, t) coordinates.
+
+    Args:
+        polylines ([(x : float, y : float, t : float)..]): Array of coordinates  
+        trip_ids (int): Trip id / trajectory id.
+
+    Yields:
+        Index.item(): tuple representing the rtree item with object
+    """
+    c = 0
+    length = len(trip_ids)
+    for i in tqdm(range(length)) :
+        for x, y, t in polylines[i] :
+            obj=(trip_ids[i], c)
+            yield (c, (x, y, t, x, y, t), obj)
+            c+=1
+
+
+
 
 if __name__ == "__main__":
-    load_Tdrive("trimmed_small_train.csv")
+    tDriveToCsv()
+    """ load_Tdrive("trimmed_small_train.csv")
     Rtree_, Trajectories = build_Rtree("trimmed_small_train.csv", "test")
 
     hits = list(Rtree_.intersection((-8.66,41.13, 1372636858-2, -8.618643,41.17, 1372637303+100), objects=True))
     print("(Trajectory ID, Node id) pair for intersecting trajectories on range query : ")
-    print([(n.object) for n in hits])
+    print([(n.object) for n in hits]) """
 

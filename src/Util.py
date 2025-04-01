@@ -70,16 +70,19 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
-        tMin = self.tMin 
-        tMax = self.tMax
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        trajectoryTemporalLength = abs(randomTrajectory.nodes[-1].t - randomTrajectory.nodes[0].t)
+        padding = max(0, temporalWindowSize - trajectoryTemporalLength)
+        tMin = randomTrajectory.nodes[0].t - padding
+        tMax = randomTrajectory.nodes[-1].t + padding
+        #tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
         k = k
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def clusterParams(self, rtree: index.Index):
         tMin = self.tMin 
@@ -102,7 +105,9 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
 # but changed to a dynamic window size such that we always can compare two trajectories
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     originNodes = origin.nodes
-    otherNodes = other.nodes
+    otherNodes = other.nodes.compressed()
+    if len(originNodes) == 0 or len(otherNodes) == 0:
+        return math.inf
     DTW = np.ndarray((len(originNodes),len(otherNodes)))
     
     w = abs(len(originNodes) - len(otherNodes)) + 1
@@ -119,7 +124,13 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(originNodes[i], otherNodes[j])
+            if originNodes is list :
+                ogbox = dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t})
+            else : 
+                ogbox = dict({'x' : originNodes.data[i].x, 'y' : originNodes.data[i].y, 't' : originNodes.data[i].t})
+            otherbox = dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t})
+
+            cost = euc_dist_diff_2d(ogbox , otherbox )
             DTW[i, j] = cost + min(DTW[i-1  , j     ],  # insertion
                                    DTW[i    , j-1   ],  # deletion
                                    DTW[i-1  , j-1   ])  # match
@@ -194,7 +205,7 @@ def DTWDistanceWithScoring(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(originNodes[i], otherNodes[j])
+            cost = euc_dist_diff_2d(dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t}), dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t}))
 
             minimum = min(  DTW[i-1  , j     ],  # insertion
                             DTW[i    , j-1   ],  # deletion

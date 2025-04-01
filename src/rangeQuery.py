@@ -59,9 +59,9 @@ class RangeQuery(Query):
                     n.score += 1
         
         # TODO: Get center points from query
-        centerx = 0
-        centery = 0
-        centert = 0
+        centerx = (self.x1 + self.x2) / 2
+        centery = (self.y1 + self.y2) / 2
+        centert = (self.t1 + self.t2) / 2
         q_bbox = dict({'x' : centerx, 'y' : centery, 't' : centert})
         
         # Key = Trajectory id, value = (Node id, distance)

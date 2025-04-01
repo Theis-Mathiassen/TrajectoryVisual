@@ -22,7 +22,6 @@ PAGESIZE = 16000
 #The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
 #Drop rows with polylines of length 0..
 def load_Tdrive(src : str, filename="") : 
-    tqdm.pandas()
 
     cwd = os.getcwd()
 
@@ -32,9 +31,10 @@ def load_Tdrive(src : str, filename="") :
     #Preprocessing 
     df = df.drop(columns=['CALL_TYPE','ORIGIN_CALL','ORIGIN_STAND','TAXI_ID', 'DAY_TYPE'])
     
-    print("Eval polyline...")
+   
+    tqdm.pandas(desc="Evaluating polyline")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
-    print("Done!")
+    
 
     droppedRows = []
     for index in range(len(df)) : 
@@ -44,10 +44,8 @@ def load_Tdrive(src : str, filename="") :
     df = df.drop(columns=['MISSING_DATA'])
     df = df.drop(droppedRows)
         
-    print("Convert lon lat to metric...")
+    tqdm.pandas(desc="Converting lon lat to metric")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(rowLonLatToMetric)
-    print("Done!")
-    # map lonlat as preprocessing
     
     #Save trimmed data 
     if filename == '' : 
@@ -86,12 +84,12 @@ def build_Rtree(dataset, filename='') :
     timestamps = np.array(df['TIMESTAMP'])
     trip_ids = np.array(df['TRIP_ID'])
     
-    print("Creating rtree..")
+    
     if os.path.exists(filename + '.index'):
         Rtree_ = index.Index(filename, properties=p)
     else:
         Rtree_ = index.Index(filename, datastream(polylines, timestamps, trip_ids), properties=p)
-    print("Done!")
+    
     
     #print("Creating trajectories..")
     c = 0
@@ -153,7 +151,6 @@ def loadDataTrajectories(dataset):
     timestamps = np.array(df['TIMESTAMP'])
     trip_ids = np.array(df['TRIP_ID'])
 
-        #print("Creating trajectories..")
     c = 0
     Trajectories = {}
     length = len(trip_ids)
@@ -175,7 +172,6 @@ def loadDataTrajectories(dataset):
 #TO DO:
 #Fix it. Dont think it works, but maybe it isn't neccesary?
 def loadRtree(rtreeName : str, trajectories):
-    print("Loading Rtree..")
     p = index.Property()
     p.dimension = 3
     p.dat_extension = 'data'
@@ -187,7 +183,6 @@ def loadRtree(rtreeName : str, trajectories):
     #bounds = originalRtree.bounds
     #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
     rtreeCopy = index.Index(rtreeName, pointStream(trajectories), properties=p)
-    print("Done!")
     #rtreeCopy.insert(pointStream(originalRtree))
     trajectoriesCopy = copy.deepcopy(trajectories)
     return rtreeCopy, trajectoriesCopy
@@ -198,7 +193,7 @@ def loadRtree(rtreeName : str, trajectories):
 def datastream(polylines, timestamps, trip_ids):
     length = len(trip_ids)
     c = 0
-    for i in tqdm(range(length), desc="Loading trajectories") :
+    for i in tqdm(range(length), total=length, desc="Loading trajectories into rtree") :
         t = 0
         timestamp = timestamps[i]
         if len(polylines[i]) == 0:
@@ -215,7 +210,7 @@ def datastream(polylines, timestamps, trip_ids):
 #Generator function taking a rtree
 #Yields all points of the rtree 
 def pointStream(trajectories: dict):
-    for trajectory in trajectories.values():
+    for trajectory in tqdm(trajectories.values(), total=len(trajectories.values()), desc="Loading trajectories into rtree"):
         nodes = trajectory.nodes.compressed()
         for i in range(len(nodes)):
             obj=(trajectory.id, nodes[i].id)

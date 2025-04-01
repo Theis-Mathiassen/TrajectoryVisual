@@ -146,53 +146,56 @@ class ClusterQuery(Query):
 
 
     def distribute(self, trajectories):
-        """Distribute points based on cluster membership and spatial proximity."""
-        if not trajectories:
-            return
+        """ Distribute points based on which nodes are used to make segments, and by extent clusters """
+        self.distributeCluster(trajectories)        
 
-        def give_point(trajectory: Trajectory, node_id):
-            for n in trajectory.nodes:
-                if n.id == node_id:
-                    n.score += 1
+        # """Distribute points based on cluster membership and spatial proximity."""
+        # if not trajectories:
+        #     return
 
-        # Calculate query center (using origin trajectory)
-        originTrajectory = self.params["origin"] # This could be made faster with numpy treating this as tensor of size (1,3)
-        firstNode = originTrajectory.nodes[0]
-        lastNode = originTrajectory.nodes[-1]
+        # def give_point(trajectory: Trajectory, node_id):
+        #     for n in trajectory.nodes:
+        #         if n.id == node_id:
+        #             n.score += 1
 
-        center_x = (firstNode.x + lastNode.x) / 2
-        center_y = (firstNode.y + lastNode.y) / 2
-        center_t = (firstNode.t + lastNode.t) / 2
-        """ center_x = np.mean([node.x for node in self.origin.nodes.data])
-        center_y = np.mean([node.y for node in self.origin.nodes.data])
-        center_t = np.mean([node.t for node in self.origin.nodes.data]) """
-        q_bbox = [center_x, center_y, center_t]
+        # # Calculate query center (using origin trajectory)
+        # originTrajectory = self.params["origin"] # This could be made faster with numpy treating this as tensor of size (1,3)
+        # firstNode = originTrajectory.nodes[0]
+        # lastNode = originTrajectory.nodes[-1]
 
-        # Key = Trajectory id, value = (Node id, distance)
-        point_dict = dict()
+        # center_x = (firstNode.x + lastNode.x) / 2
+        # center_y = (firstNode.y + lastNode.y) / 2
+        # center_t = (firstNode.t + lastNode.t) / 2
+        # """ center_x = np.mean([node.x for node in self.origin.nodes.data])
+        # center_y = np.mean([node.y for node in self.origin.nodes.data])
+        # center_t = np.mean([node.t for node in self.origin.nodes.data]) """
+        # q_bbox = [center_x, center_y, center_t]
 
-        # get the hits into correct format
-        matches = [(n.object, n.bbox) for n in self.hits]
+        # # Key = Trajectory id, value = (Node id, distance)
+        # point_dict = dict()
 
-        for obj, bbox in matches:
-            print(obj)
-            dist_current = euc_dist_diff_3d(bbox, q_bbox)
+        # # get the hits into correct format
+        # matches = [(n.object, n.bbox) for n in self.hits]
 
-            if obj[0] in point_dict:
-                dist_prev = point_dict.get(obj[0])[1]
-                if dist_current <= dist_prev:
-                    point_dict[obj[0]] = (obj[1], dist_current)
-            else:
-                point_dict[obj[0]] = (obj[1], dist_current)
+        # for obj, bbox in matches:
+        #     print(obj)
+        #     dist_current = euc_dist_diff_3d(bbox, q_bbox)
 
-        # distribute points to the closest nodes in each trajectory
+        #     if obj[0] in point_dict:
+        #         dist_prev = point_dict.get(obj[0])[1]
+        #         if dist_current <= dist_prev:
+        #             point_dict[obj[0]] = (obj[1], dist_current)
+        #     else:
+        #         point_dict[obj[0]] = (obj[1], dist_current)
 
-        # This would be vastly faster if we had the dictionary of trajectories available here
-        # For now we leave this here as I think we will use another approach entirely
-        for key, value in point_dict.items():
-            for t in trajectories:
-                if t.id == key:
-                    give_point(t, value[0])
+        # # distribute points to the closest nodes in each trajectory
+
+        # # This would be vastly faster if we had the dictionary of trajectories available here
+        # # For now we leave this here as I think we will use another approach entirely
+        # for key, value in point_dict.items():
+        #     for t in trajectories:
+        #         if t.id == key:
+        #             give_point(t, value[0])
             
 
     def distributeCluster(self, trajectories, scoreToAward = 1):

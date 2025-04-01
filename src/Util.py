@@ -40,7 +40,7 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400):
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 4):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
@@ -57,7 +57,7 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax """
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))

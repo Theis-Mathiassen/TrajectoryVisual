@@ -1,6 +1,6 @@
 import numpy as np
 from TRACLUS import traclus
-from load import load_Tdrive, build_Rtree
+from src.load import load_Tdrive, build_Rtree
 
 def convert_trajectories_to_numpy(trajectories):
     """Convert Trajectory objects to numpy arrays for TRACLUS"""

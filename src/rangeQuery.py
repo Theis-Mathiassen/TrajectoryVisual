@@ -1,10 +1,10 @@
 from rtree import index
-from Trajectory import Trajectory
-from Node import Node
-from Query import Query
+from src.Trajectory import Trajectory
+from src.Node import Node
+from src.Query import Query
 import numpy as np
+from src.Util import euc_dist_diff_2d
 import rangeQuery
-from Util import euc_dist_diff_2d
 
 
 class RangeQuery(Query):
@@ -26,23 +26,27 @@ class RangeQuery(Query):
         self.x2 = params["x2"]
         self.y2 = params["y2"]
         self.t2 = params["t2"]
+        self.trajectories = params["trajectories"]
         self.flag = params["flag"]
         self.centerx = (self.x2+self.x1)/2
         self.centery = (self.y2+self.y1)/2
         self.centert = (self.t2+self.t1)/2
 
+
     def run(self, rtree):
         # Gets nodes in range query
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects=True))
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
 
-        trajectories = {}
+        """ trajectories = {}
         # For each node
         for hit in hits:
             # Extract node info
-            x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-            trajectory_id, node_id = hit.object
+            trajectory_id, node_id = hit
+            x = self.trajectories.get(trajectory_id).nodes[node_id].x
+            y = self.trajectories.get(trajectory_id).nodes[node_id].y
+            t = self.trajectories.get(trajectory_id ).nodes[node_id].t
 
-            node = Node(node_id, x_idx, y_idx, t_idx)
+            node = Node(node_id, x, y, t)
 
             # Get list of nodes by trajectories
             if trajectory_id not in trajectories:
@@ -50,35 +54,11 @@ class RangeQuery(Query):
 
             trajectories[trajectory_id].append(node)
         
+        trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
+        #print(len(trajectories_output))
+        self.hits = hits """
+        return hits
 
-        trajectories_output = ([Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()])
-
-        return trajectories_output
-    
-    def run2(self, rtree):
-        # Gets nodes in range query
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects=True))
-
-        trajectories = {}
-        ## For each node
-        #for hit in hits:
-        #    # Extract node info
-        #    x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-        #    node_id, trajectory_id = hit.object
-#
-        #    node = Node(node_id, x_idx, y_idx, t_idx)
-        #    print(node)
-#
-        #    # Get list of nodes by trajectories
-        #    if trajectory_id not in trajectories:
-        #        trajectories[trajectory_id] = []
-#
-        #    trajectories[trajectory_id].append(node)
-        #
-        trajectories_output = hits
-        # self.hits = hits
-
-        return trajectories_output
     
     def distribute(self, trajectories, matches):
         '''Function takes list of trajectories that are stored and distributes points to nodes in each respective trajectory that also appears in "matches".
@@ -102,90 +82,87 @@ class RangeQuery(Query):
                 if n.id == node_id[0] :
                     n.score += 1
 
-        q_bbox = [self.centerx, self.centery, self.centert]
 
+        q_bbox = [self.centerx, self.centery, self.centert]
+        q_bbox_dict = {'x' : q_bbox[0], 'y' : q_bbox[1], 't' : q_bbox[2]}
         # Key = Trajectory id, value = (Node id, distance)
         point_dict = dict()
 
         # Get matches into correct format
-        matches = [(n.object, n.bbox) for n in self.hits]
-
-        for obj, bbox in matches : 
-            dist_current = euc_dist_diff_2d(bbox, q_bbox)
+        #matches = [(n.object, n.bbox) for n in self.hits]
 
 
-            if obj[0] in point_dict : 
-                dist_prev = point_dict.get(obj[0])[1]
+        for hit in matches : 
+            trajectory_id, node_id = hit
+            node = self.trajectories.get(trajectory_id).nodes[node_id]
+
+            dist_current = euc_dist_diff_2d(dict({'x' : node.x, 'y' : node.y, 't' : node.t}), q_bbox_dict)
+
+            if trajectory_id in point_dict : 
+                dist_prev = point_dict.get(trajectory_id)[1]
                 if dist_current <= dist_prev :
-                    point_dict[obj[0]] = (obj[1], dist_current)
+                    point_dict[trajectory_id] = (node_id, dist_current)
             else :
-                point_dict[obj[0]] = (obj[1], dist_current)
+                point_dict[trajectory_id] = (node_id, dist_current)
 
         # TODO: Here we should probably have sorted dictionary and list of trajectories so worst case run time is always N instead of N^2 (not including sort)
         for key, value in point_dict.items() :
-            for t in trajectories :
+
+            #print(f"Distributing 1 point for trajectory: {key} with node: {value[0]}")
+            give_point(trajectories.get(key), value)
+            """ for t in trajectories :
                 if t.id == key :
-                    give_point(t, value)
+                    give_point(t, value) """
 
     def shared_equally(self, trajectories, matches, share_one) : 
         '''Share an amount of points with all m nodes in the trajectory that appeared in the range query.
         With share_one = True, all nodes share 1 point. If share_one = False, all nodes receive one point'''
-        def give_point(trajectory: Trajectory, node_ids, amount) :
-            for n in trajectory.nodes :
-                for m in node_ids : 
-                    if n.id == m :
-                        n.score += amount/(len(node_ids))
         # Key = Trajectory id, value = (Node id list)
         point_dict = dict()
 
         # Get matches into correct format
-        matches = [(n.object, n.bbox) for n in matches]
+        #matches = [(n.object, n.bbox) for n in matches]
 
         # Put all nodes belonging to each trajectory together in a dict
-        for obj, bbox in matches : 
+        for trajectory_id, node_id in matches : 
             # If we see trajectory id for the first time, make it a key pointing to empty list in dict before adding node id to said list
-            if obj[0] not in point_dict :
-                point_dict[obj[0]] = []
-            point_dict[obj[0]].append(obj[1])
+            if trajectory_id not in point_dict :
+                point_dict[trajectory_id] = []
+            point_dict[trajectory_id].append(node_id)
         
         # Loop through trajectories and check if it appears in the dictionary
-        for t in trajectories : 
-            #print("T id: ", t.id)
-            if t.id in point_dict : 
-                if share_one == True :
-                    amount = 1
-                else : 
-                    amount = len(point_dict[t.id])
-                give_point(t, point_dict[t.id], amount)
+        for trajectory_id, nodes_ids in point_dict.items():
+            amount = 1
+            
+            if share_one == True:
+                amount /= len(nodes_ids)
+                
+            for node_id in nodes_ids:
+                trajectories[trajectory_id].nodes[node_id].score += amount
+
 
 
     def gradient_points(self, trajectories, matches) :
-        def calculate_point(bbox) : 
-            # TODO: Find another way to implement calculate_point. This shit aint workin
-            # Points for x and y direction gradient (currently linear and x,y independent). Found by taking 1 subtracted by the normalized distance to the center
-            x_dir_point = 1 - (2*np.abs(bbox[0]-self.centerx)/(np.abs(self.x1-self.x2))) 
-            y_dir_point = 1 - (2*np.abs(bbox[1]-self.centery)/(np.abs(self.y1-self.y2)))
-
-            # Weighted gradient (currently x = y = 1/2)
-            return 1/2 * x_dir_point + 1/2 * y_dir_point 
-        
-        def give_point(trajectory : Trajectory, node_id, amount) :
-            for n in trajectory.nodes:
-                if n.id == node_id :
-                    n.score += amount
-
-        # Key = Trajectory id, value = (Node id, distance)
+        # Key = Trajectory id, value = (Node id list)
         point_dict = dict()
 
         # Get matches into correct format
-        matches = [(n.object, n.bbox) for n in matches]
+        #matches = [(n.object, n.bbox) for n in matches]
 
-        for obj, bbox in matches : 
-            if obj[0] not in point_dict : 
-                point_dict[obj[0]] = []
-            point_dict[obj[0]].append((obj[1], bbox)) # Add value (Node id, bbox) to list at index key Trajectory_id
+        # Put all nodes belonging to each trajectory together in a dict
+        for trajectory_id, node_id in matches : 
+            # If we see trajectory id for the first time, make it a key pointing to empty list in dict before adding node id to said list
+            if trajectory_id not in point_dict :
+                point_dict[trajectory_id] = []
+            point_dict[trajectory_id].append(node_id)
 
-        for t in trajectories :
-            if t.id in point_dict :
-                for n_id, bbox in point_dict[t.id] : 
-                    give_point(t, n_id, calculate_point(bbox))
+        width = np.abs(self.x1-self.x2)
+        height = np.abs(self.y1-self.y2)
+
+        for trajectory_id, nodes_ids in point_dict.items():
+            for node_id in nodes_ids:
+                node = trajectories[trajectory_id].nodes[node_id]
+                x_dir_point = 1 - (2*np.abs(node.x-self.centerx)/(width)) 
+                y_dir_point = 1 - (2*np.abs(node.y-self.centery)/(height))
+                amount =  x_dir_point / 2 + y_dir_point / 2
+                trajectories[trajectory_id].nodes[node_id].score += amount

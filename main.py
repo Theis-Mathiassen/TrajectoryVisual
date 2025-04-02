@@ -2,48 +2,76 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from load import build_Rtree, load_Tdrive, loadRtree
+from src.load import build_Rtree, load_Tdrive, loadRtree
 from src.dropNodes import dropNodes
 
 import os
+import sys
+import copy
+import pickle
+import math
 from tqdm import tqdm
+import pandas as pd 
+import os
+
+sys.path.append("src/")
+
+CSVNAME = 'first_10000_train'
+DATABASENAME = 'original_Taxi'
+SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 
 #### main
 def main(config):
     ## Load Dataset
-    #load_Tdrive("small_train.csv","small_train_trimmed.csv")
-
-
+    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
-    
-    origRtree, origTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="original_Taxi")
-    simpRtree, simpTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="simplified_Taxi")
+    origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+    #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
+    ORIGTrajectories = copy.deepcopy(origTrajectories)
 
     ## Setup data collection environment, that is evaluation after each epoch
-    origRtreeQueries : QueryWrapper = QueryWrapper(config["numberOfEachQuery"])
-    origRtreeParams : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    # ---- Create training queries -----
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-    origRtreeQueries.createRangeQueries(origRtree, origRtreeParams)
-    origRtreeQueries.createSimilarityQueries(origRtree, origRtreeParams)
+
+    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+
+    # ---- Create evaluation queries -----
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+
+    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+
     
     compressionRateScores = list()
 
-    origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
+    #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
 
     ## Main Loop
-    print("Main loop..")
-    for cr in tqdm(config["compression_rate"]):
-        compressedTrajectoriesSize = cr * origTrajectoriesSize
-        while(sum(list(map(lambda T: len(T.nodes), simpTrajectories))) > (compressedTrajectoriesSize)):
-            giveQueryScorings(simpRtree, simpTrajectories, origRtreeQueries)
-            dropNodes(simpRtree, simpTrajectories, cr)
+    #print("Main loop..")
+    for cr in tqdm(config["compression_rate"], desc="compression rate"):        
+        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+        simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
-        compressionRateScores.append((cr, getAverageF1ScoreAll(origRtreeQueries, origRtree, simpRtree), GetSimplificationError(origTrajectories, simpTrajectories)))
+        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
+        compressionRateScores.append({ 'cr' : cr, 'avgf1' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
+        print(compressionRateScores[-1]['avgf1'])
+        simpRtree.close()
         
+        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+            os.remove(SIMPLIFIEDDATABASENAME + '.data')
+            os.remove(SIMPLIFIEDDATABASENAME + '.index')
         # Generate and apply queries, giving scorings to points
 
         # Remove x points with the fewest points
@@ -52,8 +80,9 @@ def main(config):
             # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
-    for res in compressionRateScores:
-        print(res)
+    with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+        pickle.dump(compressionRateScores, file)
+        file.close()
 
     ## Plot models
 
@@ -68,6 +97,7 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["numberOfEachQuery"] = 100      # Number of queries used to simplify database    
+    config["trainTestSplit"] = 0.8          # Train/test split
+    config["numberOfEachQuery"] = 200      # Number of queries used to simplify database    
 
     main(config)

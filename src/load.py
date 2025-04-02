@@ -55,6 +55,63 @@ def load_Tdrive(src : str, filename="") :
             os.remove(os.path.join(cwd, 'datasets', filename))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename))
     
+
+def load_Tdrive_Rtree(filename=""):
+    dataset = "TDrive.csv"
+    # Read csv file as dataframe
+    tqdm.pandas()
+    cwd = os.getcwd()
+    path = os.path.join(cwd, 'datasets', dataset)
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads})
+    
+    # Set up properties
+    p = index.Property()
+    p.dimension = 3
+    p.dat_extension = 'data'
+    p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = PAGESIZE
+    #p.filename = filename
+
+    if filename=='' :
+        print("No filename!")
+        Rtree_ = index.Index(properties=p)
+    else :
+        if os.path.exists(filename+'.dat'):
+            os.remove(filename+'.dat')
+            print('remove', filename+'.dat')
+        if os.path.exists(filename+'.idx'):
+            os.remove(filename+'.idx')
+            print('remove', filename+'.idx')
+    
+    """ print("Eval polyline...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
+    print("Done!") """
+    
+    polylines = np.array(df['POLYLINE'])
+    trip_ids = np.array(df['TRIP_ID'])
+    
+    print("Creating rtree..")
+    Rtree_ = index.Index(filename, TDriveDataStream(polylines, trip_ids), properties=p)
+    print("Done!")
+    
+    print("Creating trajectories..")
+    c = 0
+    delete_rec = {}
+    Trajectories = []
+    length = len(trip_ids)
+    for i in tqdm(range(length)):
+        nodes = []
+        for x, y, t in polylines[i]:
+            nodes.append(Node(c, x, y, t))
+            c += 1
+        Trajectories.append(Trajectory(trip_ids[i], nodes))        
+    
+        
+    return Rtree_, Trajectories
+
+
+
 #Build a rtree from csv file and the corresponding trajectories. It is assumed that the csv file contains columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
 #Function is in two parts: Creating the rtree and creating trajectories.
 #Creating the rtree: Happens via bulk load through generator function (datastream). This is a lot faster than inserting each point.
@@ -160,6 +217,15 @@ def datastream(polylines, timestamps, trip_ids):
             
             c+=1
             t+=1
+
+def TDriveDataStream(polylines, trip_ids) :
+    c = 0
+    length = len(trip_ids)
+    for i in tqdm(range(length)) :
+        for x, y, t in polylines[i] :
+            obj=(trip_ids[i], c)
+            yield (c, (x, y, t, x, y, t), obj)
+            c+=1
 
 #Generator function taking a rtree
 #Yields all points of the rtree 

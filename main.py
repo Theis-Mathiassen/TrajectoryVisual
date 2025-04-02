@@ -12,6 +12,9 @@ from tqdm import tqdm
 def main(config):
     ## Load Dataset
     #load_Tdrive("small_train.csv","small_train_trimmed.csv")
+
+
+    
     
     origRtree, origTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="original_Taxi")
     simpRtree, simpTrajectories = build_Rtree("first_100000_train_trimmed.csv", filename="simplified_Taxi")

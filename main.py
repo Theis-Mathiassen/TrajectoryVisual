@@ -2,7 +2,7 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from src.load import build_Rtree, load_Tdrive, loadRtree
+from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree
 from src.dropNodes import dropNodes
 
 import os
@@ -23,9 +23,12 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 #### main
 def main(config):
     ## Load Dataset
-    load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
+    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
-    origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+
+    origRtree, origTrajectories = load_Tdrive_Rtree(filename=DATABASENAME)
+
     #simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 

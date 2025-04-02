@@ -3,6 +3,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 import os
+import re
 
 import shutil
 import copy
@@ -59,6 +60,42 @@ def load_Tdrive(src : str, filename="") :
             os.remove(os.path.join(cwd, 'datasets', filename))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename), index=False)
     
+def jsonLoadsNumpy(polylineString) :
+    if pd.isna(polylineString) or not isinstance(polylineString, str) :
+        return []
+    
+
+    # This regex code is copied from online sources
+
+    # Remove `np.float64(...)` but keep values
+    cleanString = re.sub(r'np\.float64\(([^)]+)\)', r'\1', polylineString)
+
+    # Convert Python-style tuples `(x, y, z)` to JSON-style lists `[x, y, z]`
+    cleanString = cleanString.replace("(", "[").replace(")", "]")
+
+    # Fix any trailing commas inside the list
+    cleanString = re.sub(r',\s*([\]\}])', r'\1', cleanString)
+
+    # Ensure valid JSON format by replacing single quotes with double quotes (if present)
+    cleanString = cleanString.replace("'", '"')
+
+    # If the string isn't enclosed in brackets, add them
+    if not cleanString.startswith("["):
+        cleanString = "[" + cleanString
+    if not cleanString.endswith("]"):
+        cleanString = cleanString + "]"
+
+    # debugging....
+    try:
+        parsed_json = json.loads(cleanString)
+        return parsed_json
+    except json.JSONDecodeError as e:
+        print(f"JSONDecodeError: {e}")
+        print(f"Problematic string: {cleanString}")
+        return []  # Return empty list instead of crashing
+
+
+
 
 def load_Tdrive_Rtree(filename=""):
     dataset = "TDrive.csv"
@@ -66,7 +103,10 @@ def load_Tdrive_Rtree(filename=""):
     tqdm.pandas()
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
-    df = pd.read_csv(path, converters={'POLYLINE' : json.loads})
+
+
+    df = pd.read_csv(path, converters={'POLYLINE' : jsonLoadsNumpy, 'TRIP_ID' : json.loads})
+    
     
     # Set up properties
     p = index.Property()
@@ -102,14 +142,14 @@ def load_Tdrive_Rtree(filename=""):
     print("Creating trajectories..")
     c = 0
     delete_rec = {}
-    Trajectories = []
+    Trajectories = {}
     length = len(trip_ids)
     for i in tqdm(range(length)):
         nodes = []
         for x, y, t in polylines[i]:
             nodes.append(Node(c, x, y, t))
             c += 1
-        Trajectories.append(Trajectory(trip_ids[i], nodes))        
+            Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
     
         
     return Rtree_, Trajectories
@@ -326,11 +366,14 @@ def datastream(polylines, timestamps, trip_ids):
 def TDriveDataStream(polylines, trip_ids) :
     c = 0
     length = len(trip_ids)
-    for i in tqdm(range(length)) :
-        for x, y, t in polylines[i] :
-            obj=(trip_ids[i], c)
-            yield (c, (x, y, t, x, y, t), obj)
-            c+=1
+    for i in tqdm(range(length), total=length, desc="Loading trajectories into rtree") :
+        if len(polylines[i]) == 0:
+            pass
+        else:
+            for x, y, t in polylines[i] :
+                obj=(int(trip_ids[i]), c)
+                yield (c, (x, y, t, x, y, t), obj)
+                c+=1
 
 #Generator function taking a rtree
 #Yields all points of the rtree 

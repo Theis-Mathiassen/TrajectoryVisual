@@ -1,3 +1,4 @@
+import numpy as np
 class Trajectory:
     # ID of the trajectory
     # All nodes in the trajectory implicitly assume this ID

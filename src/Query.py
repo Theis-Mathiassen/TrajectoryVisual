@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from Trajectory import Trajectory
+from src.Trajectory import Trajectory
 
 # Define the abstract query class 
 class Query(ABC):
@@ -8,7 +8,7 @@ class Query(ABC):
         
     # run query which returns array of Trajectory class 
     @abstractmethod
-    def run(self, rtree) -> list[Trajectory]:
+    def run(self, rtree):
         pass
 
     @abstractmethod

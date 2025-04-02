@@ -1,6 +1,6 @@
-from Trajectory import Trajectory
-from Query import Query
-from Node import Node, NodeDiff
+from src.Trajectory import Trajectory
+from src.Query import Query
+from src.Node import Node, NodeDiff
 import numpy as np
 import copy
 
@@ -12,7 +12,7 @@ import numpy as np
 # Util to init params for different query types.
 class ParamUtil:
     # init the params to be the bounding box of the Rtree and fix some delta
-    def __init__(self, rtree: index.Index, trajectories: list[Trajectory], delta = 0, k = 3, eps = 1, linesMin = 3):
+    def __init__(self, rtree: index.Index, trajectories: dict, delta = 0, k = 3, eps = 1, linesMin = 3):
         boundingBox = rtree.bounds
         
         # Establish mbr for the whole Rtree
@@ -40,8 +40,8 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 4):
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
@@ -57,10 +57,10 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax """
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         tMin = randomTrajectory.nodes[0].t
         tMax = randomTrajectory.nodes[-1].t
         xMin = self.xMin
@@ -68,18 +68,21 @@ class ParamUtil:
         yMin = self.yMin
         yMax = self.yMax
         delta = delta
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3):
-        randomTrajectory: Trajectory = random.choice(self.trajectories)
-        tMin = self.tMin 
-        tMax = self.tMax
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        trajectoryTemporalLength = abs(randomTrajectory.nodes[-1].t - randomTrajectory.nodes[0].t)
+        padding = max(0, temporalWindowSize - trajectoryTemporalLength)
+        tMin = randomTrajectory.nodes[0].t - padding
+        tMax = randomTrajectory.nodes[-1].t + padding
+        #tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
         k = k
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def clusterParams(self, rtree: index.Index):
         tMin = self.tMin 
@@ -91,7 +94,7 @@ class ParamUtil:
         k = self.k
         eps = None
         linesMin = None
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories)
     
 def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
     north = lat * 110574.0
@@ -102,7 +105,9 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
 # but changed to a dynamic window size such that we always can compare two trajectories
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     originNodes = origin.nodes
-    otherNodes = other.nodes
+    otherNodes = other.nodes.compressed()
+    if len(originNodes) == 0 or len(otherNodes) == 0:
+        return math.inf
     DTW = np.ndarray((len(originNodes),len(otherNodes)))
     
     w = abs(len(originNodes) - len(otherNodes)) + 1
@@ -119,7 +124,13 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(originNodes[i], otherNodes[j])
+            if originNodes is list :
+                ogbox = dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t})
+            else : 
+                ogbox = dict({'x' : originNodes.data[i].x, 'y' : originNodes.data[i].y, 't' : originNodes.data[i].t})
+            otherbox = dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t})
+
+            cost = euc_dist_diff_2d(ogbox , otherbox )
             DTW[i, j] = cost + min(DTW[i-1  , j     ],  # insertion
                                    DTW[i    , j-1   ],  # deletion
                                    DTW[i-1  , j-1   ])  # match
@@ -127,6 +138,7 @@ def DTWDistance(origin : Trajectory, other : Trajectory) -> int:
     return DTW[len(originNodes)-1, len(otherNodes)-1]
 
 def euc_dist_diff_2d(p1, p2) : 
+            return np.sqrt(np.power(p1['x']-p2['x'], 2) + np.power(p1['y']-p2['y'], 2))
             return np.sqrt(np.power(p1.x-p2.x, 2) + np.power(p1.y-p2.y, 2))
             return np.sqrt(np.power(p1[0]-p2[0], 2) + np.power(p1[1]-p2[1], 2)) 
 def euc_dist_diff_3d(p1, p2) : 
@@ -193,7 +205,7 @@ def DTWDistanceWithScoring(origin : Trajectory, other : Trajectory) -> int:
             
     for i in range(1, len(originNodes)):
         for j in range(max(1, i-w), min(len(otherNodes), i+w)):
-            cost = euc_dist_diff_2d(originNodes[i], otherNodes[j])
+            cost = euc_dist_diff_2d(dict({'x' : originNodes[i].x, 'y' : originNodes[i].y, 't' : originNodes[i].t}), dict({'x' : otherNodes[j].x, 'y' : otherNodes[j].y, 't' : otherNodes[j].t}))
 
             minimum = min(  DTW[i-1  , j     ],  # insertion
                             DTW[i    , j-1   ],  # deletion

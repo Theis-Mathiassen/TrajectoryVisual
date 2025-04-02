@@ -20,21 +20,36 @@ def getIntersection(trajectoryList1, trajectoryList2):
 def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
-    if Query is ClusterQuery:
-        print('ClusterQuery is not implemented yet.')
+    if isinstance(Query, ClusterQuery):
+        print('\n\nIn ClusterQuery evaluation: \n')
 
 
         Query.returnCluster = True # Set to return clusters
+        Query.evaluateMode = True # Set to expect masked dataset
 
-        def getClusterSet(rtree):
-            clusters = Query.run(rtree)
+        def getClusterSet(rtree, useSimplifiedTrajectory = False):
+            
+            setsOfTrajectories = set()
+
+            if useSimplifiedTrajectory: # We use this method to access variables in ClusterQuery. And then revert the change in case it will be used again
+                Query.useSimplifiedTrajectory = True
+                clusters = Query.run(rtree)
+                Query.useSimplifiedTrajectory = False
+            
+            else:
+                clusters = Query.run(rtree)
+
+
             for cluster in clusters:
                 cluster = [trajectory.id for trajectory in cluster]
-            
-            return set(combinations(clusters, 2))
+                setsOfTrajectories.update(tuple(sorted(pair) for pair in combinations(cluster, 2))) # Get all possible pairs, avoiding duplicates 
+                print("Length: ", len(setsOfTrajectories))
+
+
+            return setsOfTrajectories
         
         setOriginal_result = getClusterSet(rtree_original)
-        setSimplified_result = getClusterSet(rtree_simplified)
+        setSimplified_result = getClusterSet(rtree_simplified, useSimplifiedTrajectory=True)
 
 
     else: # For all other queries

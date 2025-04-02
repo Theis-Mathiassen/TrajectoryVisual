@@ -40,10 +40,19 @@ class ClusterQuery(Query):
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
         self.params = params
         self.returnCluster = False
+        self.evaluateMode = False    # Set to expect masked dataset
+        self.useSimplifiedTrajectory = False # Set to use simplified trajectory from masked dataset
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
-        return np.array([[node.x, node.y] for node in trajectory.nodes])
+        if not self.evaluateMode:
+            return np.array([(node.x, node.y) for node in trajectory.nodes])
+
+        elif self.useSimplifiedTrajectory: # If using masked dataset and the simplified data
+            return np.array([(node.x, node.y) for node in trajectory.nodes.compressed()])
+        else:   # If using masked dataset but original data
+            return np.array([(node.x, node.y) for node in trajectory.nodes.data])
+
 
     def _filter_trajectories_by_time(self, trajectories, rtree):
         """Filter trajectories based on temporal constraints using R-tree."""
@@ -81,9 +90,9 @@ class ClusterQuery(Query):
 
         # convert trajectories to numpy arrays for TRACLUS
         numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-        origin_numpy = self._trajectory_to_numpy(self.origin)
 
         if not self.returnCluster: # If centered around an origin trajectory
+            origin_numpy = self._trajectory_to_numpy(self.origin)
             numpy_trajectories.append(origin_numpy)  # Add query trajectory
 
         # run TRACLUS

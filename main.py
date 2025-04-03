@@ -32,6 +32,12 @@ def main(config):
     ORIGTrajectories = copy.deepcopy(origTrajectories)
 
     ## Setup data collection environment, that is evaluation after each epoch
+
+    # ---- Set number of queries to be created ----
+    if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
+
+    print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
+
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
@@ -39,8 +45,8 @@ def main(config):
 
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -48,8 +54,8 @@ def main(config):
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
-    # origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
-    origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
+    # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
     
     compressionRateScores = list()
@@ -64,9 +70,9 @@ def main(config):
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'avgf1' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
-        print(compressionRateScores[-1]['avgf1'])
+        print(compressionRateScores[-1]['f1Scores'])
         simpRtree.close()
         
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
@@ -93,11 +99,12 @@ def main(config):
 
 if __name__ == "__main__":
     config = {}
-    config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
+    # config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 200      # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     main(config)

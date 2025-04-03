@@ -117,7 +117,7 @@ def load_Tdrive_Rtree(filename=""):
     p.pagesize = PAGESIZE
     #p.filename = filename
 
-    if filename=='' :
+    """ if filename=='' :
         print("No filename!")
         Rtree_ = index.Index(properties=p)
     else :
@@ -126,18 +126,19 @@ def load_Tdrive_Rtree(filename=""):
             print('remove', filename+'.dat')
         if os.path.exists(filename+'.idx'):
             os.remove(filename+'.idx')
-            print('remove', filename+'.idx')
+            print('remove', filename+'.idx') 
     
-    """ print("Eval polyline...")
+    print("Eval polyline...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(json.loads)
     print("Done!") """
     
     polylines = np.array(df['POLYLINE'])
     trip_ids = np.array(df['TRIP_ID'])
     
-    print("Creating rtree..")
-    Rtree_ = index.Index(filename, TDriveDataStream(polylines, trip_ids), properties=p)
-    print("Done!")
+    if os.path.exists(filename + '.index'):
+        Rtree_ = index.Index(filename, properties=p)
+    else:
+        Rtree_ = index.Index(filename, TDriveDataStream(polylines, trip_ids), properties=p)
     
     print("Creating trajectories..")
     c = 0
@@ -145,11 +146,12 @@ def load_Tdrive_Rtree(filename=""):
     Trajectories = {}
     length = len(trip_ids)
     for i in tqdm(range(length)):
+        c = 0
         nodes = []
         for x, y, t in polylines[i]:
             nodes.append(Node(c, x, y, t))
             c += 1
-            Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
+        Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
     
         
     return Rtree_, Trajectories
@@ -367,13 +369,15 @@ def TDriveDataStream(polylines, trip_ids) :
     c = 0
     length = len(trip_ids)
     for i in tqdm(range(length), total=length, desc="Loading trajectories into rtree") :
+        idx = 0
         if len(polylines[i]) == 0:
             pass
         else:
             for x, y, t in polylines[i] :
-                obj=(int(trip_ids[i]), c)
+                obj=(int(trip_ids[i]), idx)
                 yield (c, (x, y, t, x, y, t), obj)
                 c+=1
+                idx+=1
 
 #Generator function taking a rtree
 #Yields all points of the rtree 
@@ -414,6 +418,7 @@ def tDriveToCsv():
         if len(df) == 0: 
             continue
         df['time'] = pd.to_datetime(df['time'], yearfirst=True).astype(int) // 10**9
+        df.astype({'lon' : 'Float64', 'lat' : 'Float64'})
         polyline = df.apply(lambda row : (row['lon'], row['lat'], row['time']), axis=1)
         super_x.append([df['id'][0], polyline.tolist()])
         #csvdf = pd.concat([pd.DataFrame({'TRIP_ID' : df['id'][0], 'POLYLINE' : polyline}, columns=['TRIP_ID', 'POLYLINE']), csvdf], ignore_index=True)
@@ -434,9 +439,9 @@ def datastreamTriple(polylines, trip_ids):
     Yields:
         Index.item(): tuple representing the rtree item with object
     """
-    c = 0
     length = len(trip_ids)
     for i in tqdm(range(length)) :
+        c = 0
         for x, y, t in polylines[i] :
             obj=(trip_ids[i], c)
             yield (c, (x, y, t, x, y, t), obj)

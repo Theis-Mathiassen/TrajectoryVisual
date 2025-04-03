@@ -38,9 +38,9 @@ def main(config):
     
 
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -58,9 +58,14 @@ def main(config):
 
     ## Main Loop
     #print("Main loop..")
+    
+    # Sort compression_rate from highest to lowest
+    config["compression_rate"].sort(reverse=True)
+    previousCr = 1
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
+        actual_compression = cr/previousCr
         giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
-        simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+        simpTrajectories = dropNodes(origRtree, origTrajectories, actual_compression)
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
@@ -94,10 +99,10 @@ def main(config):
 if __name__ == "__main__":
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.66, 0.5, 0.2]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 200      # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 1     # Number of queries used to simplify database    
 
     main(config)

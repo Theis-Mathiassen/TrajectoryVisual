@@ -24,6 +24,17 @@ PAGESIZE = 16000
 #TO DO: 
 #The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
 #Drop rows with polylines of length 0..
+
+
+def get_Tdrive(filename="") :
+
+    tDriveToCsv()
+
+    Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
+
+    return Rtree, Trajectories
+
+
 def load_Tdrive(src : str, filename="") : 
 
     cwd = os.getcwd()
@@ -426,7 +437,7 @@ def tDriveToCsv():
         taxiIdx += 1
         
     csvdf = pd.concat([csvdf, pd.DataFrame(super_x, columns=['TRIP_ID', 'POLYLINE'])], ignore_index=True, axis=0)
-    csvdf.to_csv(path_or_buf=os.path.join(cwd, 'TDrive'), sep=',', index=False)
+    csvdf.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'TDrive.csv'), sep=',', index=False)
 
 def datastreamTriple(polylines, trip_ids):
     """

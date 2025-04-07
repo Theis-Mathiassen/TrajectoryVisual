@@ -12,7 +12,10 @@ def getNodes(trajectories):
             nodes.append((node, count)) #Also stores index of associated trajectory, so we can easily find later """
     nodes = []
     for trajectory in trajectories.values():
-        zipped = [[node, trajectory.id] for node in trajectory.nodes[1:-1]]
+        trajectory.nodes.mask = False
+        trajectory.nodes[0] = ma.masked
+        trajectory.nodes[-1] = ma.masked
+        zipped = [[node, trajectory.id] for node in trajectory.nodes.compressed()]
         nodes += zipped
         
     return nodes
@@ -25,12 +28,10 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
     nodes = getNodes(trajectories)
     sorted_nodes = sorted(nodes, key=lambda node: node[0].score)
 
-    if(amount_to_drop < 0):
-        total_nodes = sum([len(x.nodes) for x in trajectories.values()])
-        amount_to_drop = round(total_nodes * compression_rate)
     
-    
-    # Special case for if there are so few nodes we cannot drop enough
+    total_nodes = sum([len(x.nodes) for x in trajectories.values()])
+    amount_to_drop = round(total_nodes * compression_rate)
+
     amount_to_drop = min(amount_to_drop, len(sorted_nodes))
 
     
@@ -44,12 +45,11 @@ def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
     
     for trajectory_id in tqdm(nodesPerTrajectory.keys(), total=len(nodesPerTrajectory.keys()), desc="Dropping nodes"):
         trajectory = trajectories.get(trajectory_id)
-        mask = np.zeros(len(trajectory.nodes))
+        mask = ma.getmaskarray(trajectory.nodes)
         droppedNodes = nodesPerTrajectory[trajectory_id]
         for node in droppedNodes:
             mask[node.id] = 1
         trajectory.nodes = ma.array(trajectories[trajectory_id].nodes, mask = mask)
-    
     """ for i in tqdm(range(amount_to_drop)):
         #Drop a single node
         (node, trajectory_index) = sorted_nodes[i]

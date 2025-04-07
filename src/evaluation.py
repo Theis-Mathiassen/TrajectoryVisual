@@ -1,44 +1,114 @@
-from Node import Node
-from Trajectory import Trajectory
-from clusterQuery import ClusterQuery
+#import sys
+#sys.path.append("src/")
+from src.Node import Node
+from src.Trajectory import Trajectory
+from src.clusterQuery import ClusterQuery
+from src.knnQuery import KnnQuery
+from src.similarityQuery import SimilarityQuery
 import numpy as np
+import numpy.ma as ma
+from src.Query import Query
+from src.QueryWrapper import QueryWrapper
+from itertools import combinations
+from tqdm import tqdm
+
 
 # This code allows testing of simplified trajectories
 
 def getIntersection(trajectoryList1, trajectoryList2):
-    return [trajectory for trajectory in trajectoryList1 if trajectory.id in [trajectory.id for trajectory in trajectoryList2]]
+    return list(set(trajectoryList1[0]) & set(trajectoryList2[0]))
+    return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
-def getF1Score(Query, rtree_original, rtree_simplified):
+def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if Query is ClusterQuery:
         print('ClusterQuery is not implemented yet.')
+
+
+        Query.returnCluster = True # Set to return clusters
+
+        def getClusterSet(rtree):
+            clusters = Query.run(rtree)
+            for cluster in clusters:
+                cluster = [trajectory.id for trajectory in cluster]
+            
+            return set(combinations(clusters, 2))
+        
+        setOriginal_result = getClusterSet(rtree_original)
+        setSimplified_result = getClusterSet(rtree_simplified)
+
+
+    else: # For all other queries
+
+        original_result = Query.run(rtree_original)
+        simplified_result = Query.run(rtree_simplified)
+
+        if isinstance(Query, KnnQuery) :
+            setOriginal_result = set([item.id for item in original_result])
+            setSimplified_result = set([item.id for item in simplified_result])
+        else:
+            setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
+            setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
+
+    intersection = setOriginal_result & setSimplified_result
+
+    if (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
         return 0
-
-    original_result = Query.run(rtree_original)
-    simplified_result = Query.run(rtree_simplified)
-
-    intersection = getIntersection(original_result, simplified_result)
-
-    precision = len(intersection) / len(simplified_result)
-    recall = len(intersection) / len(original_result)
+    
+    precision = len(intersection) / len(setSimplified_result)
+    recall = len(intersection) / len(setOriginal_result)
 
     f1 = 2 * (precision * recall) / (precision + recall)
 
     return f1
 
 
-def getAverageF1ScoreAll(queryWrapper, rtree_original, rtree_simplified):
+def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simplified):
+    """
+    Runs queries and returns average F1Scores.
+
+    :returns averageF1Score: Average f1 score for all queries
+    :returns rangeF1Score: Average f1 score for range queries
+    :returns similarityF1Score: Average f1 score for similarity queries
+    :returns KNNF1Score: Average f1 score for KNN queries
+    :returns clusterF1Score: Average f1 score for clustering queries
+    """
     # Gets average f1 score
-    length = len(queryWrapper.RangeQueries) + len(queryWrapper.KNNQueries) + len(queryWrapper.SimilarityQueries) + len(queryWrapper.ClusterQueries)
-    f1_score = 0
 
-    for Query in [queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
-        f1_score += getF1Score(Query, rtree_original, rtree_simplified)
+    rangeQueries = queryWrapper.RangeQueries
+    similarityQueries = queryWrapper.SimilarityQueries
+    KNNQueries = queryWrapper.KNNQueries
+    clusterQueries = queryWrapper.ClusterQueries
 
-    f1_score /= length
+    totalLength = 0
+    totalF1Score = 0
 
-    return f1_score
+    def getQueryF1Score(listOfQueries, queryTypeString):
+        nonlocal totalLength, totalF1Score # allow modification of the outer variables in enclosing scope
+        length = len(listOfQueries)
+        f1_score = 0
+
+        if length == 0:
+            return 0
+
+        print(f"Running {queryTypeString} queries..")
+        for query in tqdm(listOfQueries):
+            f1_score += getF1Score(query, rtree_original, rtree_simplified)
+
+        totalLength += length   # Increment
+        totalF1Score += f1_score
+
+        return f1_score / length
+
+    rangeF1Score = getQueryF1Score(rangeQueries, "range")
+    similarityF1Score = getQueryF1Score(similarityQueries, "similarity")
+    KNNF1Score = getQueryF1Score(KNNQueries, "KNN")
+    clusterF1Score = getQueryF1Score(clusterQueries, "cluster")
+
+    averageF1Score = totalF1Score / totalLength if totalLength > 0 else 0
+
+    return averageF1Score, rangeF1Score, similarityF1Score, KNNF1Score, clusterF1Score
 
 
 
@@ -66,8 +136,8 @@ def sed_op(segment):
 # See https://github.com/yumengs-exp/MLSimp/blob/main/Utils/query_utils_val.py :90
 def sed_error(ori_traj, sim_traj):
     # Convert code first
-    ori_traj = ([node.x, node.y, node.t] for node in ori_traj.nodes)
-    sim_traj = (([node.x, node.y, node.t] for node in sim_traj.nodes))
+    ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes.compressed()]
     #Original code
 
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
@@ -112,8 +182,9 @@ def ped_op(segment):
 
 def ped_error(ori_traj, sim_traj):
     # Convert code first
-    ori_traj = ([node.x, node.y, node.t] for node in ori_traj.nodes)
-    sim_traj = (([node.x, node.y, node.t] for node in sim_traj.nodes))
+    # Maybe use the masked arrays instead
+    ori_traj = [[node.x, node.y, node.t] for node in ori_traj.nodes]
+    sim_traj = [[node.x, node.y, node.t] for node in sim_traj.nodes.compressed()]
     #Original code
     # ori_traj, sim_traj = [[x,y,t],...,[x,y,t]]
     # 1-keep and 0-drop
@@ -145,9 +216,9 @@ def GetSimplificationError(original_trajectory_list, simplified_trajectory_list)
     avg_SED = 0
     avg_PED = 0
 
-    for i in range(length):
-        avg_SED += sed_error(original_trajectory_list[i], simplified_trajectory_list[i])[1]
-        avg_PED += ped_error(original_trajectory_list[i], simplified_trajectory_list[i])[1]
+    for key in original_trajectory_list.keys():
+        avg_SED += sed_error(original_trajectory_list.get(key), simplified_trajectory_list.get(key))[1]
+        avg_PED += ped_error(original_trajectory_list.get(key), simplified_trajectory_list.get(key))[1]
 
     avg_SED /= length
     avg_PED /= length

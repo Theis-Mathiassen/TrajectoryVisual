@@ -1,8 +1,8 @@
-from Query import Query
-from Node import Node
-from Trajectory import Trajectory
+from src.Query import Query
+from src.Node import Node
+from src.Trajectory import Trajectory
+from src.Util import DTWDistance, DTWDistanceWithScoring, lcss
 import math
-from Util import DTWDistance, DTWDistanceWithScoring, lcss
 import numpy as np
 
 class KnnQuery(Query):
@@ -22,27 +22,32 @@ class KnnQuery(Query):
         self.x2 = params["x2"]
         self.y1 = params["y1"]
         self.y2 = params["y2"]
+        self.trajectories = params["trajectories"]
+
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
-
+        return self.run2(rtree)
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects=True))
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         # Reconstruct trajectories
         trajectories = {}
         # For each node
         for hit in hits:
             # Extract node info
-            x_idx, y_idx, t_idx, _, _, _ = hit.bbox
-            trajectory_id, node_id = hit.object
+            trajectory_id, node_id = hit
+            x = self.trajectories.get(trajectory_id).nodes.data[node_id].x
+            y = self.trajectories.get(trajectory_id).nodes.data[node_id].y
+            t = self.trajectories.get(trajectory_id ).nodes.data[node_id].t
+
 
             # Ignore origin trajectory
             if trajectory_id == self.trajectory.id:
                 continue
 
-            node = Node(node_id, x_idx, y_idx, t_idx)
+            node = Node(node_id, x, y, t)
 
             # Get list of nodes by trajectories
             if trajectory_id not in trajectories:
@@ -86,6 +91,54 @@ class KnnQuery(Query):
         # Get top k trajectories
         return [x for x in trajectories_output if x.id in topKIds]
 
+    def run2(self, rtree):
+        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
+        
+        hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
+        
+        trajectories = {}
+        
+        for trajectory_id, node_id in hits:
+            if trajectory_id not in trajectories:
+                trajectories[trajectory_id] = []
+            trajectories[trajectory_id].append(node_id)
+        
+        
+        for trajectory in trajectories:
+            #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
+            minIndex = min(trajectories[trajectory])
+            maxIndex = max(trajectories[trajectory])
+            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
+            
+        
+        if len(trajectories.keys()) <= self.k:
+            return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
+        
+        listOfTrajectorySegments = trajectories.items()
+
+        # Use DTW distance to compute similarity
+        similarityMeasures = {}
+        
+        # Must be of type trajectory to be accepted
+        originSegmentTrajectory = self.trajectory
+        for segment in listOfTrajectorySegments:
+            segmentTrajectory = Trajectory(segment[0], segment[1])
+            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+
+        # Sort by most similar, where the most similar have the smallest value
+        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
+
+        # get top k ids
+        topKIds = [x[0] for x in similarityMeasures[:self.k]]
+
+        trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
+
+
+
+        # Get top k trajectories
+        return [x for x in trajectories_output if x.id in topKIds]
+        
+
     def distribute(self, trajectories, matches):
 
         # Current implementation supports DTW
@@ -96,26 +149,26 @@ class KnnQuery(Query):
 
         for trajectory in matches:
 
-            # Match trajectory to supplied list
-            trajectoryIndex = 0
-            for index, trajectoryInList in enumerate(trajectories):
-                if trajectoryInList.id == trajectory.id:
-                    trajectoryIndex = index
-                    break
+            ## Match trajectory to supplied list
+            #trajectoryIndex = 0
+            #for index, trajectoryInList in enumerate(trajectories.values()):
+            #    if trajectoryInList.id == trajectory.id:
+            #        trajectoryIndex = index
+            #        break
 
             # Get segment
-            segment = self.getSegmentInTimeWindow(trajectory)
-            segmentTrajectory = Trajectory(trajectory.id, segment)
+            #segment = self.getSegmentInTimeWindow(trajectory)
+            #segmentTrajectory = Trajectory(trajectory.id, segment)
 
             # get scorings for nodes (With DTW) in dictionary form
-            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, segmentTrajectory)
+            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
 
 
             # Find relevant nodes and add scores. Note that scores are sorted by index in segment
             for nodeIndex, score in nodeScores.items():
-                for index, node in enumerate(trajectories[trajectoryIndex].nodes):
-                    if node.id == segment[nodeIndex].id:    # Found relevant node
-                        trajectories[trajectoryIndex].nodes[index].score += score
+                for index, node in enumerate(trajectories[trajectory.id].nodes):
+                    if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
+                        trajectories[trajectory.id].nodes[index].score += score
                         break
 
                         

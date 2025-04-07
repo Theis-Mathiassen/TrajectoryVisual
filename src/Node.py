@@ -1,7 +1,8 @@
 import math
 
 class Node:
-    score: int
+    __slots__ = ['score', 'id', 'x', 'y', 't']
+    """ score: int
     id: int
 
     # 2D coordinates
@@ -9,7 +10,7 @@ class Node:
     y: float
 
     # Timestamp (can be used as a third coordinate for 3D computations)
-    t: float
+    t: float """
 
     def __init__(self, id, x, y, t):
         # Basic initialization.
@@ -23,7 +24,7 @@ class Node:
     def __str__(self):
         return f"x: {self.x}\ny: {self.y}\ntime: {self.t}\n"
     
-    def distanceEuclidean2D(self):
+    """ def distanceEuclidean2D(self):
         # Calculates the norm of the 2D-node vector for this node
         return math.sqrt(self.x * self.x + self.y * self.y)
     
@@ -39,7 +40,7 @@ class Node:
     
     def NodeSine(self):
         # Calculates the sine of the node vector
-        return (self.y / self.distanceEuclidean2D())
+        return (self.y / self.distanceEuclidean2D()) """
     
 
 def NodeDiff(node1: Node, node2: Node):

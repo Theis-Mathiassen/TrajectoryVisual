@@ -424,8 +424,21 @@ def tDriveToCsv():
     for file in tqdm(os.listdir(directory)):
         filename = os.fsdecode(file)
         
-        df = pd.read_csv(os.path.join(os.fsdecode(directory),filename), header=None, delimiter=',', names=['id', 'time', 'lon', 'lat'], parse_dates=['time'], date_format="%Y%m%d%H%M%S") #, date_format="%Y%m%d%H%M%S"
+        #df = pd.read_csv(os.path.join(os.fsdecode(directory),filename), header=None, delimiter=',', names=['id', 'time', 'lon', 'lat'], parse_dates=['time'], date_format="%Y%m%d%H%M%S") #, date_format="%Y%m%d%H%M%S"
+        df = pd.read_csv(os.path.join(os.fsdecode(directory),filename), header=None, delimiter=',', names=['id', 'time', 'lon', 'lat'])
+
+        df['time'] = pd.to_datetime(df['time'], format="%Y-%m-%d %H:%M:%S", errors='coerce') # Set invalid values to NaN
         
+        rows_before = len(df)
+
+        # Drops all rows with missing data(NaN) in the time column
+        df.dropna(subset=['time'], inplace=True)
+
+        rows_after = len(df)
+
+        if rows_after < rows_before:
+            print(f"Dropped {rows_before-rows_after} rows from {filename}")
+
         if len(df) == 0: 
             continue
         df['time'] = pd.to_datetime(df['time'], yearfirst=True).astype(int) // 10**9

@@ -68,10 +68,8 @@ def main(config):
     
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
-    previousCr = 1
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
-        actual_compression = cr/previousCr
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
@@ -106,7 +104,7 @@ def main(config):
 if __name__ == "__main__":
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.6, 0.5, 0.2]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split

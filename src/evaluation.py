@@ -92,8 +92,7 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
         if length == 0:
             return 0
 
-        print(f"Running {queryTypeString} queries..")
-        for query in tqdm(listOfQueries):
+        for query in tqdm(listOfQueries, desc=f"Running {queryTypeString} queries"):
             f1_score += getF1Score(query, rtree_original, rtree_simplified)
 
         totalLength += length   # Increment

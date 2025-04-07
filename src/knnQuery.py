@@ -121,9 +121,18 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
-        for segment in listOfTrajectorySegments:
+        
+        if self.flag == 1 :
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+        if self.flag == 2 : 
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = lcss(self.eps, self.delta, originSegmentTrajectory, segmentTrajectory)
+        """ for segment in listOfTrajectorySegments:
             segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory) """
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)

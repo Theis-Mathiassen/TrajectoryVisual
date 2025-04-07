@@ -186,7 +186,7 @@ class KnnQuery(Query):
         time_per_segment = (time_end - time_start) / length
 
         if time_per_segment == 0: # If only one node we must do this, also so we do not divide by 0
-            print("Only one node in trajectory with id: " + str(trajectory.id))
+            #print("Only one node in trajectory with id: " + str(trajectory.id))
             return trajectory.nodes
         
         start_index = math.ceil((self.t1 - time_start) / time_per_segment) # Round up so within time window

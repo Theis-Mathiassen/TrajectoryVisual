@@ -18,12 +18,12 @@ class SimilarityQuery(Query):
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.delta = params["delta"]
-        self.scoringSystem = "m"    # Between "c", "a", "c+f", "m"
+        self.scoringSystem = "a"    # Between "c", "a", "c+f", "m"
                                     # C -> Closest
                                     # A -> All
                                     # c+f -> Closest + Farthest
                                     # m -> moving away for a longer period than streak
-        self.streak = 2
+        self.streak = 25
         self.trajectories = params["trajectories"]
 
 

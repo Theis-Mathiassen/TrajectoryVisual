@@ -13,7 +13,7 @@ def getNodes(trajectories):
     nodes = []
     for trajectory in trajectories.values():
         trajectory.nodes.mask = False
-        zipped = [[node, trajectory.id] for node in trajectory.nodes[1:-1]
+        zipped = [[node, trajectory.id] for node in trajectory.nodes[1:-1]]
         nodes += zipped
         
     return nodes

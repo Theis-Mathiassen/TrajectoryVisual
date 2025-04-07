@@ -226,6 +226,99 @@ def build_Rtree(dataset, filename='') :
 
 
 
+def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None, target_area: tuple = None):
+    """
+    Load and process the Geolife dataset.
+    
+    Args:
+        src_dir: Directory containing the Geolife dataset
+        filename: Output filename for processed data
+        max_trajectories: Maximum number of trajectories to load
+        target_area: Tuple of (min_lat, max_lat, min_lon, max_lon) to filter trajectories by geographic area
+    """
+    cwd = os.getcwd()
+    base_path = os.path.join(cwd, 'src', src_dir)
+    
+    # Initialize lists to store trajectory data
+    all_trajectories = []
+    trajectory_count = 0
+    
+    # process each of the 183 users' directory
+    for user_dir in tqdm(os.listdir(base_path), desc="Processing user directories"):
+        if not user_dir.isdigit():
+            continue
+            
+        user_path = os.path.join(base_path, user_dir, 'Trajectory')
+        if not os.path.exists(user_path):
+            continue
+            
+        # process each .plt file in the user's trajectory directory
+        for plt_file in os.listdir(user_path):
+            if not plt_file.endswith('.plt'):
+                continue
+                
+            file_path = os.path.join(user_path, plt_file)
+            
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+                
+            # skip headers 
+            if len(lines) < 7:
+                continue
+                
+            # Parse trajectory points
+            points = []
+            for line in lines[6:]:  # Skip header lines
+                try:
+                    lat, lon, _, _, _, _, _ = line.strip().split(',')
+                    lat, lon = float(lat), float(lon)
+                    
+                    # Convert to metric coordinates
+                    x, y = lonLatToMetric(lon, lat)
+                    points.append([x, y])
+                except:
+                    continue
+                    
+            if not points:
+                continue
+                
+            # check if trajectory is in target area if specified
+            if target_area:
+                min_lat, max_lat, min_lon, max_lon = target_area
+                if not any(min_lat <= lat <= max_lat and min_lon <= lon <= max_lon 
+                          for lat, lon in [(p[0], p[1]) for p in points]):
+                    continue
+            
+            # Add trajectory to list
+            all_trajectories.append({
+                'TRIP_ID': trajectory_count,
+                'TIMESTAMP': int(os.path.splitext(plt_file)[0]),
+                'POLYLINE': points
+            })
+            trajectory_count += 1
+            
+            # Check if we've reached max_trajectories
+            if max_trajectories and trajectory_count >= max_trajectories:
+                break
+                
+        if max_trajectories and trajectory_count >= max_trajectories:
+            break
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(all_trajectories)
+    
+    # Save processed data
+    if filename == '':
+        if os.path.exists(os.path.join(cwd, 'datasets', 'default.csv')):
+            os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'), index=False)
+    else:
+        if os.path.exists(os.path.join(cwd, 'datasets', filename)):
+            os.remove(os.path.join(cwd, 'datasets', filename))
+        df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename), index=False)
+    
+    return df
+
 #Build a rtree from csv file and the corresponding trajectories. It is assumed that the csv file contains columns 'TIMESTAMP', 'TRIP_ID' and 'POLYLINE'.
 #Function is in two parts: Creating the rtree and creating trajectories.
 #Creating the rtree: Happens via bulk load through generator function (datastream). This is a lot faster than inserting each point.

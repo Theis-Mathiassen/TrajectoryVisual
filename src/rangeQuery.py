@@ -91,7 +91,7 @@ class RangeQuery(Query):
         def give_point(trajectory: Trajectory, node_id) :
             for n in trajectory.nodes :
                 if n.id == node_id[0] :
-                    n.score += 1
+                    n.score['range'] += 1
 
         q_bbox = [self.centerx, self.centery, self.centert]
         q_bbox_dict = {'x' : q_bbox[0], 'y' : q_bbox[1], 't' : q_bbox[2]}
@@ -147,7 +147,7 @@ class RangeQuery(Query):
                 amount /= len(nodes_ids)
                 
             for node_id in nodes_ids:
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score['range'] += amount
 
 
 
@@ -174,4 +174,4 @@ class RangeQuery(Query):
                 x_dir_point = 1 - (2*np.abs(node.x-self.centerx)/(width)) 
                 y_dir_point = 1 - (2*np.abs(node.y-self.centery)/(height))
                 amount =  x_dir_point / 2 + y_dir_point / 2
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score['range'] += amount

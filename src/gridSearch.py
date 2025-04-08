@@ -16,6 +16,7 @@ class Configuration:
     knn_method: int = 1  # Only 1 is implemented (spatio temporal linear combine distance)
     range_flag: int = 1  # 1-4 for different distribute methods
     similarity_system: str = "c"  # "c", "a", "c+f", "m"
+    weights: dict = dict()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run trajectory simplification with specified query methods')

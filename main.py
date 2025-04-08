@@ -245,7 +245,8 @@ if __name__ == "__main__":
         verbose=True,
         knn_method=args.knn,
         range_flag=args.range,
-        similarity_system=args.similarity
+        similarity_system=args.similarity,
+        weights = {'range' : 2,  'knn' : 1, 'similarity' : 1, 'cluster' : 10}
     )
 
     try:
@@ -262,7 +263,8 @@ if __name__ == "__main__":
                 [config.verbose],
                 [config.knn_method],
                 [config.range_flag],
-                [config.similarity_system]
+                [config.similarity_system],
+                [config.weights]
             )
             gridSearch(allCombinations, args)
         else:
@@ -291,4 +293,3 @@ if __name__ == "__main__":
         filePath = os.path.join(output_dir, fileString);
         if os.path.exists(filePath):
             os.remove(filePath)
-

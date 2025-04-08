@@ -24,12 +24,12 @@ def getNodes(trajectories, trajectoriesWithMask = False):
     return nodes
     
 
-def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0, trajectoriesWithMask = False):
+def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0,trajectoriesWithMask = False, weights = {'range' : 1, 'similarity' : 1, 'knn' : 1, 'cluster' : 1}):
     # Drops a percentage of nodes, alternatively can drop an amount of nodes
 
     # Gets all nodes except first and last one, and sorts based on score
     nodes = getNodes(trajectories, trajectoriesWithMask= trajectoriesWithMask)
-    sorted_nodes = sorted(nodes, key=lambda node: node[0].score)
+    sorted_nodes = sorted(nodes, key=lambda node: node[0].getScore(weights))
 
     
     total_nodes = sum([len(x.nodes) for x in trajectories.values()])

@@ -13,12 +13,24 @@ import math
 from tqdm import tqdm
 import pandas as pd 
 import os
+import logging
+import traceback # traceback for information on python stack traces
 
 sys.path.append("src/")
 
 CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
+LOG_FILENAME = 'script_error_log.log' # Define a log file name
+
+
+logging.basicConfig(
+    level=logging.ERROR, # Log only ERROR level messages and above
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename=LOG_FILENAME, # Log to this file
+    filemode='a' # Append mode, use 'w' to overwrite each time
+)
+logger = logging.getLogger(__name__)
 
 #### main
 def main(config):
@@ -93,9 +105,14 @@ def main(config):
             # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
-    with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
-        pickle.dump(compressionRateScores, file)
-        file.close()
+    try:
+        with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+            pickle.dump(compressionRateScores, file)
+            file.close()
+    except Exception as e:
+        print(f"err saving results: {e}")
+        logger.error("problems when saving results to pickle file.")
+        logger.error(traceback.format_exc()) 
 
     ## Plot models
 
@@ -114,4 +131,19 @@ if __name__ == "__main__":
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
-    main(config)
+    print("Script starting...") 
+    try:
+        main(config)
+        print("Script finished successfully.") 
+
+    except Exception as e:
+        print(f"\n--- SCRIPT CRASHED ---")
+        print(f"!!! error occurred: {e}")
+        print(f"See {LOG_FILENAME} for detailed err traces.")
+
+        # Log the exception information to the file
+        logger.error(f"Script crashed with the following error: {e}")
+        logger.error("Trace:\n%s", traceback.format_exc()) # Log the full traceback
+
+    finally:
+        print("\n execution finished (i.e. it either completed or crashed).")

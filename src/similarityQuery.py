@@ -38,8 +38,38 @@ class SimilarityQuery(Query):
         hits = []
         for node in self.trajectory.nodes.data:
             point1 = np.array((node.x, node.y))
-            withinDelta = [(trajectory_id, node_id) for trajectory_id, node_id in maybe_hits if self.trajectories[trajectory_id].nodes.data[node_id].t == node.t and np.linalg.norm(np.array((self.trajectories[trajectory_id].nodes.data[node_id].x, self.trajectories[trajectory_id].nodes.data[node_id].y)) - point1) <= self.delta]
-            hits.extend(withinDelta)
+            t = node.t
+            
+            # we group our maybe_hits by trajectory_id
+            trajectory_nodes = {}
+            for trajectory_id, node_id in maybe_hits:
+                if trajectory_id not in trajectory_nodes:
+                    trajectory_nodes[trajectory_id] = []
+                trajectory_nodes[trajectory_id].append(node_id)
+            
+            # For each trajectory, find or interpolate a point at time t
+            for trajectory_id, node_ids in trajectory_nodes.items():
+                trajectory = self.trajectories[trajectory_id]
+                # sort nodes by time (BUT is this necessary? read that we assume total ordering)
+                nodes = [trajectory.nodes.data[node_id] for node_id in node_ids]
+                nodes.sort(key=lambda x: x.t)
+                
+                # find bracketing nodes (two nodes with timestamps that surround t)
+                for i in range(len(nodes) - 1):
+                    n1 = nodes[i]
+                    n2 = nodes[i + 1]
+                    if n1.t <= t <= n2.t:
+                        # linear interpolation of point at time t
+                        # alpha (normalized value, so between 0 and 1) represents the proportional distance of t between n1.t and n2.t
+                        alpha = (t - n1.t) / (n2.t - n1.t) if n2.t != n1.t else 0 
+                        x = n1.x + alpha * (n2.x - n1.x)
+                        y = n1.y + alpha * (n2.y - n1.y)
+                        point2 = np.array((x, y))
+                        
+                        # check if interpolated point is within delta
+                        if np.linalg.norm(point2 - point1) <= self.delta:
+                            hits.append((trajectory_id, node_ids[i]))  # store our node id from earlier
+                        break
         """ trajectory_hits = {}
         # For each node in the trajectory
         for node in self.trajectory.nodes.data:

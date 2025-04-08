@@ -39,7 +39,6 @@ def main(config):
     # ---- Set number of queries to be created ----
     if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
-    print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
 
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -115,3 +114,12 @@ if __name__ == "__main__":
     config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     main(config)
+
+    
+    # Cleanup temporary cache files
+    filesToClear = ["cached_rtree_query_eval_results.pkl"]
+
+    for fileString in filesToClear:
+        if os.path.exists(fileString):
+            os.remove(fileString)
+            

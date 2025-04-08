@@ -157,7 +157,7 @@ class KnnQuery(Query):
             for nodeIndex, score in nodeScores.items():
                 for index, node in enumerate(trajectories[trajectory.id].nodes):
                     if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
-                        trajectories[trajectory.id].nodes[index].score += score
+                        trajectories[trajectory.id].nodes[index].score['knn'] += score
                         break
 
                         

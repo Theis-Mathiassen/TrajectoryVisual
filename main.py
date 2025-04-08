@@ -111,7 +111,8 @@ if __name__ == "__main__":
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["numberOfEachQuery"] = 1        # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none¨
+    config["weights"] = {'range' : 2,  'knn' : 1, 'similarity' : 1, 'cluster' : 10}
 
     main(config)

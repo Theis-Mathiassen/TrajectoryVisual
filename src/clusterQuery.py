@@ -122,7 +122,7 @@ class ClusterQuery(Query):
         def give_point(trajectory: Trajectory, node_id):
             for n in trajectory.nodes:
                 if n.id == node_id:
-                    n.score += 1
+                    n.score['cluster'] += 1
 
         # Calculate query center (using origin trajectory)
         center_x = self.params['x1'] + self.params['x2'] / 2
@@ -180,7 +180,7 @@ class ClusterQuery(Query):
         # Award points
         for trajectoryIndex, nodeIndexes in nodesToReward.items():
             for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+                trajectories[trajectoryIndex].nodes[nodeIndex].score['cluster'] += scoreToAward
 
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
@@ -207,7 +207,7 @@ class ClusterQuery(Query):
         # Award points
         for trajectoryIndex, nodeIndexes in nodesToReward.items():
             for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+                trajectories[trajectoryIndex].nodes[nodeIndex].score['cluster'] += scoreToAward
 
 
 if __name__ == "__main__":

@@ -8,9 +8,9 @@ from src.similarityQuery import SimilarityQuery
 class QueryWrapper:
     def __init__(self, numberOfEachQuery):
         self.numberOfEachQuery = numberOfEachQuery
-        self.RangeQueries = []#list[RangeQuery]
-        self.KNNQueries = []#list[KnnQuery]
-        self.SimilarityQueries = []#list[SimilarityQuery]
+        self.RangeQueries = [] #list[RangeQuery]
+        self.KNNQueries = [] #list[KnnQuery]
+        self.SimilarityQueries = [] #list[SimilarityQuery]
         self.ClusterQueries = [] #list[ClusterQuery]
         
     def createRangeQueries(self, rtree, paramUtil : ParamUtil):

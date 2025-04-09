@@ -37,7 +37,8 @@ def main(config):
     ## Setup data collection environment, that is evaluation after each epoch
 
     # ---- Set number of queries to be created ----
-    if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
+    if config["QueriesPerTrajectory"] != None :
+        config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
     print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
 
@@ -52,7 +53,7 @@ def main(config):
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] * (1 - config["trainTestSplit"])))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)

@@ -9,7 +9,7 @@ class KnnQuery(Query):
     trajectory: Trajectory
     t1: float
     t2: float
-    
+
     def __init__(self, params):
         self.trajectory = params["origin"]
         self.k = params["k"]
@@ -20,7 +20,7 @@ class KnnQuery(Query):
         self.y1 = params["y1"]
         self.y2 = params["y2"]
         self.trajectories = params["trajectories"]
-
+        self.weight = params["weight"]
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
@@ -157,7 +157,7 @@ class KnnQuery(Query):
             for nodeIndex, score in nodeScores.items():
                 for index, node in enumerate(trajectories[trajectory.id].nodes):
                     if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
-                        trajectories[trajectory.id].nodes[index].score += score
+                        trajectories[trajectory.id].nodes[index].score += (score * self.weight)
                         break
 
                         

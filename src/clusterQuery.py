@@ -40,6 +40,7 @@ class ClusterQuery(Query):
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
         self.params = params
         self.returnCluster = False
+        self.weight = params["weight"]
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
@@ -151,7 +152,7 @@ class ClusterQuery(Query):
 
         # distribute points to the closest nodes in each trajectory
         for key, value in point_dict.items():
-            trajectories[key].nodes[value[0]].score += 1
+            trajectories[key].nodes[value[0]].score += (1 * self.weight)
             """ for t in trajectories.values():
                 if t.id == key:
                     give_point(t, value[0]) """

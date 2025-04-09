@@ -31,6 +31,7 @@ class RangeQuery(Query):
         self.centerx = (self.x2+self.x1)/2
         self.centery = (self.y2+self.y1)/2
         self.centert = (self.t2+self.t1)/2
+        self.weight = params["weight"]
 
 
     def run(self, rtree):
@@ -80,7 +81,7 @@ class RangeQuery(Query):
         def give_point(trajectory: Trajectory, node_id) :
             for n in trajectory.nodes :
                 if n.id == node_id[0] :
-                    n.score += 1
+                    n.score += (1 * self.weight)
 
 
         q_bbox = [self.centerx, self.centery, self.centert]
@@ -138,7 +139,7 @@ class RangeQuery(Query):
                 amount /= len(nodes_ids)
                 
             for node_id in nodes_ids:
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score += (amount * self.weight)
 
 
 
@@ -165,4 +166,4 @@ class RangeQuery(Query):
                 x_dir_point = 1 - (2*np.abs(node.x-self.centerx)/(width)) 
                 y_dir_point = 1 - (2*np.abs(node.y-self.centery)/(height))
                 amount =  x_dir_point / 2 + y_dir_point / 2
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score += (amount * self.weight)

@@ -12,7 +12,7 @@ class SimilarityQuery(Query):
     t2: float
     delta: float
     streak: int
-    
+
     def __init__(self, params):
         self.trajectory = params["origin"]
         self.t1 = params["t1"]
@@ -25,6 +25,7 @@ class SimilarityQuery(Query):
                                     # m -> moving away for a longer period than streak
         self.streak = 25
         self.trajectories = params["trajectories"]
+        self.weight = params["weight"]
 
 
     def run(self, rtree):
@@ -165,7 +166,7 @@ class SimilarityQuery(Query):
             nodeIdsToScore = nodesPerTrajectory.get(trajectory)
             for nodeId in nodeIdsToScore:
                 trajectoryNodes = trajectories[trajectory].nodes
-                trajectoryNodes[nodeId].score += 1
+                trajectoryNodes[nodeId].score += (1 * self.weight)
         
         """ # Sort for faster scores
         nodesIdsRewardSorted = sorted(nodesIdsReward, key = lambda x: x[0])

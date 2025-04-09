@@ -5,6 +5,7 @@ import numpy.ma as ma
 from src.Trajectory import Trajectory
 from src.Node import Node
 from src.Query import Query
+from tqdm import tqdm
 
 class SimilarityQuery(Query):
     trajectory: Trajectory
@@ -36,7 +37,8 @@ class SimilarityQuery(Query):
         maybe_hits = list(rtree.intersection((minX - self.delta, minY - self.delta, self.t1, maxX + self.delta, maxY + self.delta, self.t2), objects='raw'))
         maybe_hits = [(trajectory_id, node_id) for trajectory_id, node_id in maybe_hits if trajectory_id != self.trajectory.id]
         hits = []
-        for node in self.trajectory.nodes.data:
+        
+        for node in tqdm(self.trajectory.nodes.data, desc="Processing similarity query", leave=False):
             point1 = np.array((node.x, node.y))
             t = node.t
             

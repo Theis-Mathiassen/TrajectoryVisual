@@ -20,7 +20,6 @@ def getIntersection(trajectoryList1, trajectoryList2):
     return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
 def getF1Score(Query : Query, rtree_original, rtree_simplified):
-
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if Query is ClusterQuery:
         print('ClusterQuery is not implemented yet.')
@@ -40,9 +39,12 @@ def getF1Score(Query : Query, rtree_original, rtree_simplified):
 
 
     else: # For all other queries
-
-        original_result = Query.run(rtree_original)
-        simplified_result = Query.run(rtree_simplified)
+        # Show progress for each query
+        with tqdm(total=2, desc="Processing query", leave=False) as pbar:
+            original_result = Query.run(rtree_original)
+            pbar.update(1)
+            simplified_result = Query.run(rtree_simplified)
+            pbar.update(1)
 
         if isinstance(Query, KnnQuery) :
             setOriginal_result = set([item.id for item in original_result])

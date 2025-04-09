@@ -25,7 +25,7 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):
     # ---- Create training queries -----
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
 
@@ -35,7 +35,7 @@ def prepareRtree(config, origRtree, origTrajectories):
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config.numberOfEachQuery - config.numberOfEachQuery * config.trainTestSplit))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
@@ -63,10 +63,10 @@ def main(config):
     ## Setup data collection environment, that is evaluation after each epoch
 
     # ---- Set number of queries to be created ----
-    if config["QueriesPerTrajectory"] != None:
-        config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
+    if config.QueriesPerTrajectory != None:
+        config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))
 
-    print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
+    print(f"\n\nNumber of queries to be created: {config.numberOfEachQuery}\n")
 
     origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
 
@@ -78,27 +78,25 @@ def main(config):
     #print("Main loop..")
 
     # Sort compression_rate from highest to lowest
-    config["compression_rate"].sort(reverse=True)
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
-    for cr in tqdm(config["compression_rate"], desc="compression rate"):
-        simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+    simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
-        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+    simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
-        # While above compression rate
-        print(compressionRateScores[-1]['f1Scores'])
-        simpRtree.close()
+    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+    # While above compression rate
+    print(compressionRateScores[-1]['f1Scores'])
+    simpRtree.close()
 
-        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-            os.remove(SIMPLIFIEDDATABASENAME + '.data')
-            os.remove(SIMPLIFIEDDATABASENAME + '.index')
-        # Generate and apply queries, giving scorings to points
+    if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+        os.remove(SIMPLIFIEDDATABASENAME + '.data')
+        os.remove(SIMPLIFIEDDATABASENAME + '.index')
+    # Generate and apply queries, giving scorings to points
 
-        # Remove x points with the fewest points
+    # Remove x points with the fewest points
 
-        # Collect evaluation data
-            # getAverageF1ScoreAll, GetSimplificationError
+    # Collect evaluation data
+        # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
     with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
@@ -110,18 +108,17 @@ def main(config):
     pass
 
 
-def gridSearch(grid):
-    allCombinations = createConfigs(grid["epochs"], grid["compression_rate"], grid["DB_size"],
-        grid["trainTestSplit"], grid["numberOfEachQuery"], grid["QueriesPerTrajectory"])
+def gridSearch(allCombinations):
 
-    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(origRtree, origTrajectories)
-
-    ORIGTrajectories = copy.deepcopy(origTrajectories)
 
     configScore = list()
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
     for config in tqdm(allCombinations):
+        origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
+        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
+
+        ORIGTrajectories = copy.deepcopy(origTrajectories)
+
+        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
         print(config.epochs)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
@@ -159,5 +156,7 @@ if __name__ == "__main__":
     config["numberOfEachQuery"] = [100]         # Number of queries used to simplify database
     config["QueriesPerTrajectory"] = [0.1]      # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
-    #main(config)
-    gridSearch(config)
+    allCombinations = createConfigs(config["epochs"], config["compression_rate"], config["DB_size"],
+        config["trainTestSplit"], config["numberOfEachQuery"], config["QueriesPerTrajectory"])
+    main(allCombinations[0])
+    #gridSearch(allCombinations)

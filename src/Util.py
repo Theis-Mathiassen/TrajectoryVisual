@@ -61,8 +61,14 @@ class ParamUtil:
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        tMin = randomTrajectory.nodes[0].t
-        tMax = randomTrajectory.nodes[-1].t
+        # Select a random node from the middle portion of the trajectory
+        centerNodeIndex = len(randomTrajectory.nodes) // 2
+        centerNode: Node = randomTrajectory.nodes[centerNodeIndex]
+        
+        # Create a time window around the center node
+        tMin = max(centerNode.t - temporalWindowSize, self.tMin)
+        tMax = min(centerNode.t + temporalWindowSize, self.tMax)
+        
         xMin = self.xMin
         xMax = self.xMax
         yMin = self.yMin

@@ -43,7 +43,7 @@ def main(config):
 
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
-    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, config["scoreWeights"], delta=10800) # Temporal window for T-Drive is 3 hours
     
 
     origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
@@ -53,7 +53,7 @@ def main(config):
 
     # ---- Create evaluation queries -----
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
-    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, config["scoreWeights"], delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
@@ -113,5 +113,9 @@ if __name__ == "__main__":
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    
+    # Configurable weights for each of the query types used
+    # Default values here are 1
+    config["scoreWeights"] = {"rangeWeight":1.0, "similarityWeight":1.0, "kNNWeight":1.0, "clusterWeight":1.0}
 
     main(config)

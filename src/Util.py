@@ -12,7 +12,7 @@ import numpy as np
 # Util to init params for different query types.
 class ParamUtil:
     # init the params to be the bounding box of the Rtree and fix some delta
-    def __init__(self, rtree: index.Index, trajectories: dict, delta = 0, k = 3, eps = 1, linesMin = 3):
+    def __init__(self, rtree: index.Index, trajectories: dict, weights, delta = 0, k = 3, eps = 1, linesMin = 3):
         boundingBox = rtree.bounds
         
         # Establish mbr for the whole Rtree
@@ -35,6 +35,7 @@ class ParamUtil:
         self.linesMin = linesMin
         
         self.origin: Trajectory = None
+        self.weights = weights
         
     
     
@@ -57,7 +58,7 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax """
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag, weight=self.weights["rangeWeight"])
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
@@ -68,7 +69,7 @@ class ParamUtil:
         yMin = self.yMin
         yMax = self.yMax
         delta = delta
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, weight=self.weights["similarityWeight"])
     
     def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
@@ -82,7 +83,7 @@ class ParamUtil:
         yMin = self.yMin
         yMax = self.yMax
         k = k
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, weight=self.weights["kNNWeight"])
     
     def clusterParams(self, rtree: index.Index):
         tMin = self.tMin 
@@ -94,7 +95,7 @@ class ParamUtil:
         k = self.k
         eps = None
         linesMin = None
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories, weight=self.weights["clusterWeight"])
     
 def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
     north = lat * 110574.0

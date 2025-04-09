@@ -45,7 +45,7 @@ class SimilarityQuery(Query):
         
         pops = []   
         for trajectory_id, nodes in trajectory_nodes.items():
-            if max(nodes) - min(nodes) != len(nodes):
+            if max(nodes) - min(nodes) != len(nodes) - 1:
                 pops.append(trajectory_id)      
         
         for trajectory_id in pops:
@@ -82,7 +82,7 @@ class SimilarityQuery(Query):
                         # check if interpolated point is within delta
                         if np.linalg.norm(point2 - point1) <= self.delta:
                             withinDelta.append((trajectory_id, node_ids[i]))  # store our node id from earlier
-                            continue
+                            break
                         else:
                             withinSentinel = False
                             break

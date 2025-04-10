@@ -72,10 +72,10 @@ class ParamUtil:
     
     def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        trajectoryTemporalLength = abs(randomTrajectory.nodes[-1].t - randomTrajectory.nodes[0].t)
-        padding = max(0, temporalWindowSize - trajectoryTemporalLength)
-        tMin = randomTrajectory.nodes[0].t - padding
-        tMax = randomTrajectory.nodes[-1].t + padding
+        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        centerTime = centerNode.t
+        tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
+        tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
         #tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax

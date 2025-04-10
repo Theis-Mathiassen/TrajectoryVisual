@@ -17,6 +17,10 @@ class SimilarityQuery(Query):
         self.trajectory = params["origin"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
+        self.x1 = params["x1"]
+        self.x2 = params["x2"]
+        self.y1 = params["y1"]
+        self.y2 = params["y2"]
         self.delta = params["delta"]
         self.scoringSystem = "a"    # Between "c", "a", "c+f", "m"
                                     # C -> Closest
@@ -29,11 +33,12 @@ class SimilarityQuery(Query):
 
     def run(self, rtree):
         #Find matches og filtrer dem som ikke er indenfor delta
-        maxX = max(map(lambda node : node.x, self.trajectory.nodes.data))
+        """ maxX = max(map(lambda node : node.x, self.trajectory.nodes.data))
         minX = min(map(lambda node : node.x, self.trajectory.nodes.data))
         maxY = max(map(lambda node : node.y, self.trajectory.nodes.data))
-        minY = min(map(lambda node : node.y, self.trajectory.nodes.data))
-        maybe_hits = list(rtree.intersection((minX - self.delta, minY - self.delta, self.t1, maxX + self.delta, maxY + self.delta, self.t2), objects='raw'))
+        minY = min(map(lambda node : node.y, self.trajectory.nodes.data)) """
+        #maybe_hits = list(rtree.intersection((minX - self.delta, minY - self.delta, self.t1, maxX + self.delta, maxY + self.delta, self.t2), objects='raw'))
+        maybe_hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects='raw'))
         maybe_hits = [(trajectory_id, node_id) for trajectory_id, node_id in maybe_hits if trajectory_id != self.trajectory.id]
            
         # we group our maybe_hits by trajectory_id

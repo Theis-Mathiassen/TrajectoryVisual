@@ -1,7 +1,7 @@
 from src.Query import Query
 from src.Node import Node
 from src.Trajectory import Trajectory
-from src.Util import DTWDistance, DTWDistanceWithScoring
+from src.Util import DTWDistance, DTWDistanceWithScoring, spatio_temporal_linear_combine_distance, spatio_temporal_linear_combine_distance_with_scoring
 import math
 import numpy as np
 
@@ -112,7 +112,8 @@ class KnnQuery(Query):
         originSegmentTrajectory = self.trajectory
         for segment in listOfTrajectorySegments:
             segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+            # similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+            similarityMeasures[segment[0]] = spatio_temporal_linear_combine_distance(originSegmentTrajectory, segmentTrajectory, 0.5)
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
@@ -150,15 +151,17 @@ class KnnQuery(Query):
             #segmentTrajectory = Trajectory(trajectory.id, segment)
 
             # get scorings for nodes (With DTW) in dictionary form
-            nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
+            # nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
 
 
-            # Find relevant nodes and add scores. Note that scores are sorted by index in segment
-            for nodeIndex, score in nodeScores.items():
-                for index, node in enumerate(trajectories[trajectory.id].nodes):
-                    if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
-                        trajectories[trajectory.id].nodes[index].score += score
-                        break
+            # # Find relevant nodes and add scores. Note that scores are sorted by index in segment
+            # for nodeIndex, score in nodeScores.items():
+            #     for index, node in enumerate(trajectories[trajectory.id].nodes):
+            #         if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
+            #             trajectories[trajectory.id].nodes[index].score += score
+            #             break
+
+            spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5)
 
                         
 

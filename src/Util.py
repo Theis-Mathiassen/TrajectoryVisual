@@ -280,3 +280,96 @@ def get_visited(pathTracker, length_x, length_y):
             toVisit.append((x - 1, y - 1))
     
     return visited
+
+
+
+# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
+def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    """
+    Gets the spatio-temporal distance between two lists of nodes
+
+    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
+
+    result = spatial dist * weight + temporal dist * (1 - weight)`
+    """
+    originNodes = originTrajectory.nodes.compressed()
+    otherNodes = otherTrajectory.nodes.compressed()
+
+
+    def get_distances(evalNodes, referenceNodes):
+        spatial_similarity = 0
+        temporal_similarity = 0
+
+        for node in evalNodes:
+            spatial_similarity += spatial_distance(node, referenceNodes)
+            temporal_similarity += temporal_distance(node, referenceNodes)
+
+        spatial_similarity = spatial_similarity / len(evalNodes)
+        temporal_similarity = temporal_similarity / len(evalNodes)
+
+        return spatial_similarity, temporal_similarity
+    
+
+    spatial_similarity_1, temporal_similarity_1 = get_distances(originNodes, otherNodes)
+    spatial_similarity_2, temporal_similarity_2 = get_distances(otherNodes, originNodes)
+
+
+    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
+    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
+
+    return spatial_similarity * weight + temporal_similarity * (1 - weight)
+
+def spatial_distance(node, nodes):
+    minVal = math.inf
+    for other_node in nodes:
+        minVal = min(minVal, np.sqrt(np.power(node.x-other_node.x, 2) + np.power(node.y-other_node.y, 2)))
+
+    return minVal
+
+def temporal_distance(node, nodes):
+    minVal = math.inf
+    for other_node in nodes:
+        minVal = min(minVal, abs(node.t - other_node.t))
+
+    return minVal
+
+def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    """
+    We give points to each node where it is the minimum distance. Divided by the distance
+
+    We only loop over which nodes are closest to the origin trajectory. 
+    Not which from the origin trajectory are closest to others, as we are rewarding others
+
+    We also factor the alpha weight in
+
+    """
+    origin_nodes = originTrajectory.nodes
+    other_nodes = otherTrajectory.nodes.compressed()
+
+
+    def get_min_dist_node(origin_node, nodes, func):
+        min = math.inf
+        closest = None
+        for node in nodes[0:]:
+            dist = func(origin_node, node)
+            if dist < min:
+                min = dist
+                closest = node
+
+        return closest, min
+
+    def temporal_distance_func(node, other_node):
+        return abs(node.t - other_node.t)
+    
+    def spatial_distance_func(node, other_node):
+        return np.sqrt(np.power(node.x-other_node.x, 2) + np.power(node.y-other_node.y, 2))
+
+    for origin_node in origin_nodes:
+        for func in [spatial_distance_func, temporal_distance_func]:
+            closestNode, dist = get_min_dist_node(origin_node, other_nodes, func)
+
+            if dist < 1: # Set distance to a minimum of 1
+                dist = 1
+
+            otherTrajectory.nodes.data[closestNode.id].score += weight / dist
+

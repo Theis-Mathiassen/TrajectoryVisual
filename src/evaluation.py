@@ -11,45 +11,93 @@ from src.Query import Query
 from src.QueryWrapper import QueryWrapper
 from itertools import combinations
 from tqdm import tqdm
+import pickle
+import os
+
+CACHE_FILE = "cached_rtree_query_eval_results.pkl"
+
+def load_from_cache(key):
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, "rb") as f:
+            cache = pickle.load(f)
+            return cache.get(key)
+    else:
+        return None
+    
+def save_to_cache(key, data):
+    cache = {}
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, "rb") as f:
+            cache = pickle.load(f)
+    cache[key] = data
+    with open(CACHE_FILE, "wb") as f:
+        pickle.dump(cache, f)
+
+
+def runAndGenerateSet(rtree, query, use_cache = False):
+    if use_cache:
+        cache_key = repr((rtree, query))
+        cached_data = load_from_cache(cache_key)
+        
+        if cached_data is not None:
+            return cached_data
+        
+    result = query.run(rtree)
+
+    if isinstance(query, KnnQuery):
+        set_result = set([item.id for item in result])
+    else:
+        set_result = set([trajectory_id for trajectory_id, _ in result])
+    
+    if use_cache:
+        save_to_cache(cache_key, set_result)
+
+    return set_result
 
 
 # This code allows testing of simplified trajectories
+def getClusterSet(rtree, query, use_cache = False):
+    if use_cache:
+        cache_key = repr((rtree, query))
+        cached_data = load_from_cache(cache_key)
+        
+        if cached_data is not None:
+            return cached_data
+        
+    clusters = query.run(rtree)
+    for cluster in clusters:
+        cluster = [trajectory.id for trajectory in cluster]
 
+    result = set(combinations(clusters, 2))
+
+    if use_cache:
+        save_to_cache(cache_key, result)
+    
+    return result
+    
 def getIntersection(trajectoryList1, trajectoryList2):
     return list(set(trajectoryList1[0]) & set(trajectoryList2[0]))
     return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
-def getF1Score(Query : Query, rtree_original, rtree_simplified):
+import time
+
+def getF1Score(query : Query, rtree_original, rtree_simplified):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
-    if Query is ClusterQuery:
+    if query is ClusterQuery:
         print('ClusterQuery is not implemented yet.')
 
 
-        Query.returnCluster = True # Set to return clusters
+        query.returnCluster = True # Set to return clusters
 
-        def getClusterSet(rtree):
-            clusters = Query.run(rtree)
-            for cluster in clusters:
-                cluster = [trajectory.id for trajectory in cluster]
-            
-            return set(combinations(clusters, 2))
-        
-        setOriginal_result = getClusterSet(rtree_original)
-        setSimplified_result = getClusterSet(rtree_simplified)
-
+        setOriginal_result = getClusterSet(rtree_original, query, use_cache=True)
+        setSimplified_result = getClusterSet(rtree_simplified, query)
 
     else: # For all other queries
+        
+        setOriginal_result = runAndGenerateSet(rtree_original, query,use_cache=True)
+        setSimplified_result = runAndGenerateSet(rtree_simplified, query)
 
-        original_result = Query.run(rtree_original)
-        simplified_result = Query.run(rtree_simplified)
-
-        if isinstance(Query, KnnQuery) :
-            setOriginal_result = set([item.id for item in original_result])
-            setSimplified_result = set([item.id for item in simplified_result])
-        else:
-            setOriginal_result = set([trajectory_id for trajectory_id, _ in original_result])
-            setSimplified_result = set([trajectory_id for trajectory_id, _ in simplified_result])
 
     intersection = setOriginal_result & setSimplified_result
 

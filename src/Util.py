@@ -302,3 +302,120 @@ def get_visited(pathTracker, length_x, length_y):
             toVisit.append((x - 1, y - 1))
     
     return visited
+
+
+
+# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
+def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    """
+    Gets the spatio-temporal distance between two lists of nodes
+
+    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
+
+    result = spatial dist * weight + temporal dist * (1 - weight)`
+    """
+    originNodes = originTrajectory.nodes.compressed()
+    otherNodes = otherTrajectory.nodes.compressed()
+
+
+    npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
+    npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
+
+
+    def get_distances(evalNodes, referenceNodes):
+        spatial_similarity = 0
+        temporal_similarity = 0
+
+        for node in evalNodes:
+            spatial_similarity += spatial_distance(node, referenceNodes)
+            temporal_similarity += temporal_distance(node, referenceNodes)
+
+        evalLength = len(evalNodes)
+
+        spatial_similarity = spatial_similarity / evalLength
+        temporal_similarity = temporal_similarity / evalLength
+
+        return spatial_similarity, temporal_similarity
+    
+
+    spatial_similarity_1, temporal_similarity_1 = get_distances(npOrigin, npOther)
+    spatial_similarity_2, temporal_similarity_2 = get_distances(npOther, npOrigin)
+
+
+    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
+    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
+
+    return spatial_similarity * weight + temporal_similarity * (1 - weight)
+
+def spatial_distance(node, nodes):
+
+    dx = np.abs(nodes[:,0] - node[0])
+    dy = np.abs(nodes[:,1] - node[1])
+
+    distances = np.sqrt(dx**2 + dy**2)
+
+    return np.min(distances)
+
+
+def temporal_distance(node, nodes):
+    
+    distances = np.abs(nodes[:,2] - node[2])
+
+    return np.min(distances)
+
+
+def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    """
+    We give points to each node where it is the minimum distance. Divided by the distance
+
+    We only loop over which nodes are closest to the origin trajectory. 
+    Not which from the origin trajectory are closest to others, as we are rewarding others
+
+    We also factor the alpha weight in
+
+    """
+    origin_nodes = originTrajectory.nodes.compressed()
+    other_nodes = otherTrajectory.nodes.compressed()
+
+    npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
+    npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
+
+
+    def get_min_dist_node(origin_node, nodes, func):
+        min = math.inf
+        closestIndex = None
+        for index, node in enumerate(nodes[0:]):
+            dist = func(origin_node, node)
+            if dist < min:
+                min = dist
+                closestIndex = index
+
+        return closestIndex, min
+
+    # Like the ones above but also return the index of the min val
+    def temporal_distance_func(node, other_nodes):
+        
+        distances = np.abs(other_nodes[:,2] - node[2])
+
+        min_idx = np.argmin(distances)
+        return min_idx, np.min(distances)
+    
+    def spatial_distance_func(node, other_nodes):
+
+        dx = np.abs(other_nodes[:,0] - node[0])
+        dy = np.abs(other_nodes[:,1] - node[1])
+
+        distances = np.sqrt(dx**2 + dy**2)
+
+        min_idx = np.argmin(distances)
+        return min_idx, np.min(distances)
+
+    for origin_node in npOrigin:
+        for func in [spatial_distance_func, temporal_distance_func]:
+            closestNodeIndex, dist = func(origin_node, npOther)
+
+            if dist < 1: # Set distance to a minimum of 1
+                dist = 1
+
+            otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
+

@@ -44,7 +44,11 @@ def main(config):
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
-    ORIGTrajectories = copy.deepcopy(origTrajectories)
+    #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    ORIGTrajectories = {
+        tid : copy.deepcopy(traj)
+        for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
+    }
 
     ## Setup data collection environment, that is evaluation after each epoch
 

@@ -1,7 +1,7 @@
 from src.Query import Query
 from src.Node import Node
 from src.Trajectory import Trajectory
-from src.Util import DTWDistance, DTWDistanceWithScoring
+from src.Util import DTWDistance, DTWDistanceWithScoring, lcss
 import math
 import numpy as np
 
@@ -13,6 +13,9 @@ class KnnQuery(Query):
     def __init__(self, params):
         self.trajectory = params["origin"]
         self.k = params["k"]
+        self.eps = params["eps"]
+        self.delta = params["delta"]
+        self.flag = params["flag"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.x1 = params["x1"]
@@ -63,12 +66,20 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = Trajectory(-1, originSegment)
-        for segment in listOfTrajectorySegments:
-            segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+
+        if self.flag == 1 :
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+        if self.flag == 2 : 
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = lcss(self.eps, self.delta, originSegmentTrajectory, segmentTrajectory)
+
 
         # Sort by most similar, where the most similar have the smallest value
-        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
+        reverse = False if (self.flag==1) else True
+        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=reverse)
 
         # get top k ids
         topKIds = [x[0] for x in similarityMeasures[:self.k]]
@@ -110,9 +121,18 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
-        for segment in listOfTrajectorySegments:
+        
+        if self.flag == 1 :
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+        if self.flag == 2 : 
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                similarityMeasures[segment[0]] = lcss(self.eps, self.delta, originSegmentTrajectory, segmentTrajectory)
+        """ for segment in listOfTrajectorySegments:
             segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory) """
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)

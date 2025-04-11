@@ -92,7 +92,7 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, flag = 1):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         centerTime = centerNode.t
@@ -103,8 +103,9 @@ class ParamUtil:
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
+        flag = flag
         k = k
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
     def clusterParams(self, rtree: index.Index):
         tMin = self.tMin 

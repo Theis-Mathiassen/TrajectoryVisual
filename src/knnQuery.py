@@ -20,6 +20,7 @@ class KnnQuery(Query):
         self.y1 = params["y1"]
         self.y2 = params["y2"]
         self.trajectories = params["trajectories"]
+        self.distanceMethod = 1 # 0 -> DTW, 1 -> spatioTemporalDist, 2 -> LCSS
 
 
     def run(self, rtree):
@@ -93,7 +94,7 @@ class KnnQuery(Query):
             trajectories[trajectory_id].append(node_id)
         
         
-        for trajectory in trajectories:
+        for trajectory in trajectories: 
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
             minIndex = min(trajectories[trajectory])
             maxIndex = max(trajectories[trajectory])
@@ -110,10 +111,22 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
-        for segment in listOfTrajectorySegments:
-            segmentTrajectory = Trajectory(segment[0], segment[1])
-            # similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
-            similarityMeasures[segment[0]] = spatio_temporal_linear_combine_distance(originSegmentTrajectory, segmentTrajectory, 0.5)
+
+        # If statement out here so it does not need repeating 
+        if self.distanceMethod == 0: # Use DTW
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                
+                similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
+
+        elif self.distanceMethod == 1: # Use spatio temporal linear combine distance
+            for segment in listOfTrajectorySegments:
+                segmentTrajectory = Trajectory(segment[0], segment[1])
+                
+                similarityMeasures[segment[0]] = spatio_temporal_linear_combine_distance(originSegmentTrajectory, segmentTrajectory, 0.5)
+
+        else: # If unimplemented distance
+            raise Exception(f"Distance method not implemented under name {self.distanceMethod}")
 
         # Sort by most similar, where the most similar have the smallest value
         similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
@@ -137,31 +150,36 @@ class KnnQuery(Query):
 
         originSegmentTrajectory = Trajectory(-1, originSegment)
 
-        for trajectory in matches:
+        if self.distanceMethod == 0: # Use DTW
+            for trajectory in matches:
+                # Match trajectory to supplied list
+                trajectoryIndex = 0
+                for index, trajectoryInList in enumerate(trajectories.values()):
+                    if trajectoryInList.id == trajectory.id:
+                        trajectoryIndex = index
+                        break
 
-            ## Match trajectory to supplied list
-            #trajectoryIndex = 0
-            #for index, trajectoryInList in enumerate(trajectories.values()):
-            #    if trajectoryInList.id == trajectory.id:
-            #        trajectoryIndex = index
-            #        break
+                    # Get segment
+                    segment = self.getSegmentInTimeWindow(trajectory)
+                    # segmentTrajectory = Trajectory(trajectory.id, segment)
 
-            # Get segment
-            #segment = self.getSegmentInTimeWindow(trajectory)
-            #segmentTrajectory = Trajectory(trajectory.id, segment)
-
-            # get scorings for nodes (With DTW) in dictionary form
-            # nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
+                    # get scorings for nodes (With DTW) in dictionary form
+                    nodeScores = DTWDistanceWithScoring(originSegmentTrajectory, trajectory)
 
 
-            # # Find relevant nodes and add scores. Note that scores are sorted by index in segment
-            # for nodeIndex, score in nodeScores.items():
-            #     for index, node in enumerate(trajectories[trajectory.id].nodes):
-            #         if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
-            #             trajectories[trajectory.id].nodes[index].score += score
-            #             break
+                    # Find relevant nodes and add scores. Note that scores are sorted by index in segment
+                    for nodeIndex, score in nodeScores.items():
+                        for index, node in enumerate(trajectories[trajectory.id].nodes):
+                            if node.id == trajectory.nodes[nodeIndex].id:    # Found relevant node
+                                trajectories[trajectory.id].nodes[index].score += score
+                                break
 
-            spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5)
+        elif self.distanceMethod == 1: # Use spatio temporal linear combine distance
+            for trajectory in matches:   
+                spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5)
+
+        else: # If unimplemented distance
+            raise Exception(f"Distance method not implemented under name {self.distanceMethod}")
 
                         
 

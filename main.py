@@ -51,7 +51,6 @@ def main(config):
     # ---- Set number of queries to be created ----
     if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
-    print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
 
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -89,7 +88,7 @@ def main(config):
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
         print(compressionRateScores[-1]['f1Scores'])
         simpRtree.close()
@@ -129,7 +128,7 @@ if __name__ == "__main__":
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["QueriesPerTrajectory"] = 0.05   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 
     try:
@@ -147,3 +146,12 @@ if __name__ == "__main__":
 
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
+
+    
+    # Cleanup temporary cache files
+    filesToClear = ["cached_rtree_query_eval_results.pkl"]
+
+    for fileString in filesToClear:
+        if os.path.exists(fileString):
+            os.remove(fileString)
+            

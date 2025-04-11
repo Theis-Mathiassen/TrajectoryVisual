@@ -61,27 +61,43 @@ class ParamUtil:
     
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        # Select a random node from the middle portion of the trajectory
-        centerNodeIndex = len(randomTrajectory.nodes) // 2
-        centerNode: Node = randomTrajectory.nodes[centerNodeIndex]
+        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        centerTime = centerNode.t
+        minId = 0
+        maxId = len(randomTrajectory.nodes) - 1
+        for node in randomTrajectory.nodes[0:len(randomTrajectory.nodes) // 2]:
+            if node.t >= centerTime - temporalWindowSize // 2:
+                minId = node.id
+                break
+            
+        for node in randomTrajectory.nodes[len(randomTrajectory.nodes) // 2 : -1]:
+            if node.t >= centerTime + temporalWindowSize // 2:
+                maxId = node.id - 1
+                break
+            
         
-        # Create a time window around the center node
-        tMin = max(centerNode.t - temporalWindowSize, self.tMin)
-        tMax = min(centerNode.t + temporalWindowSize, self.tMax)
+        tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
+        tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
         
-        xMin = self.xMin
-        xMax = self.xMax
-        yMin = self.yMin
-        yMax = self.yMax
+        xMax = max(map(lambda node : node.x, randomTrajectory.nodes.data[minId:maxId + 1]))
+        xMax = min(xMax + delta, self.xMax)
+        xMin = min(map(lambda node : node.x, randomTrajectory.nodes.data[minId:maxId + 1]))
+        xMin = max(xMin - delta, self.xMin)
+        
+        yMax = max(map(lambda node : node.y, randomTrajectory.nodes.data[minId:maxId + 1]))
+        yMax = min(yMax + delta, self.yMax)
+        yMin = min(map(lambda node : node.y, randomTrajectory.nodes.data[minId:maxId + 1]))
+        yMin = max(yMin - delta, self.yMin)
+        
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
     def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
         randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        trajectoryTemporalLength = abs(randomTrajectory.nodes[-1].t - randomTrajectory.nodes[0].t)
-        padding = max(0, temporalWindowSize - trajectoryTemporalLength)
-        tMin = randomTrajectory.nodes[0].t - padding
-        tMax = randomTrajectory.nodes[-1].t + padding
+        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        centerTime = centerNode.t
+        tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
+        tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
         #tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax

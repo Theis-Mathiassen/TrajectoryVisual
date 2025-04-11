@@ -1,4 +1,3 @@
-from tkinter.constants import W
 from src.gridSearch import createConfigs
 from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil

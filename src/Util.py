@@ -327,8 +327,8 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
 def spatial_distance(node, nodes):
 
-    dx = nodes[:,0] - node[0]
-    dy = nodes[:,1] - node[1]
+    dx = np.abs(nodes[:,0] - node[0])
+    dy = np.abs(nodes[:,1] - node[1])
 
     distances = np.sqrt(dx**2 + dy**2)
 
@@ -337,7 +337,7 @@ def spatial_distance(node, nodes):
 
 def temporal_distance(node, nodes):
     
-    distances = nodes[:,2] - node[2]
+    distances = np.abs(nodes[:,2] - node[2])
 
     return np.min(distances)
 
@@ -373,15 +373,15 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     # Like the ones above but also return the index of the min val
     def temporal_distance_func(node, other_nodes):
         
-        distances = other_nodes[:,2] - node[2]
+        distances = np.abs(other_nodes[:,2] - node[2])
 
         min_idx = np.argmin(distances)
         return min_idx, np.min(distances)
     
     def spatial_distance_func(node, other_nodes):
 
-        dx = other_nodes[:,0] - node[0]
-        dy = other_nodes[:,1] - node[1]
+        dx = np.abs(other_nodes[:,0] - node[0])
+        dy = np.abs(other_nodes[:,1] - node[1])
 
         distances = np.sqrt(dx**2 + dy**2)
 

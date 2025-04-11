@@ -15,12 +15,24 @@ import math
 from tqdm import tqdm
 import pandas as pd
 import os
+import logging
+import traceback # traceback for information on python stack traces
 
 sys.path.append("src/")
 
 CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
+LOG_FILENAME = 'script_error_log.log' # Define a log file name
+
+
+logging.basicConfig(
+    level=logging.ERROR, # Log only ERROR level messages and above
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename=LOG_FILENAME, # Log to this file
+    filemode='a' # Append mode, use 'w' to overwrite each time
+)
+logger = logging.getLogger(__name__)
 
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):
@@ -58,11 +70,16 @@ def main(config):
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
-    ORIGTrajectories = copy.deepcopy(origTrajectories)
+    #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    ORIGTrajectories = {
+        tid : copy.deepcopy(traj)
+        for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
+    }
 
     ## Setup data collection environment, that is evaluation after each epoch
 
     # ---- Set number of queries to be created ----
+
     if config.QueriesPerTrajectory != None:
         config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))
 
@@ -124,7 +141,8 @@ def gridSearch(allCombinations):
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        configScore.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        configScore.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+
         # While above compression rate
         print(configScore[-1]['f1Scores'])
         simpRtree.close()
@@ -140,23 +158,53 @@ def gridSearch(allCombinations):
             # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
-    with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
-        pickle.dump(configScore, file)
-        file.close()
+    try:
+        with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+            pickle.dump(configScore, file)
+            file.close()
+    except Exception as e:
+        print(f"err saving results: {e}")
+        logger.error("problems when saving results to pickle file.")
+        logger.error(traceback.format_exc()) 
+
+    ## Plot models
+
     pass
 
 if __name__ == "__main__":
     config = {}
     config["epochs"] = [100]                    # Number of epochs to simplify the trajectory database
-    #config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
-    config["compression_rate"] = [0.5]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = [100]               # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                    # Print progress
     config["trainTestSplit"] = [0.8]            # Train/test split
     config["numberOfEachQuery"] = [100]         # Number of queries used to simplify database
     config["QueriesPerTrajectory"] = [0.1]      # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
-    allCombinations = createConfigs(config["epochs"], config["compression_rate"], config["DB_size"],
-        config["trainTestSplit"], config["numberOfEachQuery"], config["QueriesPerTrajectory"])
-    main(allCombinations[0])
-    #gridSearch(allCombinations)
+    print("Script starting...") 
+    try:
+        allCombinations = createConfigs(config["epochs"], config["compression_rate"], config["DB_size"],
+            config["trainTestSplit"], config["numberOfEachQuery"], config["QueriesPerTrajectory"])
+        main(allCombinations[0])
+        #gridSearch(allCombinations)
+        print("Script finished successfully.") 
+
+    except Exception as e:
+        print(f"\n--- SCRIPT CRASHED ---")
+        print(f"!!! error occurred: {e}")
+        print(f"See {LOG_FILENAME} for detailed err traces.")
+
+        # Log the exception information to the file
+        logger.error(f"Script crashed with the following error: {e}")
+        logger.error("Trace:\n%s", traceback.format_exc()) # Log the full traceback
+
+    finally:
+        print("\n execution finished (i.e. it either completed or crashed).")
+
+    
+    # Cleanup temporary cache files
+    filesToClear = ["cached_rtree_query_eval_results.pkl"]
+
+    for fileString in filesToClear:
+        if os.path.exists(fileString):
+            os.remove(fileString)

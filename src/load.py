@@ -26,11 +26,65 @@ PAGESIZE = 16000
 #Drop rows with polylines of length 0..
 
 
-def get_Tdrive(filename="") :
+def checkCurrentRtreeMatches(Rtree, trajectories, filename):
+    """
+    Function to check if rtree matches trajectories. This happens if several csv files are loaded under the same name.
+    We do this by checking for 10 random nodes from the trajectories
+    """
 
-    tDriveToCsv()
+    # If Rtree does not match Trajectories, delete Rtree and create a new one
+    if not checkCurrentRtreeMatchesHelper(Rtree, trajectories):
+        print("Rtree does not match Trajectories, deleting Rtree and creating a new one...")
+        Rtree.close()
+        #del Rtree # This deletes the old Rtree from program memory, allowing us to delete the index and data files
+        os.remove(filename + '.index')
+        os.remove(filename + '.data')
+        Rtree, _ = loadRtree(filename, trajectories)
+
+    return Rtree
+
+def checkCurrentRtreeMatchesHelper(Rtree, trajectories) -> bool:
+    trajectoriesList = list(trajectories.values())
+    for trajectory in trajectoriesList[:10]:
+        firstNode = trajectory.nodes[0]
+
+        hits = list(Rtree.intersection((firstNode.x, firstNode.y, firstNode.t, firstNode.x, firstNode.y, firstNode.t), objects="raw"))
+
+        if len(hits) == 0:
+            return False
+
+        flag = False
+        actualTrajectoryId = trajectory.id
+        actualNodeId = firstNode.id
+        for hit in hits:
+            trajectory_id, node_id = hit
+
+            # If the trajectory id and node id match then we have a match
+            if trajectory_id == actualTrajectoryId and node_id == actualNodeId:
+                flag = True
+                break
+        # If no matches then return false
+        if not flag:
+            return False
+        
+    # If all matches then return true
+    return True
+
+def get_Tdrive(filename="") :
+    cwd = os.getcwd()
+    path = os.path.join(cwd, 'datasets', 'Tdrive.csv')
+    if os.path.exists(path):
+        print("Tdrive already loaded to CSV, skipping load from folder...")
+    else:
+        tDriveToCsv()
 
     Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
+
+
+
+    # If Rtree does not match Trajectories, delete Rtree and create a new one
+    Rtree = checkCurrentRtreeMatches(Rtree, Trajectories, filename)
+
 
     return Rtree, Trajectories
 
@@ -371,7 +425,9 @@ def build_Rtree(dataset, filename='') :
                 t += 1
             Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
     
-        
+    # Check if the current rtree matches the trajectories
+    Rtree_ = checkCurrentRtreeMatches(Rtree_, Trajectories, filename)
+
     return Rtree_, Trajectories
 
 #Convert a polyline row in lon lat coordinates to metric coordinates

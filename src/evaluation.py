@@ -79,9 +79,11 @@ def getIntersection(trajectoryList1, trajectoryList2):
     return list(set(trajectoryList1[0]) & set(trajectoryList2[0]))
     return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
+
 import time
 
 def getF1Score(query : Query, rtree_original, rtree_simplified):
+
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if query is ClusterQuery:
@@ -94,9 +96,11 @@ def getF1Score(query : Query, rtree_original, rtree_simplified):
         setSimplified_result = getClusterSet(rtree_simplified, query)
 
     else: # For all other queries
-        
-        setOriginal_result = runAndGenerateSet(rtree_original, query,use_cache=True)
-        setSimplified_result = runAndGenerateSet(rtree_simplified, query)
+        with tqdm(total=2, desc="Processing query", leave=False) as pbar:
+            setOriginal_result = runAndGenerateSet(rtree_original, query,use_cache=True)
+            pbar.update(1)
+            setSimplified_result = runAndGenerateSet(rtree_simplified, query)
+            pbar.update(1)
 
 
     intersection = setOriginal_result & setSimplified_result

@@ -5,6 +5,7 @@ import numpy.ma as ma
 from src.Trajectory import Trajectory
 from src.Node import Node
 from src.Query import Query
+from tqdm import tqdm
 
 class SimilarityQuery(Query):
     trajectory: Trajectory
@@ -59,7 +60,7 @@ class SimilarityQuery(Query):
         hits = []
         
         # For each trajectory, find or interpolate a point at time t
-        for trajectory_id, node_ids in trajectory_nodes.items():
+        for trajectory_id, node_ids in tqdm(trajectory_nodes.items(), desc="Processing similarity query", leave=False):
             trajectory = self.trajectories[trajectory_id]
             # sort nodes by time (BUT is this necessary? read that we assume total ordering)
             nodes = [trajectory.nodes.data[node_id] for node_id in node_ids]
@@ -103,6 +104,7 @@ class SimilarityQuery(Query):
             point1 = np.array((node.x, node.y))
             withinDelta = [(trajectory_id, node_id) for trajectory_id, node_id in maybe_hits if self.trajectories[trajectory_id].nodes.data[node_id].t == node.t and np.linalg.norm(np.array((self.trajectories[trajectory_id].nodes.data[node_id].x, self.trajectories[trajectory_id].nodes.data[node_id].y)) - point1) <= self.delta]
             hits.extend(withinDelta) """
+
         """ trajectory_hits = {}
         # For each node in the trajectory
         for node in self.trajectory.nodes.data:

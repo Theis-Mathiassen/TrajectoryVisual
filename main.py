@@ -11,9 +11,10 @@ import copy
 import pickle
 import math
 from tqdm import tqdm
-import pandas as pd 
+import pandas as pd
 import os
-import logging
+#import logging
+from src.log import logger, ERROR_LOG_FILENAME
 import traceback # traceback for information on python stack traces
 
 sys.path.append("src/")
@@ -21,22 +22,13 @@ sys.path.append("src/")
 CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-LOG_FILENAME = 'script_error_log.log' # Define a log file name
 PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
-
-logging.basicConfig(
-    level=logging.ERROR, # Log only ERROR level messages and above
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename=LOG_FILENAME, # Log to this file
-    filemode='a' # Append mode, use 'w' to overwrite each time
-)
-logger = logging.getLogger(__name__)
 
 #### main
 def main(config):
     ## Load Dataset
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
-    
+
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
 
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
@@ -59,7 +51,7 @@ def main(config):
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
-    
+
 
     #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
@@ -76,14 +68,14 @@ def main(config):
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
 
-    
+
     compressionRateScores = list()
 
     #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
 
     ## Main Loop
     #print("Main loop..")
-    
+
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
@@ -99,7 +91,7 @@ def main(config):
         # While above compression rate
         print(compressionRateScores[-1]['f1Scores'])
         simpRtree.close()
-        
+
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
             os.remove(SIMPLIFIEDDATABASENAME + '.data')
             os.remove(SIMPLIFIEDDATABASENAME + '.index')
@@ -118,7 +110,7 @@ def main(config):
     except Exception as e:
         print(f"err saving results: {e}")
         logger.error("problems when saving results to pickle file.")
-        logger.error(traceback.format_exc()) 
+        logger.error(traceback.format_exc())
 
     ## Plot models
 
@@ -128,6 +120,7 @@ def main(config):
 
 
 if __name__ == "__main__":
+    logger.info("Top of main.")
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
@@ -137,15 +130,16 @@ if __name__ == "__main__":
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 0.005   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
-    print("Script starting...") 
+    #print("Script starting...")
     try:
+        logger.info("Script starting...")
         main(config)
-        print("Script finished successfully.") 
+        print("Script finished successfully.")
 
     except Exception as e:
         print(f"\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
-        print(f"See {LOG_FILENAME} for detailed err traces.")
+        print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
         # Log the exception information to the file
         logger.error(f"Script crashed with the following error: {e}")
@@ -154,11 +148,10 @@ if __name__ == "__main__":
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
 
-    
+
     # Cleanup temporary cache files
     filesToClear = ["cached_rtree_query_eval_results.pkl"]
 
     for fileString in filesToClear:
         if os.path.exists(fileString):
             os.remove(fileString)
-            

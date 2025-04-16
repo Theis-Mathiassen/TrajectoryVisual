@@ -21,7 +21,7 @@ from src.Filter import Filter
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
 
-DEBUG = False
+DEBUG = True
 
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 

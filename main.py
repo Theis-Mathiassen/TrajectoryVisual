@@ -4,6 +4,8 @@ from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
 from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
+from src.Query import Query
+from src.clusterQuery import ClusterQuery
 
 import os
 import sys
@@ -15,6 +17,8 @@ import pandas as pd
 import os
 import logging
 import traceback # traceback for information on python stack traces
+import multiprocessing as mp
+from collections import defaultdict
 
 sys.path.append("src/")
 
@@ -32,6 +36,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def initPoolProcesses(the_lock, the_trajectories):
+    global lock
+    global trajectories
+    lock = the_lock
+    trajectories = the_trajectories
+
+def workerFnc(inputTuple):
+    # Syntactic sugar
+    queries = inputTuple[0]
+    rtree = inputTuple[1]
+
+    for query in queries:
+        result = query.run(rtree)
+        if not isinstance(query, ClusterQuery):
+            lock.acquire()
+            query.distribute(trajectories, result)
+            lock.release()
+        else:
+            lock.acquire()
+            query.distribute(trajectories)
+            lock.release()
+    return trajectories
+
 #### main
 def main(config):
     ## Load Dataset
@@ -39,7 +66,9 @@ def main(config):
     
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
 
-    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
+    origRtree, origTrajectories = build_Rtree("trimmed_small_train.csv", filename="trimmed_small_train")#get_Tdrive(filename="TDrive.csv")
+
+    # print(origRtree.properties)
 
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
@@ -80,7 +109,97 @@ def main(config):
 
     ## Main Loop
     #print("Main loop..")
+    # Declare worker input list
+    inputList = []
+
+    # Get all the lists of queries
+    queryList: list[list[Query]] = origRtreeQueriesTraining.getQueries()
+
+    # Amount of each query loaded
+    numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
+
+    # Amount of query types loaded
+    numQueryTypes = math.floor(len(queryList)/numEachQueryType)
+
+    # print(numQueryTypes)
+
+    ##print(queryList)
+
+    # Compile the list of tuples containing queries of each type for each process to evaluate
+    # along with the RTree and the original trajectories
+    for i in range(os.cpu_count()):
+        processQueries = []
+        for j in range(numQueryTypes):
+            # Find the amount of queries to *ideally* distribute to each process
+            splitLength = math.ceil(numEachQueryType/os.cpu_count())
+
+            #print(splitLength)
+
+            firstQueryIdx = i * splitLength + (j * numEachQueryType)
+            lastQueryIdx = (i+1) * splitLength + (j * numEachQueryType)
+            #print(firstQueryIdx, lastQueryIdx)
+            
+            # print(queryList[firstQueryIdx:lastQueryIdx])
+
+            if i == os.cpu_count() - 1:
+                processQueries.extend(queryList[(i * splitLength + j * numEachQueryType):-1])
+                continue
+
+            processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
+        # print(processQueries)
+
+        inputList.append([processQueries, origRtree])
+
+    for i, chunk in enumerate(inputList):
+        print(f"Process {i} received {len(chunk[0])} queries")
+
+    #inputList.append((queryList[((os.cpu_count()-1)*splitLength):-1], origRtree, origTrajectories))
     
+    # print(inputList[0])
+    #exit()
+
+    lock = mp.Lock()
+    with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(lock, origTrajectories)) as pool: #os.cpu_count()
+        # Run the worker function
+        res = pool.map(workerFnc, inputList)
+
+        # Wait for all processes to complete
+        pool.close()
+        pool.join()
+
+    # print(len(res))
+    # print(res[0])
+    # for val in zip(res[0], res[1], res[2]):
+    #     print(val[0], val[1], val[2])
+    # print(res[0][1372636858620000589].nodes[0].score)
+    # print(res[1][1372636858620000589].nodes[0].score)
+    # print(res[2][1372636858620000589].nodes[0].score)
+    # print(res[0][1372644436620000112].nodes[0].score)
+    # print(res[1][1372644436620000112].nodes[0].score)
+    # print(res[2][1372644436620000112].nodes[0].score)
+
+    combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
+
+    for r in res:
+        for tid, traj in r.items():
+            if tid not in combined:
+                combined[tid] = traj
+            else:
+                for i in range(len(traj.nodes)):
+                    combined[tid].nodes[i].score += traj.nodes[i].score
+
+    # then sum scores
+    score = sum(node.score for traj in combined.values() for node in traj.nodes)
+
+    # for key in res[11].keys():
+    #     for i in range(len(res[0][key].nodes)):
+    #         score += res[11][key].nodes[i].score + res[1][key].nodes[i].score + res[2][key].nodes[i].score
+    print(len(res))
+    print(score)
+    # for result in res[1:]:
+    #     print(result)
+    exit()
+
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
@@ -91,7 +210,9 @@ def main(config):
 
         compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
+        print()
         print(compressionRateScores[-1]['f1Scores'])
+        print()
         simpRtree.close()
         
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
@@ -129,7 +250,7 @@ if __name__ == "__main__":
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 
     try:

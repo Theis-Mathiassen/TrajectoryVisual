@@ -211,24 +211,45 @@ def load_Tdrive_Rtree(filename=""):
 
     # Drop rows with bad coordinates
     def has_bad_coords(poly):
-        return any(
-            not (-90 <= lat <= 90 and -180 <= lon <= 180)
-            for lon, lat, _ in poly
-            if isinstance(poly, list) and len(poly) > 0
-        )
+        if not isinstance(poly, list) or not poly:
+            return True
+        
+        invalid_coords = []
+        for i, (lon, lat, t) in enumerate(poly):
+            try:
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    invalid_coords.append((i, lon, lat))
+            except TypeError:
+                return True
+            
+        if DEBUG and invalid_coords:
+            print(f"Invalid coordinates found: {invalid_coords}")
+        
+        return bool(invalid_coords)
     print("Validating coordinates...")
     bad_coords_mask = df["POLYLINE"].progress_apply(has_bad_coords)
     df.drop(index=df[bad_coords_mask].index, inplace=True)
 
     # Drop duplicates
     def remove_duplicate_nodes(polyline):
+        if not polyline:
+            return []
+        
         seen = set()
         new_polyline = []
+        duplicate_count = 0
+        
         for point in polyline:
-            point_tuple = tuple(point)  # (lon, lat, t)
+            point_tuple = tuple(point)
             if point_tuple not in seen:
                 seen.add(point_tuple)
                 new_polyline.append(point)
+            else:
+                duplicate_count += 1
+        
+        if duplicate_count > 0 and DEBUG:
+            print(f"Removed {duplicate_count} duplicate points from polyline")
+        
         return new_polyline
     print("Removing duplicates...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(remove_duplicate_nodes)
@@ -236,11 +257,22 @@ def load_Tdrive_Rtree(filename=""):
     # Convert to meters
     def convert_polyline_to_meters(polyline):
         arr = []
-        for lon, lat, t in polyline:
-            east, west = lonLatToMetric(lon, lat)
-            arr.append((east, west, t))
-
-        return arr
+        try:
+            for lon, lat, t in polyline:
+                try:
+                    east, north = lonLatToMetric(lon, lat)
+                    # basic checks for converted values (just for added safety and logging in case of unexpected results)
+                    if not all(isinstance(x, (int, float)) for x in (east, north)):
+                        print(f"Warning: Invalid conversion result for lon={lon}, lat={lat}")
+                        continue
+                    arr.append((east, north, t))
+                except Exception as e:
+                    print(f"Warning: Failed to convert coordinates (lon={lon}, lat={lat}): {str(e)}")
+                    continue
+            return arr
+        except Exception as e:
+            print(f"Error processing polyline: {str(e)}")
+            return []
     print("Converting to meters...")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(convert_polyline_to_meters)
 

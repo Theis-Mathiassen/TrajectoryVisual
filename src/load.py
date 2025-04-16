@@ -4,6 +4,7 @@ import numpy.ma as ma
 import pandas as pd
 import os
 import re
+import random
 
 import shutil
 import copy
@@ -20,10 +21,37 @@ from src.Filter import Filter
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
 
+DEBUG = False
+
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 
 #The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
 #Drop rows with polylines of length 0..
+
+def debugLoad(df):
+    print("Validating parsed POLYLINE structures...")
+    bad_polyline_rows = df[df["POLYLINE"].apply(
+        lambda poly: not isinstance(poly, list) or any(
+            not isinstance(p, (list, tuple)) or len(p) != 3 for p in poly
+        )
+    )]
+
+    print(f"[DEBUG] Malformed POLYLINEs: {len(bad_polyline_rows)}")
+    
+    dup_trip_ids = df[df["TRIP_ID"].duplicated()]
+    print(f"[DEBUG] Duplicate TRIP_IDs: {len(dup_trip_ids)}")
+
+    def has_duplicate_points(poly):
+        seen = set()
+        for point in poly:
+            tup = tuple(point)
+            if tup in seen:
+                return True
+            seen.add(tup)
+        return False
+
+    dup_point_rows = df[df["POLYLINE"].apply(has_duplicate_points)]
+    print(f"[DEBUG] Polylines with duplicate GPS points: {len(dup_point_rows)}")
 
 
 def checkCurrentRtreeMatches(Rtree, trajectories, filename):
@@ -45,7 +73,9 @@ def checkCurrentRtreeMatches(Rtree, trajectories, filename):
 
 def checkCurrentRtreeMatchesHelper(Rtree, trajectories) -> bool:
     trajectoriesList = list(trajectories.values())
-    for trajectory in trajectoriesList[:10]:
+    
+    for i in range(10):
+        trajectory = random.choice(trajectoriesList)
         firstNode = trajectory.nodes[0]
 
         hits = list(Rtree.intersection((firstNode.x, firstNode.y, firstNode.t, firstNode.x, firstNode.y, firstNode.t), objects="raw"))
@@ -127,6 +157,8 @@ def load_Tdrive(src : str, filename="") :
     
 def jsonLoadsNumpy(polylineString) :
     if pd.isna(polylineString) or not isinstance(polylineString, str) :
+        if DEBUG:
+            print(f"Malformed (NaN or non-str): {polylineString}")
         return []
     
 
@@ -171,8 +203,55 @@ def load_Tdrive_Rtree(filename=""):
 
 
     df = pd.read_csv(path, converters={'POLYLINE' : jsonLoadsNumpy, 'TRIP_ID' : json.loads})
+
+    if DEBUG:
+        print("[DEBUG] \nUSING [DEBUG MODE] only loading first 1000 rows\n[DEBUG]")
+        df = df.head(1000)
+
+
+    # Drop rows with bad coordinates
+    def has_bad_coords(poly):
+        return any(
+            not (-90 <= lat <= 90 and -180 <= lon <= 180)
+            for lon, lat, _ in poly
+            if isinstance(poly, list) and len(poly) > 0
+        )
+    print("Validating coordinates...")
+    bad_coords_mask = df["POLYLINE"].progress_apply(has_bad_coords)
+    df.drop(index=df[bad_coords_mask].index, inplace=True)
+
+    # Drop duplicates
+    def remove_duplicate_nodes(polyline):
+        seen = set()
+        new_polyline = []
+        for point in polyline:
+            point_tuple = tuple(point)  # (lon, lat, t)
+            if point_tuple not in seen:
+                seen.add(point_tuple)
+                new_polyline.append(point)
+        return new_polyline
+    print("Removing duplicates...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(remove_duplicate_nodes)
+
+    # Convert to meters
+    def convert_polyline_to_meters(polyline):
+        arr = []
+        for lon, lat, t in polyline:
+            east, west = lonLatToMetric(lon, lat)
+            arr.append((east, west, t))
+
+        return arr
+    print("Converting to meters...")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(convert_polyline_to_meters)
+
+
+
+
     
-    
+    # if DEBUG:
+    #     debugLoad(df)
+
+
     # Set up properties
     p = index.Property()
     p.dimension = 3

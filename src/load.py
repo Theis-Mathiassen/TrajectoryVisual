@@ -21,6 +21,14 @@ from src.Filter import Filter
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
 
+# Handle frequent problem that occurs with corrupted load
+def checkRtreeIndexEmpty(filename):
+    if os.path.exists(filename + '.index'):
+        if os.path.getsize(filename + '.index') == 0:
+            print("Found issue with old rtree deleting before load...")
+            os.remove(filename + ".index")
+            os.remove(filename + ".data")
+
 DEBUG = False
 
 #Function to load the Taxi dataset, convert columns and trim it. 
@@ -52,7 +60,6 @@ def debugLoad(df):
 
     dup_point_rows = df[df["POLYLINE"].apply(has_duplicate_points)]
     print(f"[DEBUG] Polylines with duplicate GPS points: {len(dup_point_rows)}")
-
 
 def checkCurrentRtreeMatches(Rtree, trajectories, filename):
     """
@@ -107,6 +114,8 @@ def get_Tdrive(filename="") :
         print("Tdrive already loaded to CSV, skipping load from folder...")
     else:
         tDriveToCsv()
+
+    checkRtreeIndexEmpty(filename=filename)
 
     Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
 
@@ -510,7 +519,8 @@ def build_Rtree(dataset, filename='') :
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])
     trip_ids = np.array(df['TRIP_ID'])
-    
+
+    checkRtreeIndexEmpty(filename=filename)
     
     if os.path.exists(filename + '.index'):
         Rtree_ = index.Index(filename, properties=p)

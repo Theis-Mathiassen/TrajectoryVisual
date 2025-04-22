@@ -534,7 +534,10 @@ def tDriveToCsv():
 
         if len(df) == 0: 
             continue
-        df['time'] = pd.to_datetime(df['time'], yearfirst=True).astype(int) // 10**9
+
+        # This line caused problems for me. Had to change it to "int64" instead of what was there. - Hjalte
+        df['time'] = pd.to_datetime(df['time'], yearfirst=True).astype('int64') // 10**9
+        
         df.astype({'lon' : 'Float64', 'lat' : 'Float64'})
         polyline = df.apply(lambda row : (row['lon'], row['lat'], row['time']), axis=1)
         super_x.append([df['id'][0], polyline.tolist()])

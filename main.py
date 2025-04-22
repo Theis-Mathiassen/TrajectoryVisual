@@ -19,6 +19,7 @@ import logging
 import traceback # traceback for information on python stack traces
 import multiprocessing as mp
 from collections import defaultdict
+from rtree import index
 
 sys.path.append("src/")
 
@@ -36,27 +37,41 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def initPoolProcesses(the_lock, the_trajectories):
+def initPoolProcesses(the_lock):
     global lock
-    global trajectories
+    # global trajectories
     lock = the_lock
-    trajectories = the_trajectories
+    # trajectories = the_trajectories
+
+def load_rtree_from_disk(index_name: str) -> index.Index:
+    # Loads an RTree index saved as {index_name}.data and {index_name}.index
+    p = index.Property()
+    p.dimension = 3
+    p.dat_extension = 'data'
+    p.idx_extension = 'index'
+    p.leaf_capacity = 1000
+    p.pagesize = 16000
+    return index.Index(index_name, properties=p)
 
 def workerFnc(inputTuple):
     # Syntactic sugar
     queries = inputTuple[0]
-    rtree = inputTuple[1]
+    rtreeName = inputTuple[1]
+    trajectories = inputTuple[2]
+    rtree = load_rtree_from_disk(rtreeName)
+
+    # rtree, trajectories = build_Rtree("trimmed_small_train.csv", filename=("trimmed_small_train"+ str(inputTuple[3])))#get_Tdrive(filename="TDrive.csv")
 
     for query in queries:
         result = query.run(rtree)
         if not isinstance(query, ClusterQuery):
-            lock.acquire()
+            # lock.acquire()
             query.distribute(trajectories, result)
-            lock.release()
+            # lock.release()
         else:
-            lock.acquire()
+            # lock.acquire()
             query.distribute(trajectories)
-            lock.release()
+            # lock.release()
     return trajectories
 
 #### main
@@ -109,100 +124,94 @@ def main(config):
 
     ## Main Loop
     #print("Main loop..")
-    # Declare worker input list
-    inputList = []
+    multiProcessTest = True
+    if multiProcessTest == True:
+        # Declare worker input list
+        inputList = []
 
-    # Get all the lists of queries
-    queryList: list[list[Query]] = origRtreeQueriesTraining.getQueries()
+        # Get all the lists of queries
+        queryList: list[list[Query]] = origRtreeQueriesTraining.getQueries()
 
-    # Amount of each query loaded
-    numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
+        # Amount of each query loaded
+        numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
 
-    # Amount of query types loaded
-    numQueryTypes = math.floor(len(queryList)/numEachQueryType)
+        # Amount of query types loaded
+        numQueryTypes = math.floor(len(queryList)/numEachQueryType)
 
-    # print(numQueryTypes)
+        # Compile the list of tuples containing queries of each type for each process to evaluate
+        # along with the RTree and the original trajectories
+        for i in range(os.cpu_count()):
+            processQueries = []
+            for j in range(numQueryTypes):
+                # Find the amount of queries to *ideally* distribute to each process
+                splitLength = math.ceil(numEachQueryType/os.cpu_count())
 
-    ##print(queryList)
+                print(splitLength)
 
-    # Compile the list of tuples containing queries of each type for each process to evaluate
-    # along with the RTree and the original trajectories
-    for i in range(os.cpu_count()):
-        processQueries = []
-        for j in range(numQueryTypes):
-            # Find the amount of queries to *ideally* distribute to each process
-            splitLength = math.ceil(numEachQueryType/os.cpu_count())
+                firstQueryIdx = (i * splitLength + (j * numEachQueryType))*numQueryTypes
+                lastQueryIdx = ((i+1) * splitLength + (j * numEachQueryType))*numQueryTypes
 
-            #print(splitLength)
+                if i == os.cpu_count() - 1:
+                    processQueries.extend(queryList[firstQueryIdx:-1])
+                    continue
 
-            firstQueryIdx = i * splitLength + (j * numEachQueryType)
-            lastQueryIdx = (i+1) * splitLength + (j * numEachQueryType)
-            #print(firstQueryIdx, lastQueryIdx)
-            
-            # print(queryList[firstQueryIdx:lastQueryIdx])
+                processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
 
-            if i == os.cpu_count() - 1:
-                processQueries.extend(queryList[(i * splitLength + j * numEachQueryType):-1])
-                continue
+            inputList.append([processQueries, "trimmed_small_train", origTrajectories, i])
 
-            processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
-        # print(processQueries)
+        for i, chunk in enumerate(inputList):
+            print(f"Process {i} received {len(chunk[0])} queries")
 
-        inputList.append([processQueries, origRtree])
+        lock = mp.Lock()
+        with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(lock,)) as pool: #os.cpu_count()
+            # Run the worker function
+            res = pool.map(workerFnc, inputList)
 
-    for i, chunk in enumerate(inputList):
-        print(f"Process {i} received {len(chunk[0])} queries")
+            # Wait for all processes to complete
+            pool.close()
+            pool.join()
 
-    #inputList.append((queryList[((os.cpu_count()-1)*splitLength):-1], origRtree, origTrajectories))
+        # print(len(res))
+        # print(res[0])
+        # for val in zip(res[0], res[1], res[2]):
+        #     print(val[0], val[1], val[2])
+        # print(res[0][1372636858620000589].nodes[0].score)
+        # print(res[1][1372636858620000589].nodes[0].score)
+        # print(res[2][1372636858620000589].nodes[0].score)
+        # print(res[0][1372644436620000112].nodes[0].score)
+        # print(res[1][1372644436620000112].nodes[0].score)
+        # print(res[2][1372644436620000112].nodes[0].score)
+
+        combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
+
+        for r in res:
+            for tid, traj in r.items():
+                if tid not in combined:
+                    combined[tid] = traj
+                else:
+                    for i in range(len(traj.nodes)):
+                        combined[tid].nodes[i].score += traj.nodes[i].score
+
+        # then sum scores
+        score = sum(node.score for traj in combined.values() for node in traj.nodes)
+
+        # for key in res[11].keys():
+        #     for i in range(len(res[0][key].nodes)):
+        #         score += res[11][key].nodes[i].score + res[1][key].nodes[i].score + res[2][key].nodes[i].score
+        print(len(res))
+        print(score)
+        # for result in res[1:]:
+        #     print(result)
+        # exit()
     
-    # print(inputList[0])
-    #exit()
+    for key in origTrajectories.keys():
+        for i in range(len(res)):
+            for node in origTrajectories[key].nodes:
+                node.score += res[i][key].nodes[node.id].score
 
-    lock = mp.Lock()
-    with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(lock, origTrajectories)) as pool: #os.cpu_count()
-        # Run the worker function
-        res = pool.map(workerFnc, inputList)
-
-        # Wait for all processes to complete
-        pool.close()
-        pool.join()
-
-    # print(len(res))
-    # print(res[0])
-    # for val in zip(res[0], res[1], res[2]):
-    #     print(val[0], val[1], val[2])
-    # print(res[0][1372636858620000589].nodes[0].score)
-    # print(res[1][1372636858620000589].nodes[0].score)
-    # print(res[2][1372636858620000589].nodes[0].score)
-    # print(res[0][1372644436620000112].nodes[0].score)
-    # print(res[1][1372644436620000112].nodes[0].score)
-    # print(res[2][1372644436620000112].nodes[0].score)
-
-    combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
-
-    for r in res:
-        for tid, traj in r.items():
-            if tid not in combined:
-                combined[tid] = traj
-            else:
-                for i in range(len(traj.nodes)):
-                    combined[tid].nodes[i].score += traj.nodes[i].score
-
-    # then sum scores
-    score = sum(node.score for traj in combined.values() for node in traj.nodes)
-
-    # for key in res[11].keys():
-    #     for i in range(len(res[0][key].nodes)):
-    #         score += res[11][key].nodes[i].score + res[1][key].nodes[i].score + res[2][key].nodes[i].score
-    print(len(res))
-    print(score)
-    # for result in res[1:]:
-    #     print(result)
-    exit()
-
-    # Sort compression_rate from highest to lowest
+    # # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+    # giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
@@ -249,7 +258,7 @@ if __name__ == "__main__":
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 1000     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 

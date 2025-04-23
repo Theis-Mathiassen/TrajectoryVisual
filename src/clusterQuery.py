@@ -1,22 +1,3 @@
-import os
-import sys
-
-# Find the absolute path of the project directory
-absolute_path = os.path.dirname(__file__)
-
-# Define the relative paths of directories to import from
-relative_path_src = ".."
-relative_path_test = "../src"
-
-# Create the full path for these directories
-full_path_src = os.path.join(absolute_path, relative_path_src)
-full_path_test = os.path.join(absolute_path, relative_path_test)
-
-# Append them to the path variable of the system
-sys.path.append(full_path_src)
-sys.path.append(full_path_test)
-
-
 from src.Query import Query
 from src.Trajectory import Trajectory
 import numpy as np
@@ -26,7 +7,9 @@ from src.Node import Node
 from rtree import index
 from src.Util import euc_dist_diff_3d
 from collections import defaultdict
-from TRACLUS_OurTools import traclus_get_segments
+from src.TRACLUS_OurTools import traclus_get_segments
+
+import time
 
 class ClusterQuery(Query): 
 
@@ -39,7 +22,8 @@ class ClusterQuery(Query):
         self.origin = params["origin"]  # the query trajectory
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
         self.params = params
-        self.returnCluster = False
+        self.returnCluster = True
+        self.trajectories = params["trajectories"]
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
@@ -67,11 +51,11 @@ class ClusterQuery(Query):
         return filtered
     
     def run(self, rtree):
-        # get all trajectories with points in the time window, unless needs to return all clusters
-        if self.returnCluster:
-            trajectories = self.params["trajectories"]
-        else: 
-            trajectories = self._filter_trajectories_by_time(self.params["trajectories"], rtree)
+        # get all trajectories with points in the time window
+
+        trajectories = self._filter_trajectories_by_time(self.trajectories, rtree)
+
+        print(f"\nAmount of trajectories: {len(trajectories)}\n")
         
         if not trajectories:
             return []
@@ -115,50 +99,58 @@ class ClusterQuery(Query):
         return similar_trajectories
 
     def distribute(self, trajectories):
-        """Distribute points based on cluster membership and spatial proximity."""
-        if not trajectories:
-            return
 
-        def give_point(trajectory: Trajectory, node_id):
-            for n in trajectory.nodes:
-                if n.id == node_id:
-                    n.score += 1
+        self.distributeCluster(self.trajectories)
 
-        # Calculate query center (using origin trajectory)
-        center_x = self.params['x1'] + self.params['x2'] / 2
-        center_y = self.params['y1'] + self.params['y2'] / 2
-        center_t = self.params['t1'] + self.params['t2'] / 2
-        """ center_x = np.mean([node.x for node in self.origin.nodes.data])
-        center_y = np.mean([node.y for node in self.origin.nodes.data])
-        center_t = np.mean([node.t for node in self.origin.nodes.data]) """
-        q_bbox = [center_x, center_y, center_t]
+        # """Distribute points based on cluster membership and spatial proximity."""
+        # if not trajectories:
+        #     return
 
-        # Key = Trajectory id, value = (Node id, distance)
-        point_dict = dict()
+        # def give_point(trajectory: Trajectory, node_id):
+        #     for n in trajectory.nodes:
+        #         if n.id == node_id:
+        #             n.score += 1
 
-        # get the hits into correct format
-        matches = [(n.object, n.bbox) for n in self.hits]
+        # # Calculate query center (using origin trajectory)
+        # center_x = self.params['x1'] + self.params['x2'] / 2
+        # center_y = self.params['y1'] + self.params['y2'] / 2
+        # center_t = self.params['t1'] + self.params['t2'] / 2
+        # """ center_x = np.mean([node.x for node in self.origin.nodes.data])
+        # center_y = np.mean([node.y for node in self.origin.nodes.data])
+        # center_t = np.mean([node.t for node in self.origin.nodes.data]) """
+        # q_bbox = [center_x, center_y, center_t]
 
-        for obj, bbox in matches:
-            dist_current = euc_dist_diff_3d(bbox, q_bbox)
+        # # Key = Trajectory id, value = (Node id, distance)
+        # point_dict = dict()
 
-            if obj[0] in point_dict:
-                dist_prev = point_dict.get(obj[0])[1]
-                if dist_current <= dist_prev:
-                    point_dict[obj[0]] = (obj[1], dist_current)
-            else:
-                point_dict[obj[0]] = (obj[1], dist_current)
+        # # get the hits into correct format
+        # matches = [(n.object, n.bbox) for n in self.hits]
 
-        # distribute points to the closest nodes in each trajectory
-        for key, value in point_dict.items():
-            trajectories[key].nodes[value[0]].score += 1
-            """ for t in trajectories.values():
-                if t.id == key:
-                    give_point(t, value[0]) """
+        # for obj, bbox in matches:
+        #     dist_current = euc_dist_diff_3d(bbox, q_bbox)
+
+        #     if obj[0] in point_dict:
+        #         dist_prev = point_dict.get(obj[0])[1]
+        #         if dist_current <= dist_prev:
+        #             point_dict[obj[0]] = (obj[1], dist_current)
+        #     else:
+        #         point_dict[obj[0]] = (obj[1], dist_current)
+
+        # # distribute points to the closest nodes in each trajectory
+        # for key, value in point_dict.items():
+        #     trajectories[key].nodes[value[0]].score += 1
+        #     """ for t in trajectories.values():
+        #         if t.id == key:
+        #             give_point(t, value[0]) """
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
         # convert trajectories to numpy arrays for TRACLUS
         numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
+
+        
+        now = time.time()
+
+        print("Starting traclus get segments")
 
         partitions = traclus_get_segments(
             trajectories=numpy_trajectories,
@@ -168,32 +160,7 @@ class ClusterQuery(Query):
             return_partitions=True
         )
 
-        nodesToReward = dict()
-
-        # Find node indicies for each trajectory. Has to be iterative as trajectory lengths vary
-        for trajectoryIndex, (trajectory, partition) in enumerate(zip(numpy_trajectories, partitions)):
-            mask = (trajectory[:, None] == partition).all(axis=2)
-            indices = np.where(mask)[0]
-
-            nodesToReward[trajectoryIndex] = indices
-
-        # Award points
-        for trajectoryIndex, nodeIndexes in nodesToReward.items():
-            for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
-
-
-    def distributeCluster(self, trajectories, scoreToAward = 1):
-        # convert trajectories to numpy arrays for TRACLUS
-        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-
-        partitions = traclus_get_segments(
-            trajectories=numpy_trajectories,
-            directional=True,
-            use_segments=True,
-            progress_bar=False,
-            return_partitions=True
-        )
+        print(f"Time to run traclus get segments: {time.time() - now}")
 
         nodesToReward = dict()
 

@@ -37,9 +37,9 @@ def main(config):
     ## Load Dataset
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
-    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+    origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
 
-    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
+    #origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
 
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
@@ -61,10 +61,10 @@ def main(config):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
 
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -131,8 +131,8 @@ if __name__ == "__main__":
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.05   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["numberOfEachQuery"] = 10     # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 
     try:

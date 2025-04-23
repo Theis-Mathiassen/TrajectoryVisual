@@ -1,6 +1,5 @@
-from TRACLUS import partition, partition2segments
+from src.TRACLUS import partition, partition2segments
 import numpy as np
-
 
 
 

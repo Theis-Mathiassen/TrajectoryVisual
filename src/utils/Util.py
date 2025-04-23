@@ -422,3 +422,5 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
 
             otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
 
+
+~

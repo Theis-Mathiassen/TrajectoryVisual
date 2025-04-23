@@ -43,12 +43,12 @@ def runAndGenerateSet(rtree, query, use_cache = False, differentTrajs = None):
     
     # Adjust query to be able to use origin trajectories
     if differentTrajs is not None:
-        oldTrajs = query.params["trajectories"]
-        query.params["trajectories"] = differentTrajs
+        oldTrajs = query.trajectories
+        query.trajectories = differentTrajs
     result = query.run(rtree)
     
     if differentTrajs is not None:
-        query.params["trajectories"] = oldTrajs
+        query.trajectories = oldTrajs
 
     if isinstance(query, KnnQuery):
         set_result = set([item.id for item in result])
@@ -72,13 +72,13 @@ def getClusterSet(rtree, query, use_cache = False, differentTrajs = None):
         
     # Adjust query to be able to use origin trajectories
     if differentTrajs is not None:
-        oldTrajs = query.params["trajectories"]
-        query.params["trajectories"] = differentTrajs
+        oldTrajs = query.trajectories
+        query.trajectories = differentTrajs
         
     clusters = query.run(rtree)
     
     if differentTrajs is not None:
-        query.params["trajectories"] = oldTrajs
+        query.trajectories = oldTrajs
 
     for cluster in clusters:
         cluster = [trajectory.id for trajectory in cluster]

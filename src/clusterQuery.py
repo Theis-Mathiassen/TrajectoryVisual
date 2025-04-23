@@ -26,6 +26,7 @@ from rtree import index
 from src.Util import euc_dist_diff_3d
 from collections import defaultdict
 from src.TRACLUS_OurTools import traclus_get_segments
+from tqdm import tqdm
 
 import time
 
@@ -117,8 +118,7 @@ class ClusterQuery(Query):
         return similar_trajectories
 
     def distribute(self, trajectories):
-
-        self.distributeCluster(self.trajectories)
+        self.distributeCluster(trajectories)
 
         # """Distribute points based on cluster membership and spatial proximity."""
         # if not trajectories:
@@ -163,22 +163,14 @@ class ClusterQuery(Query):
 
     def distributeCluster(self, trajectories, scoreToAward = 1):
         # convert trajectories to numpy arrays for TRACLUS
-        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-
-        
-        now = time.time()
-
-        print("Starting traclus get segments")
+        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories.values()]
 
         partitions = traclus_get_segments(
             trajectories=numpy_trajectories,
             directional=True,
             use_segments=True,
-            progress_bar=False,
             return_partitions=True
         )
-
-        print(f"Time to run traclus get segments: {time.time() - now}")
 
         nodesToReward = dict()
 
@@ -191,8 +183,12 @@ class ClusterQuery(Query):
 
         # Award points
         for trajectoryIndex, nodeIndexes in nodesToReward.items():
+            # Convert trajectory index to trajectory id
+
+            trajectoryId = list(trajectories.keys())[trajectoryIndex]
+
             for nodeIndex in nodeIndexes:
-                trajectories[trajectoryIndex].nodes[nodeIndex].score += scoreToAward
+                trajectories[trajectoryId].nodes[nodeIndex].score += scoreToAward
 
 
 if __name__ == "__main__":

@@ -30,9 +30,9 @@ def main(config):
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
 
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
-
+    logger.info('Starting get_Tdrive.');
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-
+    logger.info('Completed get_Tdrive.');
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 

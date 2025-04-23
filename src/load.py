@@ -17,6 +17,7 @@ from tqdm import tqdm
 from src.Node import Node
 from src.Trajectory import Trajectory
 from src.Filter import Filter
+from src.log import logger
 
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
@@ -111,7 +112,7 @@ def get_Tdrive(filename="") :
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', 'TDrive.csv')
     if os.path.exists(path):
-        print("Tdrive already loaded to CSV, skipping load from folder...")
+        logger.info("Tdrive already loaded to CSV, skipping load from folder...")
     else:
         tDriveToCsv()
 
@@ -721,6 +722,7 @@ def tDriveToCsv():
         taxiIdx += 1
         
     csvdf = pd.concat([csvdf, pd.DataFrame(super_x, columns=['TRIP_ID', 'POLYLINE'])], ignore_index=True, axis=0)
+    logger.info('Saving TDrive to csv.');
     csvdf.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'TDrive.csv'), sep=',', index=False)
 
 def datastreamTriple(polylines, trip_ids):

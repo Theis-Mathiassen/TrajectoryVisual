@@ -300,6 +300,7 @@ def load_Tdrive_Rtree(filename=""):
     p.idx_extension = 'index'
     p.leaf_capacity = 1000
     p.pagesize = PAGESIZE
+    p.storage = 1
     #p.filename = filename
 
     """ if filename=='' :

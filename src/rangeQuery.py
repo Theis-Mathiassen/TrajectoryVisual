@@ -32,6 +32,8 @@ class RangeQuery(Query):
         self.centery = (self.y2+self.y1)/2
         self.centert = (self.t2+self.t1)/2
 
+    def __str__(self):
+        return "RangeQuery"
 
     def run(self, rtree):
         # Gets nodes in range query

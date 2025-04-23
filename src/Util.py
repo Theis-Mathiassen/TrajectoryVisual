@@ -106,17 +106,20 @@ class ParamUtil:
         k = k
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def clusterParams(self, rtree: index.Index):
-        tMin = self.tMin 
+    def clusterParams(self, rtree: index.Index, temporalWindowSize = 5400, minLines = 2, centerToEdge = 1000):
+        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        origin = randomTrajectory
+        #centerTime = centerNode.t
+        tMin = self.tMin
         tMax = self.tMax
         xMin = self.xMin
         xMax = self.xMax
         yMin = self.yMin
         yMax = self.yMax
-        k = self.k
         eps = None
-        linesMin = None
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = self.origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories)
+        linesMin = minLines
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories, centerToEdge = centerToEdge)
     
 def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
     north = lat * 110574.0
@@ -323,7 +326,7 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
     npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
     npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
 
-
+    
 
     def get_distances(evalNodes, referenceNodes):
         spatial_similarity = 0

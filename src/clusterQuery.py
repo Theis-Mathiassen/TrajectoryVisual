@@ -36,6 +36,11 @@ class ClusterQuery(Query):
         super().__init__(params)
         self.t1 = params["t1"]  
         self.t2 = params["t2"]  # t1=start time, t2=end time
+        self.x1 = params["x1"]  # x1=min x, x2=max x, y1=min y, y2=max y
+        self.x2 = params["x2"]
+        self.y1 = params["y1"]
+        self.y2 = params["y2"]
+        
         self.eps = params["eps"]  # max distance for clustering
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
@@ -43,10 +48,63 @@ class ClusterQuery(Query):
         self.params = params
         self.returnCluster = True
         self.trajectories = params["trajectories"]
+        self.centerToEdge = self.params["centerToEdge"]
+
 
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
         return np.array([[node.x, node.y] for node in trajectory.nodes])
+
+
+    def _get_trajectories_within_origin(self, trajectories, rtree, runForEachNode = True):
+
+
+        # Originally we should perform a query for each individual node in the origin trajectory. Instead we find the min max values of the origin trajectory for 1 query
+
+        origin = self.origin
+        seen_trajectories = set()
+
+        if runForEachNode: # Runs the query for each node
+            
+            for node in tqdm(origin.nodes.data, desc="Finding trajectories within origin"):
+                x = node.x
+                y = node.y
+                xmin = max(x - self.centerToEdge, self.x1)
+                xmax = min(x + self.centerToEdge, self.x2)
+                ymin = max(y - self.centerToEdge, self.y1)
+                ymax = min(y + self.centerToEdge, self.y2)
+
+                hits = list(rtree.intersection((xmin, ymin, self.t1, 
+                                                xmax, ymax, self.t2), objects="raw"))
+            
+
+                for hit in hits:
+                    trajectory_id, _ = hit
+                    seen_trajectories.add(trajectory_id) # Automatically removes duplicates
+        else:
+            originNumpy = np.array([[node.x, node.y] for node in origin.nodes.data]) # Do it for all data, not just dropped nodes
+
+            # Find min and max vals of origin to get range query
+            xmin = np.min(originNumpy[:,0])
+            xmax = np.max(originNumpy[:,0])
+            ymin = np.min(originNumpy[:,1])
+            ymax = np.max(originNumpy[:,1])
+
+            xmin = max(xmin - self.centerToEdge, self.x1)
+            xmax = min(xmax + self.centerToEdge, self.x2)
+            ymin = max(ymin - self.centerToEdge, self.y1)
+            ymax = min(ymax + self.centerToEdge, self.y2)
+
+            hits = list(rtree.intersection((xmin, ymin, self.t1, 
+                                            xmax, ymax, self.t2), objects="raw"))
+            
+            for hit in hits:
+                trajectory_id, _ = hit
+                seen_trajectories.add(trajectory_id) # Automatically removes duplicates
+
+
+        # Return a list of trajectories that appear in the hits
+        return [t for tid, t in trajectories.items() if tid in seen_trajectories]
 
     def _filter_trajectories_by_time(self, trajectories, rtree):
         """Filter trajectories based on temporal constraints using R-tree."""
@@ -55,7 +113,6 @@ class ClusterQuery(Query):
                                         float('inf'), float('inf'), self.t2), objects=True))
         self.hits = hits  
         # a single hit is stored as: (node_id, trajectory_id)
-
 
         filtered = []
         seen_trajectories = set()
@@ -72,18 +129,22 @@ class ClusterQuery(Query):
     def run(self, rtree):
         # get all trajectories with points in the time window
 
-        trajectories = self._filter_trajectories_by_time(self.trajectories, rtree)
+        #trajectories = self._filter_trajectories_by_time(self.trajectories, rtree)
+        trajectories = self._get_trajectories_within_origin(self.trajectories, rtree)
 
-        print(f"\nAmount of trajectories: {len(trajectories)}\n")
+        print(f"\n----------------\nAmount of trajectories: {len(trajectories)}\n----------------\n")
         
         if not trajectories:
             return []
 
         # convert trajectories to numpy arrays for TRACLUS
-        numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-        origin_numpy = self._trajectory_to_numpy(self.origin)
+        #numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
+        numpy_trajectories = [np.array([[node.x, node.y] for node in traj.nodes.compressed()]) for traj in trajectories]
+
+
 
         if not self.returnCluster: # If centered around an origin trajectory
+            origin_numpy = self._trajectory_to_numpy(self.origin)
             numpy_trajectories.append(origin_numpy)  # Add query trajectory
 
         # run TRACLUS
@@ -96,6 +157,8 @@ class ClusterQuery(Query):
             clustering_algorithm=OPTICS,
             progress_bar=False
         )
+
+        trajectories = list(trajectories.values()) # Convert to list so we can access by index
 
         if self.returnCluster:  # If should instead "just" return the clusters
             # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)

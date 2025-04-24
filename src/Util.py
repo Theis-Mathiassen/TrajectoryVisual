@@ -176,31 +176,31 @@ def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
 
     # Then call the actual function. Do this to only deep copy once
 
-    lcssActual(epsilon, delta, origin, trajectory)
+    return lcssActual(epsilon, delta, origin, trajectory)
 
 def lcssActual(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
 
     
     # Prepare variables, but only if they are needed later.
     if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :
-        ogHead = [origin.nodes[0].x, origin.nodes[0].y]
-        tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
-        timeDiff = np.abs(origin.nodes[0].t - trajectory.nodes[0].t)
+        ogHead = dict({'x': origin.nodes.data[0].x, 'y' : origin.nodes.data[0].y})
+        tHead = dict({'x' : trajectory.nodes.data[0].x, 'y': trajectory.nodes.data[0].y})
+        timeDiff = np.abs(origin.nodes.data[0].t - trajectory.nodes.data[0].t)
         
     if (len(origin.nodes) == 0 or len(trajectory.nodes) == 0) :
         return 0
     elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) : 
         newOrigin = origin 
-        newOrigin.nodes.pop(0)
+        newOrigin.nodes = newOrigin.nodes[1:]
         newTrajectory = trajectory
-        newTrajectory.nodes.pop(0)
-        return lcss(epsilon, delta, newOrigin, newTrajectory)+1
+        newTrajectory.nodes = newTrajectory.nodes[1:]
+        return lcssActual(epsilon, delta, newOrigin, newTrajectory)+1
     else :
         newOrigin = origin
-        newOrigin.nodes.pop(0)
+        newOrigin.nodes = newOrigin.nodes[1:]
         newTrajectory = trajectory
-        newTrajectory.nodes.pop(0)
-        return max(lcss(epsilon, delta, newOrigin, trajectory), lcss(epsilon, delta, newTrajectory, origin))
+        newTrajectory.nodes = newTrajectory.nodes[1:]
+        return max(lcssActual(epsilon, delta, newOrigin, trajectory), lcssActual(epsilon, delta, newTrajectory, origin))
 
 
 # Idea is to find the optimal route for insert delete matches. 

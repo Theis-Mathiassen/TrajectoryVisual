@@ -65,8 +65,10 @@ def getClusterSet(rtree, query, use_cache = False):
             return cached_data
         
     clusters = query.run(rtree)
-    for cluster in clusters:
-        cluster = [trajectory.id for trajectory in cluster]
+    # for cluster in clusters:
+    #     cluster = [trajectory.id for trajectory in cluster]
+
+    print("Type of cluster[0][0]:", type(clusters[0][0]))
 
     result = set(combinations(clusters, 2))
 

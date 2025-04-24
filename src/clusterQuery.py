@@ -27,6 +27,7 @@ from src.Util import euc_dist_diff_3d
 from collections import defaultdict
 from src.TRACLUS_OurTools import traclus_get_segments
 from tqdm import tqdm
+import bisect
 
 import time
 
@@ -56,13 +57,11 @@ class ClusterQuery(Query):
         return np.array([[node.x, node.y] for node in trajectory.nodes])
 
 
-    def _get_trajectories_within_origin(self, trajectories, rtree, runForEachNode = True):
-
-
+    def _get_trajectories_within_origin(self, trajectories, rtree, runForEachNode = False):
         # Originally we should perform a query for each individual node in the origin trajectory. Instead we find the min max values of the origin trajectory for 1 query
 
         origin = self.origin
-        seen_trajectories = set()
+        seen_hits = set()
 
         if runForEachNode: # Runs the query for each node
             
@@ -79,8 +78,7 @@ class ClusterQuery(Query):
             
 
                 for hit in hits:
-                    trajectory_id, _ = hit
-                    seen_trajectories.add(trajectory_id) # Automatically removes duplicates
+                    seen_hits.add(hit) # Automatically removes duplicates
         else:
             originNumpy = np.array([[node.x, node.y] for node in origin.nodes.data]) # Do it for all data, not just dropped nodes
 
@@ -98,10 +96,47 @@ class ClusterQuery(Query):
             hits = list(rtree.intersection((xmin, ymin, self.t1, 
                                             xmax, ymax, self.t2), objects="raw"))
             
-            for hit in hits:
-                trajectory_id, _ = hit
-                seen_trajectories.add(trajectory_id) # Automatically removes duplicates
+            seen_hits = set(hits)
 
+
+        # We get the first and last node id for each trajectory that appears in the hits
+        trajectory_first_last = {} # (trajectory_id, (first_node_id, last_node_id))
+
+        for hit in seen_hits:
+            trajectory_id, node_id = hit
+
+            if trajectory_id not in trajectory_first_last.keys():
+                trajectory_first_last[trajectory_id] = (node_id, node_id)
+            else:
+                min_id, max_id = trajectory_first_last[trajectory_id]
+                if node_id < min_id:
+                    trajectory_first_last[trajectory_id] = (node_id, max_id)
+                elif node_id > max_id:
+                    trajectory_first_last[trajectory_id] = (min_id, node_id)
+        
+        # Get trajectory nodes within that time window
+        trajectory_id_to_nodes = {}
+        for trajectory_id, (first_node_id, last_node_id) in trajectory_first_last.items():
+
+            # Get index of first and last node
+            nodes = trajectories[trajectory_id].nodes.compressed()
+            node_ids = [node.id for node in nodes]
+            first_node_index = bisect.bisect_left(node_ids, first_node_id)
+            last_node_index = bisect.bisect_left(node_ids, last_node_id)
+
+            if nodes[first_node_index].id != first_node_id or nodes[last_node_index].id != last_node_id:
+                print("Problem with trajectory: ", trajectory_id)
+                print(f"Node ids {node_ids}")
+                print(f"First node id {first_node_id} {nodes[first_node_index].id} from index {first_node_index}")
+                print(f"Last node id {last_node_id} {nodes[last_node_index].id} from index {last_node_index}")
+                print("------\n")
+
+            trajectory_nodes = trajectories[trajectory_id].nodes.data[first_node_index:last_node_index+1]
+            trajectory_id_to_nodes[trajectory_id] = trajectory_nodes
+
+        return trajectory_id_to_nodes
+        
+        # Get trajectories that have nodes within the time window
 
         # Return a list of trajectories that appear in the hits
         return [t for tid, t in trajectories.items() if tid in seen_trajectories]
@@ -130,16 +165,16 @@ class ClusterQuery(Query):
         # get all trajectories with points in the time window
 
         #trajectories = self._filter_trajectories_by_time(self.trajectories, rtree)
-        trajectories = self._get_trajectories_within_origin(self.trajectories, rtree)
+        trajectories_id_to_nodes = self._get_trajectories_within_origin(self.trajectories, rtree)
 
-        print(f"\n----------------\nAmount of trajectories: {len(trajectories)}\n----------------\n")
+        print(f"\n----------------\nAmount of trajectories: {len(trajectories_id_to_nodes)}\n----------------\n")
         
-        if not trajectories:
+        if not trajectories_id_to_nodes:
             return []
 
         # convert trajectories to numpy arrays for TRACLUS
         #numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
-        numpy_trajectories = [np.array([[node.x, node.y] for node in traj.nodes.compressed()]) for traj in trajectories]
+        numpy_trajectories = [np.array([[node.x, node.y] for node in nodes]) for nodes in trajectories_id_to_nodes.values()]
 
 
 
@@ -164,7 +199,11 @@ class ClusterQuery(Query):
             # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
             dict_for_clusters = defaultdict(list)
             for index, value in enumerate(cluster_assignments):
-                dict_for_clusters[value].append(trajectories[index])
+
+                # We have to convert back such that we can get the ids
+
+
+                    dict_for_clusters[value].append(trajectories_id_to_nodes.keys()[index])
 
             return dict_for_clusters.values()  # Return groupings
 

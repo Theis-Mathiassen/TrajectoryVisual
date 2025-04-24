@@ -109,7 +109,7 @@ def checkCurrentRtreeMatchesHelper(Rtree, trajectories) -> bool:
 
 def get_Tdrive(filename="") :
     cwd = os.getcwd()
-    path = os.path.join(cwd, 'datasets', 'Tdrive.csv')
+    path = os.path.join(cwd, 'datasets', 'TDrive.csv')
     if os.path.exists(path):
         print("Tdrive already loaded to CSV, skipping load from folder...")
     else:

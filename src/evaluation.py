@@ -1,10 +1,9 @@
 #import sys
 #sys.path.append("src/")
-from src.Node import Node
-from src.Trajectory import Trajectory
+# from src.Node import Node
+# from src.Trajectory import Trajectory
 from src.clusterQuery import ClusterQuery
 from src.knnQuery import KnnQuery
-from src.similarityQuery import SimilarityQuery
 import numpy as np
 import numpy.ma as ma
 from src.Query import Query
@@ -34,15 +33,22 @@ def save_to_cache(key, data):
         pickle.dump(cache, f)
 
 
-def runAndGenerateSet(rtree, query, use_cache = False):
+def runAndGenerateSet(rtree, query, use_cache = False, differentTrajs = None):
     if use_cache:
         cache_key = repr((rtree, query))
         cached_data = load_from_cache(cache_key)
         
         if cached_data is not None:
             return cached_data
-        
+    
+    # Adjust query to be able to use origin trajectories
+    if differentTrajs is not None:
+        oldTrajs = query.trajectories
+        query.trajectories = differentTrajs
     result = query.run(rtree)
+    
+    if differentTrajs is not None:
+        query.trajectories = oldTrajs
 
     if isinstance(query, KnnQuery):
         set_result = set([item.id for item in result])
@@ -56,7 +62,7 @@ def runAndGenerateSet(rtree, query, use_cache = False):
 
 
 # This code allows testing of simplified trajectories
-def getClusterSet(rtree, query, use_cache = False):
+def getClusterSet(rtree, query, use_cache = False, differentTrajs = None):
     if use_cache:
         cache_key = repr((rtree, query))
         cached_data = load_from_cache(cache_key)
@@ -64,7 +70,16 @@ def getClusterSet(rtree, query, use_cache = False):
         if cached_data is not None:
             return cached_data
         
+    # Adjust query to be able to use origin trajectories
+    if differentTrajs is not None:
+        oldTrajs = query.trajectories
+        query.trajectories = differentTrajs
+        
     clusters = query.run(rtree)
+    
+    if differentTrajs is not None:
+        query.trajectories = oldTrajs
+
     # for cluster in clusters:
     #     cluster = [trajectory.id for trajectory in cluster]
 
@@ -83,7 +98,7 @@ def getIntersection(trajectoryList1, trajectoryList2):
 
 import time
 
-def getF1Score(query : Query, rtree_original, rtree_simplified):
+def getF1Score(query : Query, rtree_original, rtree_simplified, trajectories_original):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
     if query is ClusterQuery:
@@ -92,12 +107,12 @@ def getF1Score(query : Query, rtree_original, rtree_simplified):
 
         query.returnCluster = True # Set to return clusters
 
-        setOriginal_result = getClusterSet(rtree_original, query, use_cache=True)
+        setOriginal_result = getClusterSet(rtree_original, query, use_cache=True, differentTrajs=trajectories_original)
         setSimplified_result = getClusterSet(rtree_simplified, query)
 
     else: # For all other queries
         
-        setOriginal_result = runAndGenerateSet(rtree_original, query,use_cache=True)
+        setOriginal_result = runAndGenerateSet(rtree_original, query, use_cache=True, differentTrajs=trajectories_original)
         setSimplified_result = runAndGenerateSet(rtree_simplified, query)
 
 
@@ -114,7 +129,7 @@ def getF1Score(query : Query, rtree_original, rtree_simplified):
     return f1
 
 
-def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simplified):
+def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simplified, trajectories_original):
     """
     Runs queries and returns average F1Scores.
 
@@ -143,7 +158,7 @@ def getAverageF1ScoreAll(queryWrapper : QueryWrapper, rtree_original, rtree_simp
             return 0
 
         for query in tqdm(listOfQueries, desc=f"Running {queryTypeString} queries"):
-            f1_score += getF1Score(query, rtree_original, rtree_simplified)
+            f1_score += getF1Score(query, rtree_original, rtree_simplified, trajectories_original)
 
         totalLength += length   # Increment
         totalF1Score += f1_score

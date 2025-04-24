@@ -83,10 +83,9 @@ def getClusterSet(rtree, query, use_cache = False, differentTrajs = None):
     # for cluster in clusters:
     #     cluster = [trajectory.id for trajectory in cluster]
 
-    print("Type of cluster[0][0]:", type(clusters[0][0]))
-
-    result = set(combinations(clusters, 2))
-
+    result = set()
+    for cluster in clusters:
+        result.update(tuple(sorted(pair)) for pair in combinations(cluster, 2)) # Gets all combinations of 2 trajectories, removing duplicates
     if use_cache:
         save_to_cache(cache_key, result)
     
@@ -96,17 +95,11 @@ def getIntersection(trajectoryList1, trajectoryList2):
     return list(set(trajectoryList1[0]) & set(trajectoryList2[0]))
     return [trajectory for trajectory in trajectoryList1.values() if trajectory.id in [trajectory.id for trajectory in trajectoryList2.values()]]
 
-import time
-
 def getF1Score(query : Query, rtree_original, rtree_simplified, trajectories_original):
 
     # Cluster queries must be handled differently. Alternatively handle them in a different function
-    if query is ClusterQuery:
-        print('ClusterQuery is not implemented yet.')
-
-
-        query.returnCluster = True # Set to return clusters
-
+    if isinstance(query, ClusterQuery):
+        #print('ClusterQuery is not implemented yet.')
         setOriginal_result = getClusterSet(rtree_original, query, use_cache=True, differentTrajs=trajectories_original)
         setSimplified_result = getClusterSet(rtree_simplified, query)
 

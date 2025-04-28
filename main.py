@@ -27,7 +27,7 @@ CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
-
+MULTIPROCESSTEST = True
 
 logging.basicConfig(
     level=logging.ERROR, # Log only ERROR level messages and above
@@ -37,11 +37,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def initPoolProcesses(the_lock):
-    global lock
-    # global trajectories
-    lock = the_lock
-    # trajectories = the_trajectories
+def initPoolProcesses(rtree, trajectories):
+    global origRtree
+    origRtree = rtree
+    #global rtree
+    #rtree, _ = loadRtree(rtreeName, trajectories)
+    # pass
 
 def load_rtree_from_disk(index_name: str) -> index.Index:
     # Loads an RTree index saved as {index_name}.data and {index_name}.index
@@ -58,12 +59,12 @@ def workerFnc(inputTuple):
     queries = inputTuple[0]
     rtreeName = inputTuple[1]
     trajectories = inputTuple[2]
-    rtree = load_rtree_from_disk(rtreeName)
+    #rtree = build_Rtree(dataset=rtreeName)
 
     # rtree, trajectories = build_Rtree("trimmed_small_train.csv", filename=("trimmed_small_train"+ str(inputTuple[3])))#get_Tdrive(filename="TDrive.csv")
 
     for query in queries:
-        result = query.run(rtree)
+        result = query.run(origRtree)
         if not isinstance(query, ClusterQuery):
             # lock.acquire()
             query.distribute(trajectories, result)
@@ -88,14 +89,17 @@ def main(config):
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
-    ORIGTrajectories = copy.deepcopy(origTrajectories)
+    #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    ORIGTrajectories = {
+        tid : copy.deepcopy(traj)
+        for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
+    }
 
     ## Setup data collection environment, that is evaluation after each epoch
 
     # ---- Set number of queries to be created ----
     if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
-    print(f"\n\nNumber of queries to be created: {config['numberOfEachQuery']}\n")
 
     # ---- Create training queries -----
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
@@ -125,7 +129,7 @@ def main(config):
     ## Main Loop
     #print("Main loop..")
     multiProcessTest = True
-    if multiProcessTest == True:
+    if multiProcessTest:
         # Declare worker input list
         inputList = []
 
@@ -162,8 +166,7 @@ def main(config):
         for i, chunk in enumerate(inputList):
             print(f"Process {i} received {len(chunk[0])} queries")
 
-        lock = mp.Lock()
-        with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(lock,)) as pool: #os.cpu_count()
+        with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(origRtree, origTrajectories,)) as pool: #os.cpu_count()
             # Run the worker function
             res = pool.map(workerFnc, inputList)
 
@@ -211,18 +214,70 @@ def main(config):
 
     # # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
+
+    # Begin evaluation at different compression rates
     # giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
-    for cr in tqdm(config["compression_rate"], desc="compression rate"):        
-        simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+    for cr in tqdm(config["compression_rate"], desc="compression rate"):
+        if multiProcessTest:
+            # Declare worker input list
+            inputList = []
 
-        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            # Get all the lists of queries
+            queryList: list[list[Query]] = origRtreeQueriesEvaluation.getQueries()
 
-        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
-        # While above compression rate
-        print()
-        print(compressionRateScores[-1]['f1Scores'])
-        print()
-        simpRtree.close()
+            # Amount of each query loaded
+            numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
+
+            # Amount of query types loaded
+            numQueryTypes = math.floor(len(queryList)/numEachQueryType)
+
+            # Compile the list of tuples containing queries of each type for each process to evaluate
+            # along with the RTree and the original trajectories
+            for i in range(os.cpu_count()):
+                processQueries = []
+                for j in range(numQueryTypes):
+                    # Find the amount of queries to *ideally* distribute to each process
+                    splitLength = math.ceil(numEachQueryType/os.cpu_count())
+
+                    print(splitLength)
+
+                    firstQueryIdx = (i * splitLength + (j * numEachQueryType))*numQueryTypes
+                    lastQueryIdx = ((i+1) * splitLength + (j * numEachQueryType))*numQueryTypes
+
+                    if i == os.cpu_count() - 1:
+                        processQueries.extend(queryList[firstQueryIdx:-1])
+                        continue
+
+                    processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
+
+                inputList.append([processQueries, "trimmed_small_train", origTrajectories, i])
+        
+            with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(origRtree, origTrajectories,)) as pool: #os.cpu_count()
+                # Run the worker function
+                res = pool.map(workerFnc, inputList)
+
+                # Wait for all processes to complete
+                pool.close()
+                pool.join()
+
+            simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+
+            simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+
+            simpRtree.close()
+        elif not multiProcessTest:
+            giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+
+            simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+
+            simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+
+            compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+            # While above compression rate
+            print()
+            print(compressionRateScores[-1]['f1Scores'])
+            print()
+            simpRtree.close()
         
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
             os.remove(SIMPLIFIEDDATABASENAME + '.data')
@@ -260,6 +315,8 @@ if __name__ == "__main__":
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 1000     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 
     try:
@@ -277,3 +334,12 @@ if __name__ == "__main__":
 
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
+
+    
+    # Cleanup temporary cache files
+    filesToClear = ["cached_rtree_query_eval_results.pkl"]
+
+    for fileString in filesToClear:
+        if os.path.exists(fileString):
+            os.remove(fileString)
+            

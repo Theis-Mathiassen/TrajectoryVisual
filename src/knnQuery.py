@@ -22,6 +22,8 @@ class KnnQuery(Query):
         self.trajectories = params["trajectories"]
         self.distanceMethod = 1 # 0 -> DTW, 1 -> spatioTemporalDist, 2 -> LCSS
 
+    def __str__(self):
+        return "KnnQuery"
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query

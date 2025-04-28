@@ -30,6 +30,8 @@ class SimilarityQuery(Query):
         self.streak = 25
         self.trajectories = params["trajectories"]
 
+    def __str__(self):
+        return "SimilarityQuery"
 
     def run(self, rtree):
         #Find matches og filtrer dem som ikke er indenfor delta

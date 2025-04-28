@@ -40,8 +40,11 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
@@ -59,8 +62,11 @@ class ParamUtil:
         yMax = self.yMax """
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
-    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         centerTime = centerNode.t
         minId = 0
@@ -92,8 +98,11 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         centerTime = centerNode.t
         tMin = max(self.tMin, centerTime - temporalWindowSize // 2)

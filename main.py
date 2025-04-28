@@ -22,7 +22,7 @@ CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
-
+PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
 
 logging.basicConfig(
     level=logging.ERROR, # Log only ERROR level messages and above
@@ -61,8 +61,8 @@ def main(config):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
 
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
@@ -70,8 +70,8 @@ def main(config):
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
@@ -89,6 +89,7 @@ def main(config):
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
 
     # Begin evaluation at different compression rates
+
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.05   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["QueriesPerTrajectory"] = 0.005   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 
     try:

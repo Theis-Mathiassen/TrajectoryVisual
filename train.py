@@ -23,6 +23,7 @@ CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
+PICKLE_HITS = ['RangeQueryHits.pkl']
 
 
 logging.basicConfig(
@@ -54,9 +55,9 @@ def main(config):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
 
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
 
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 5     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 

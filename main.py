@@ -22,7 +22,7 @@ CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
-
+PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
 
 logging.basicConfig(
     level=logging.ERROR, # Log only ERROR level messages and above
@@ -86,7 +86,7 @@ def main(config):
     
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining) #Alternatively (origRtree, origTrajectories, pickeFiles='PICKLE_HITS')
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 

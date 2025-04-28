@@ -14,7 +14,7 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
                 Query.distribute(trajectories, result)
             else:
                 Query.distribute(trajectories)
-    elif pickleFiles is None: 
+    elif pickleFiles is not None: 
         for filename in pickleFiles:
             with open(filename, 'rb') as f:
                 for q, r in f:

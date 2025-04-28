@@ -5,7 +5,6 @@ from src.scoringQueries import giveQueryScorings
 from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.clusterQuery import ClusterQuery
-
 import os
 import sys
 import copy
@@ -13,7 +12,6 @@ import pickle
 import math
 from tqdm import tqdm
 import pandas as pd 
-import os
 import logging
 import traceback # traceback for information on python stack traces
 

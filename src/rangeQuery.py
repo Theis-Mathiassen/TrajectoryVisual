@@ -26,6 +26,7 @@ class RangeQuery(Query):
         self.x2 = params["x2"]
         self.y2 = params["y2"]
         self.t2 = params["t2"]
+        self.origin = params["origin"]
         self.trajectories = params["trajectories"]
         self.flag = params["flag"]
         self.centerx = (self.x2+self.x1)/2
@@ -59,6 +60,11 @@ class RangeQuery(Query):
         trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
         #print(len(trajectories_output))
         self.hits = hits """
+
+        # Remove hits that are the origin node
+        originId = self.origin.id
+        hits = [(tid, nid) for (tid, nid) in hits if tid != originId]
+
         return hits
 
     

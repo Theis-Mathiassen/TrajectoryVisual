@@ -86,13 +86,16 @@ def main(config):
     
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining) #Alternatively (origRtree, origTrajectories, pickeFiles='PICKLE_HITS')
+    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+
+    # Begin evaluation at different compression rates
+
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
         # While above compression rate
         print(compressionRateScores[-1]['f1Scores'])
         simpRtree.close()

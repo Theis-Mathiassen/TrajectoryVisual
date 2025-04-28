@@ -61,8 +61,8 @@ def main(config):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
 
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
@@ -70,8 +70,8 @@ def main(config):
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 

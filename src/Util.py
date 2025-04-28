@@ -7,7 +7,7 @@ import copy
 import random
 from rtree import index
 import math
-import numpy as np
+from numba import vectorize, float64, jit, njit
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -350,6 +350,7 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     return spatial_similarity * weight + temporal_similarity * (1 - weight)
 
+@jit(nopython=True, cache=True)
 def spatial_distance(node, nodes):
 
     dx = np.abs(nodes[:,0] - node[0])
@@ -359,7 +360,7 @@ def spatial_distance(node, nodes):
 
     return np.min(distances)
 
-
+@jit(nopython=True, cache=True)
 def temporal_distance(node, nodes):
     
     distances = np.abs(nodes[:,2] - node[2])
@@ -383,36 +384,6 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
     npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
 
-
-    def get_min_dist_node(origin_node, nodes, func):
-        min = math.inf
-        closestIndex = None
-        for index, node in enumerate(nodes[0:]):
-            dist = func(origin_node, node)
-            if dist < min:
-                min = dist
-                closestIndex = index
-
-        return closestIndex, min
-
-    # Like the ones above but also return the index of the min val
-    def temporal_distance_func(node, other_nodes):
-        
-        distances = np.abs(other_nodes[:,2] - node[2])
-
-        min_idx = np.argmin(distances)
-        return min_idx, np.min(distances)
-    
-    def spatial_distance_func(node, other_nodes):
-
-        dx = np.abs(other_nodes[:,0] - node[0])
-        dy = np.abs(other_nodes[:,1] - node[1])
-
-        distances = np.sqrt(dx**2 + dy**2)
-
-        min_idx = np.argmin(distances)
-        return min_idx, np.min(distances)
-
     for origin_node in npOrigin:
         for func in [spatial_distance_func, temporal_distance_func]:
             closestNodeIndex, dist = func(origin_node, npOther)
@@ -421,3 +392,37 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
                 dist = 1
 
             otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
+
+
+           
+def get_min_dist_node(origin_node, nodes, func):
+    min = math.inf
+    closestIndex = None
+    for index, node in enumerate(nodes[0:]):
+        dist = func(origin_node, node)
+        if dist < min:
+            min = dist
+            closestIndex = index
+
+    return closestIndex, min
+
+# Like the ones above but also return the index of the min val
+@jit(nopython=True, cache=True)
+def temporal_distance_func(node, other_nodes):
+    
+    distances = np.abs(other_nodes[:,2] - node[2])
+
+    min_idx = np.argmin(distances)
+    return min_idx, np.min(distances)
+
+
+@jit(nopython=True, cache=True)
+def spatial_distance_func(node, other_nodes):
+
+    dx = np.abs(other_nodes[:,0] - node[0])
+    dy = np.abs(other_nodes[:,1] - node[1])
+
+    distances = np.sqrt(dx**2 + dy**2)
+
+    min_idx = np.argmin(distances)
+    return min_idx, np.min(distances)

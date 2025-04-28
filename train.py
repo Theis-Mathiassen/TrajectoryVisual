@@ -10,6 +10,7 @@ import sys
 import copy
 import pickle
 import math
+import argparse
 from tqdm import tqdm
 import pandas as pd 
 import logging
@@ -52,15 +53,23 @@ def main(config):
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
-
-    # origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
-
-
-
+    # Create the specified query type based on command line argument
+    query_type = config["query_type"].lower()
+    print(f"Creating {query_type} queries...")
     
+    if query_type == "range":
+        origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    elif query_type == "similarity":
+        origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    elif query_type == "knn":
+        origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    elif query_type == "cluster":
+        origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    else:
+        print(f"Unknown query type: {query_type}")
+        print("Available query types: range, similarity, knn, cluster")
+        sys.exit(1)
+
     queryResults = []
     
     
@@ -93,6 +102,11 @@ def main(config):
 
 
 if __name__ == "__main__":
+    # Set up command line argument parsing
+    parser = argparse.ArgumentParser(description='Run trajectory queries with specified query type')
+    parser.add_argument('query_type', type=str, help='Query type to run (range, similarity, knn, or cluster)')
+    args = parser.parse_args()
+    
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
@@ -101,6 +115,7 @@ if __name__ == "__main__":
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 5     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["query_type"] = args.query_type  # Query type from command line args
 
     print("Script starting...") 
     try:

@@ -37,6 +37,7 @@ def main(config):
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
     #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    logger.info('Copying trajectories.')
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
@@ -49,21 +50,29 @@ def main(config):
 
 
     # ---- Create training queries -----
+    logger.info('Creating training queries.')
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
 
+    #logger.info('Creating range queries.')
     #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    #logger.info('Creating similarity queries.')
     #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    logger.info('Creating KNN queries.')
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
+    logger.info('Creating evaluation queries.')
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
+    #logger.info('Creating range queries.')
     #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    #logger.info('Creating similarity queries.')
     #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    logger.info('Creating KNN queries.')
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
@@ -78,11 +87,15 @@ def main(config):
 
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
+    logger.info('Give nodes scores.')
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
 
     # Begin evaluation at different compression rates
 
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
+        logger.info('Performing loop for compression rate %s', cr);
+
+        logger.info('Dropping nodes.')
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)

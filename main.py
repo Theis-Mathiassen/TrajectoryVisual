@@ -1,4 +1,4 @@
-from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
+from src.evaluation import getAverageF1ScoreAll, GetSimplificationError, getF1Score
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
@@ -44,36 +44,37 @@ def initPoolProcesses(rtree, trajectories):
     #rtree, _ = loadRtree(rtreeName, trajectories)
     # pass
 
-def load_rtree_from_disk(index_name: str) -> index.Index:
-    # Loads an RTree index saved as {index_name}.data and {index_name}.index
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = 16000
-    return index.Index(index_name, properties=p)
-
 def workerFnc(inputTuple):
     # Syntactic sugar
     queries = inputTuple[0]
-    rtreeName = inputTuple[1]
-    trajectories = inputTuple[2]
-    #rtree = build_Rtree(dataset=rtreeName)
+    trajectories = inputTuple[1]
 
     # rtree, trajectories = build_Rtree("trimmed_small_train.csv", filename=("trimmed_small_train"+ str(inputTuple[3])))#get_Tdrive(filename="TDrive.csv")
 
     for query in queries:
         result = query.run(origRtree)
         if not isinstance(query, ClusterQuery):
-            # lock.acquire()
             query.distribute(trajectories, result)
-            # lock.release()
         else:
-            # lock.acquire()
             query.distribute(trajectories)
-            # lock.release()
     return trajectories
+
+def f1WorkerInit(oRtree, sRtree):
+    global origRtree, simpRtree
+    origRtree = oRtree
+    simpRtree = sRtree
+
+def f1ScoreWorkerFnc(inputTuple):
+    out = []
+    queries: list[Query] = inputTuple[0]
+    trajectories = inputTuple[1]
+
+    for query in queries:
+        val = getF1Score(query, origRtree, simpRtree, trajectories)
+        # print(val)
+        out.append(val)
+    #print(out)
+    return sum(out)/len(out)
 
 #### main
 def main(config):
@@ -112,7 +113,7 @@ def main(config):
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
@@ -128,8 +129,7 @@ def main(config):
 
     ## Main Loop
     #print("Main loop..")
-    multiProcessTest = True
-    if multiProcessTest:
+    if MULTIPROCESSTEST:
         # Declare worker input list
         inputList = []
 
@@ -150,7 +150,7 @@ def main(config):
                 # Find the amount of queries to *ideally* distribute to each process
                 splitLength = math.ceil(numEachQueryType/os.cpu_count())
 
-                print(splitLength)
+                # print(splitLength)
 
                 firstQueryIdx = (i * splitLength + (j * numEachQueryType))*numQueryTypes
                 lastQueryIdx = ((i+1) * splitLength + (j * numEachQueryType))*numQueryTypes
@@ -161,11 +161,11 @@ def main(config):
 
                 processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
 
-            inputList.append([processQueries, "trimmed_small_train", origTrajectories, i])
-
-        for i, chunk in enumerate(inputList):
-            print(f"Process {i} received {len(chunk[0])} queries")
-
+            inputList.append([processQueries, origTrajectories])
+        
+        # for i, chunk in enumerate(inputList):
+        #     print(f"Process {i} received {len(chunk[0])} queries")
+        
         with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(origRtree, origTrajectories,)) as pool: #os.cpu_count()
             # Run the worker function
             res = pool.map(workerFnc, inputList)
@@ -173,17 +173,9 @@ def main(config):
             # Wait for all processes to complete
             pool.close()
             pool.join()
-
+        
         # print(len(res))
-        # print(res[0])
-        # for val in zip(res[0], res[1], res[2]):
-        #     print(val[0], val[1], val[2])
-        # print(res[0][1372636858620000589].nodes[0].score)
-        # print(res[1][1372636858620000589].nodes[0].score)
-        # print(res[2][1372636858620000589].nodes[0].score)
-        # print(res[0][1372644436620000112].nodes[0].score)
-        # print(res[1][1372644436620000112].nodes[0].score)
-        # print(res[2][1372644436620000112].nodes[0].score)
+        # print(sum(res))
 
         combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
 
@@ -207,65 +199,76 @@ def main(config):
         #     print(result)
         # exit()
     
-    for key in origTrajectories.keys():
-        for i in range(len(res)):
-            for node in origTrajectories[key].nodes:
-                node.score += res[i][key].nodes[node.id].score
+    #for key in origTrajectories.keys():
+    #    for i in range(len(res)):
+    #        for node in origTrajectories[key].nodes:
+    #            node.score += res[i][key].nodes[node.id].score
 
     # # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
+    if MULTIPROCESSTEST:
+        # Get all the lists of queries
+        queryList: list[list[Query]] = origRtreeQueriesEvaluation.getQueries()
+
+        # Amount of each query loaded
+        numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
+
+        # Amount of query types loaded
+        numQueryTypes = math.floor(len(queryList)/numEachQueryType)
+
+        # Declare worker input list
+        inputList = []
+
+        # Compile the list of tuples containing queries of each type for each process to evaluate
+        # along with the RTree and the original trajectories
+        for i in range(os.cpu_count()):
+            processQueries = []
+            for j in range(numQueryTypes):
+                # Find the amount of queries to *ideally* distribute to each process
+                splitLength = math.ceil(numEachQueryType/os.cpu_count())
+
+                # print(splitLength)
+
+                firstQueryIdx = (i * splitLength + (j * numEachQueryType))*numQueryTypes
+                lastQueryIdx = ((i+1) * splitLength + (j * numEachQueryType))*numQueryTypes
+
+                if i == os.cpu_count() - 1:
+                    processQueries.extend(queryList[firstQueryIdx:-1])
+                    continue
+
+                processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
+            # print(processQueries)
+            inputList.append([processQueries, origTrajectories])
+        # print(inputList)
 
     # Begin evaluation at different compression rates
     # giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
     for cr in tqdm(config["compression_rate"], desc="compression rate"):
-        if multiProcessTest:
-            # Declare worker input list
-            inputList = []
-
-            # Get all the lists of queries
-            queryList: list[list[Query]] = origRtreeQueriesEvaluation.getQueries()
-
-            # Amount of each query loaded
-            numEachQueryType = math.floor((config["numberOfEachQuery"]*config["trainTestSplit"]))
-
-            # Amount of query types loaded
-            numQueryTypes = math.floor(len(queryList)/numEachQueryType)
-
-            # Compile the list of tuples containing queries of each type for each process to evaluate
-            # along with the RTree and the original trajectories
-            for i in range(os.cpu_count()):
-                processQueries = []
-                for j in range(numQueryTypes):
-                    # Find the amount of queries to *ideally* distribute to each process
-                    splitLength = math.ceil(numEachQueryType/os.cpu_count())
-
-                    print(splitLength)
-
-                    firstQueryIdx = (i * splitLength + (j * numEachQueryType))*numQueryTypes
-                    lastQueryIdx = ((i+1) * splitLength + (j * numEachQueryType))*numQueryTypes
-
-                    if i == os.cpu_count() - 1:
-                        processQueries.extend(queryList[firstQueryIdx:-1])
-                        continue
-
-                    processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
-
-                inputList.append([processQueries, "trimmed_small_train", origTrajectories, i])
-        
-            with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(origRtree, origTrajectories,)) as pool: #os.cpu_count()
-                # Run the worker function
-                res = pool.map(workerFnc, inputList)
-
-                # Wait for all processes to complete
-                pool.close()
-                pool.join()
-
+        if MULTIPROCESSTEST:
+            print(f"\nCompression rate: {cr}")
             simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
             simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            
+            with mp.Pool(processes=os.cpu_count(), initializer=f1WorkerInit, initargs=(origRtree, simpRtree,)) as pool: #os.cpu_count()
+                # Run the worker function
+                res = pool.map(f1ScoreWorkerFnc, inputList)
+                
+                # Wait for all processes to complete
+                pool.close()
+                pool.join()
+            # print(res)
+            
+            averageF1Score = sum(res)/len(res)
+
+            compressionRateScores.append({ 'cr' : cr, 'f1Score' : averageF1Score, 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+            # While above compression rate
+            print()
+            print(compressionRateScores[-1]['f1Score'])
+            print()
 
             simpRtree.close()
-        elif not multiProcessTest:
+        elif not MULTIPROCESSTEST:
             giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
 
             simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
@@ -313,9 +316,7 @@ if __name__ == "__main__":
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 1000     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 100       # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     print("Script starting...") 

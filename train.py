@@ -75,7 +75,7 @@ def main(config):
     
     for Query in tqdm(origRtreeQueriesTraining.getQueries(), desc="Running queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
         # Get result of query
-        result = Query.run(origRtree)
+        result = Query.run(origRtree, origTrajectories)
         # Distribute points
         queryResults.append((Query, result))
     #print("Done!")
@@ -85,7 +85,7 @@ def main(config):
     for q, r in queryResults:
         if str(q) not in dictQueryResults:
             dictQueryResults[str(q)] = []
-        dictQueryResults[str(q)].append((q,r))
+        dictQueryResults[str(q)].append((q ,r))
     
     for queryType in dictQueryResults.keys():    
         try:

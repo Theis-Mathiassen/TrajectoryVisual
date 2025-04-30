@@ -5,6 +5,8 @@ from src.scoringQueries import giveQueryScorings
 from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.clusterQuery import ClusterQuery
+#import logging
+from src.log import logger, ERROR_LOG_FILENAME
 import os
 import sys
 import copy
@@ -24,21 +26,15 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
 PICKLE_HITS = ['RangeQueryHits.pkl']
 
-
-logging.basicConfig(
-    level=logging.ERROR, # Log only ERROR level messages and above
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename=LOG_FILENAME, # Log to this file
-    filemode='a' # Append mode, use 'w' to overwrite each time
-)
-logger = logging.getLogger(__name__)
-
 #### main
 def main(config):
 
+    logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-
-    """     ORIGTrajectories = {
+    logger.info('Completed get_Tdrive.')
+    """     
+    logger.info('Copying trajectories.')
+    ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
     } """
@@ -50,6 +46,7 @@ def main(config):
 
 
     # ---- Create training queries -----
+    logger.info('Creating training queries.')
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
@@ -58,12 +55,16 @@ def main(config):
     print(f"Creating {query_type} queries...")
     
     if query_type == "range":
+        logger.info('Creating range queries.')
         origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "similarity":
+        logger.info('Creating similarity queries.')
         origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "knn":
+        logger.info('Creating KNN queries.')
         origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "cluster":
+        logger.info('Creating cluster queries.')
         origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
     else:
         print(f"Unknown query type: {query_type}")
@@ -75,6 +76,7 @@ def main(config):
     
     for Query in tqdm(origRtreeQueriesTraining.getQueries(), desc="Running queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
         # Get result of query
+        logger.info('Running query %s', type(Query))
         result = Query.run(origRtree)
         # Distribute points
         queryResults.append((Query, result))
@@ -87,6 +89,7 @@ def main(config):
             dictQueryResults[str(q)] = []
         dictQueryResults[str(q)].append((q,r))
     
+    logger.info('Saving results to pickle files.')
     for queryType in dictQueryResults.keys():    
         try:
             with open(os.path.join(os.getcwd(), str(queryType) + 'Hits.pkl'), 'wb') as file:
@@ -102,6 +105,7 @@ def main(config):
 
 
 if __name__ == "__main__":
+    logger.info("---------------------------    Main Start    ---------------------------")
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(description='Run trajectory queries with specified query type')
     parser.add_argument('query_type', type=str, help='Query type to run (range, similarity, knn, or cluster)')
@@ -117,15 +121,15 @@ if __name__ == "__main__":
     config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
     config["query_type"] = args.query_type  # Query type from command line args
 
-    print("Script starting...") 
     try:
+        logger.info("Script starting...")
         main(config)
-        print("Script finished successfully.") 
+        logger.info("Script finished successfully.")
 
     except Exception as e:
         print(f"\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
-        print(f"See {LOG_FILENAME} for detailed err traces.")
+        print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
         # Log the exception information to the file
         logger.error(f"Script crashed with the following error: {e}")

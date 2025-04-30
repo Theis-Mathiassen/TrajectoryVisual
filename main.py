@@ -24,8 +24,7 @@ DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
 
-#### main
-def main(config):
+def prepare():
     ## Load Dataset
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
 
@@ -80,10 +79,14 @@ def main(config):
 
     compressionRateScores = list()
 
-    #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
+    return origRtree, origTrajectories, origRtreeQueriesTraining, origRtreeQueriesEvaluation, ORIGTrajectories, compressionRateScores
 
-    ## Main Loop
-    #print("Main loop..")
+    
+
+#### main
+def main(config):
+    logger.info('Prepare data')
+    origRtree, origTrajectories, origRtreeQueriesTraining, origRtreeQueriesEvaluation, ORIGTrajectories, compressionRateScores = prepare()
 
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
@@ -98,11 +101,16 @@ def main(config):
         logger.info('Dropping nodes.')
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
+        logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        logger.info('Calculating f1 scores.')
+        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories)
+        logger.info('Calculating simplification errors.')
+        simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
+        compressionRateScores.append({ 'cr' : cr, 'f1Scores' : f1score, 'simplificationError' : simplificationError})
         # While above compression rate
-        print(compressionRateScores[-1]['f1Scores'])
+        logger.info('Run info: %s',compressionRateScores[-1]['f1Scores'])
         simpRtree.close()
 
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
@@ -133,7 +141,7 @@ def main(config):
 
 
 if __name__ == "__main__":
-    logger.info("Top of main.")
+    logger.info("---------------------------    Main Start    ---------------------------")
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
@@ -147,7 +155,7 @@ if __name__ == "__main__":
     try:
         logger.info("Script starting...")
         main(config)
-        print("Script finished successfully.")
+        logger.info("Script finished successfully.")
 
     except Exception as e:
         print(f"\n--- SCRIPT CRASHED ---")

@@ -8,7 +8,7 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
         # Extract all queries
         #print("Scoring queries..")
         for Query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
-            logger.info('Running query %s', type(Query))
+            logger.info('Gives scores for query %s', type(Query))
             # Get result of query
             result = Query.run(Rtree)
             # Distribute points

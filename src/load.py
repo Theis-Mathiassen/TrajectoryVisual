@@ -20,7 +20,17 @@ from src.Filter import Filter
 from src.log import logger
 
 CHUNKSIZE = 10**5
-PAGESIZE = 16000
+
+
+# Setup properties
+p = index.Property()
+p.dimension = 3
+p.dat_extension = 'data'
+p.idx_extension = 'index'
+p.leaf_capacity = 2000
+p.fill_factor = 0.9
+p.pagesize = 16000
+p.storage = 1
 
 # Handle frequent problem that occurs with corrupted load
 def checkRtreeIndexEmpty(filename):
@@ -296,14 +306,8 @@ def load_Tdrive_Rtree(filename=""):
     #     debugLoad(df)
 
 
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    p.storage = 1
+    
+    
     #p.filename = filename
 
     """ if filename=='' :
@@ -362,13 +366,6 @@ def build_Rtree(dataset, filename='') :
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
     #p.filename = filename
     
     polylines = np.array(df['POLYLINE'])
@@ -512,13 +509,6 @@ def build_Rtree(dataset, filename='') :
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
     #p.filename = filename
     
     polylines = np.array(df['POLYLINE'])
@@ -582,14 +572,7 @@ def loadDataTrajectories(dataset):
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    #p.filename = filename
+
     
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])
@@ -616,14 +599,6 @@ def loadDataTrajectories(dataset):
 #TO DO:
 #Fix it. Dont think it works, but maybe it isn't neccesary?
 def loadRtree(rtreeName : str, trajectories):
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    #p.filename = rtreeName
-    #p.overwrite = True
     #bounds = originalRtree.bounds
     #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
     rtreeCopy = index.Index(rtreeName, pointStream(trajectories), properties=p)

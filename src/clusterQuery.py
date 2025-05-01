@@ -37,6 +37,7 @@ class ClusterQuery(Query):
         self.eps = params["eps"]  # max distance for clustering
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
+        self.originId = params["origin"].id
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
         self.params = params
         self.returnCluster = False
@@ -69,7 +70,7 @@ class ClusterQuery(Query):
         
         return filtered
     
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # get all trajectories with points in the time window, unless needs to return all clusters
         if self.returnCluster:
             trajectories = self.params["trajectories"]

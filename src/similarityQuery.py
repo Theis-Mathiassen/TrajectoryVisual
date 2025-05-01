@@ -15,6 +15,7 @@ class SimilarityQuery(Query):
     
     def __init__(self, params):
         self.trajectory = params["origin"]
+        self.originId = params["origin"].id
         self.t1 = params["t1"]
         self.t2 = params["t2"]
         self.x1 = params["x1"]
@@ -33,7 +34,7 @@ class SimilarityQuery(Query):
     def __str__(self):
         return "SimilarityQuery"
 
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         #Find matches og filtrer dem som ikke er indenfor delta
         """ maxX = max(map(lambda node : node.x, self.trajectory.nodes.data))
         minX = min(map(lambda node : node.x, self.trajectory.nodes.data))
@@ -60,7 +61,7 @@ class SimilarityQuery(Query):
         
         hits = []
         
-        T = self.trajectories
+        T = trajectories
         # For each trajectory, find or interpolate a point at time t
         for trajectory_id, node_ids in trajectory_nodes.items():
             trajectory = T[trajectory_id]

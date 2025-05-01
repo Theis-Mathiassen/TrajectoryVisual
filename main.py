@@ -22,7 +22,8 @@ sys.path.append("src/")
 CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
+#LOG_FILENAME = 'script_error_log.log' # Define a log file name
+PICKLE_HITS = ['RangeQueryHits.pkl', 'SimilarityQueryHits.pkl'] # Define filenames for query hits
 
 def prepare():
     ## Load Dataset
@@ -60,7 +61,7 @@ def prepare():
     #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     logger.info('Creating KNN queries.')
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)"""
 
     # ---- Create evaluation queries -----
     logger.info('Creating evaluation queries.')
@@ -90,8 +91,7 @@ def main(config):
 
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
-    logger.info('Give nodes scores.')
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+    giveQueryScorings(origRtree, origTrajectories, math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]),  pickleFiles=PICKLE_HITS)
 
     # Begin evaluation at different compression rates
 
@@ -147,9 +147,9 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 0.005   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["trainTestSplit"] = 0.8            # Train/test split
+    config["numberOfEachQuery"] = 500       # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
     #print("Script starting...")
     try:

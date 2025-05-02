@@ -2,7 +2,7 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError, getF1Sc
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
+from src.load import build_Rtree1, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.Query import Query
 from src.clusterQuery import ClusterQuery
@@ -19,11 +19,12 @@ import logging
 import traceback # traceback for information on python stack traces
 import multiprocessing as mp
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from rtree import index
 
 sys.path.append("src/")
 
-CSVNAME = 'first_10000_train'
+CSVNAME = 'trimmed_small_train'#first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
@@ -37,43 +38,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def initPoolProcesses(rtree, trajectories):
-    global origRtree
-    origRtree = rtree
+def initPoolProcesses(rtree, traj):
+    #global origRtree
+    #origRtree = rtree
+    #origRtree, _ = loadRtree(CSVNAME, traj)
     #global rtree
     #rtree, _ = loadRtree(rtreeName, trajectories)
-    # pass
+    pass
 
 def workerFnc(inputTuple):
     # Syntactic sugar
     queries = inputTuple[0]
-    trajectories = inputTuple[1]
+    trajectories = copy.deepcopy(inputTuple[1])
 
     # rtree, trajectories = build_Rtree("trimmed_small_train.csv", filename=("trimmed_small_train"+ str(inputTuple[3])))#get_Tdrive(filename="TDrive.csv")
 
     for query in queries:
         result = query.run(origRtree)
+        # print(result)
         if not isinstance(query, ClusterQuery):
             query.distribute(trajectories, result)
         else:
             query.distribute(trajectories)
     return trajectories
 
-def f1WorkerInit(oRtree, sRtree):
-    global origRtree, simpRtree
-    origRtree = oRtree
-    simpRtree = sRtree
+def f1WorkerInit(traj):
+    #global oRtree, simpRtree
+    #oRtree, _ = loadRtree(CSVNAME, traj)
+    #simpRtree, _ = loadRtree(SIMPLIFIEDDATABASENAME, traj)
+    #oRtree, _ = loadRtree(CSVNAME, traj)
+    pass
 
 def f1ScoreWorkerFnc(inputTuple):
     out = []
     queries: list[Query] = inputTuple[0]
-    trajectories = inputTuple[1]
+    trajectories = copy.deepcopy(inputTuple[1])
 
     for query in queries:
         val = getF1Score(query, origRtree, simpRtree, trajectories)
         # print(val)
         out.append(val)
-    #print(out)
+    # print(out)
     return sum(out)/len(out)
 
 #### main
@@ -82,11 +87,13 @@ def main(config):
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
     
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+    
+    global origRtree
 
-    origRtree, origTrajectories = build_Rtree("trimmed_small_train.csv", filename="trimmed_small_train")#get_Tdrive(filename="TDrive.csv")
+    origRtree, origTrajectories = build_Rtree1("trimmed_small_train.csv", filename="trimmed_small_train")#get_Tdrive(filename="TDrive.csv")
 
     # print(origRtree.properties)
-
+    
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
@@ -166,16 +173,11 @@ def main(config):
         # for i, chunk in enumerate(inputList):
         #     print(f"Process {i} received {len(chunk[0])} queries")
         
-        with mp.Pool(processes=os.cpu_count(), initializer=initPoolProcesses, initargs=(origRtree, origTrajectories,)) as pool: #os.cpu_count()
-            # Run the worker function
-            res = pool.map(workerFnc, inputList)
-
-            # Wait for all processes to complete
-            pool.close()
-            pool.join()
         
-        # print(len(res))
-        # print(sum(res))
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor: #os.cpu_count()
+            # Run the worker function
+            res = list(executor.map(workerFnc, inputList))
+            executor.shutdown()
 
         combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
 
@@ -195,15 +197,16 @@ def main(config):
         #         score += res[11][key].nodes[i].score + res[1][key].nodes[i].score + res[2][key].nodes[i].score
         print(len(res))
         print(score)
+        
         # for result in res[1:]:
         #     print(result)
-        # exit()
-    
-    #for key in origTrajectories.keys():
-    #    for i in range(len(res)):
-    #        for node in origTrajectories[key].nodes:
-    #            node.score += res[i][key].nodes[node.id].score
 
+    
+    # for key in origTrajectories.keys():
+        # for i in range(len(res)):
+            # for node in origTrajectories[key].nodes:
+                # node.score += res[i][key].nodes[node.id].score
+    # print(score)
     # # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
     if MULTIPROCESSTEST:
@@ -238,7 +241,7 @@ def main(config):
 
                 processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
             # print(processQueries)
-            inputList.append([processQueries, origTrajectories])
+            inputList.append([processQueries])
         # print(inputList)
 
     # Begin evaluation at different compression rates
@@ -247,18 +250,21 @@ def main(config):
         if MULTIPROCESSTEST:
             print(f"\nCompression rate: {cr}")
             simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
-
+            global simpRtree
             simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
             
-            with mp.Pool(processes=os.cpu_count(), initializer=f1WorkerInit, initargs=(origRtree, simpRtree,)) as pool: #os.cpu_count()
+            for input in inputList:
+                input.append(simpTrajectories)
+
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor: #os.cpu_count()
                 # Run the worker function
-                res = pool.map(f1ScoreWorkerFnc, inputList)
-                
-                # Wait for all processes to complete
-                pool.close()
-                pool.join()
+                res = list(executor.map(f1ScoreWorkerFnc, inputList))
+                executor.shutdown()
+
             # print(res)
-            
+                print()
+                print(res)
+                print()
             averageF1Score = sum(res)/len(res)
 
             compressionRateScores.append({ 'cr' : cr, 'f1Score' : averageF1Score, 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
@@ -280,11 +286,17 @@ def main(config):
             print()
             print(compressionRateScores[-1]['f1Scores'])
             print()
+
             simpRtree.close()
-        
-        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-            os.remove(SIMPLIFIEDDATABASENAME + '.data')
-            os.remove(SIMPLIFIEDDATABASENAME + '.index')
+    origRtree.close()
+
+    if os.path.exists(CSVNAME + '.data') and os.path.exists(CSVNAME + '.index'):
+        os.remove(CSVNAME + '.data')
+        os.remove(CSVNAME + '.index')
+
+    if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+        os.remove(SIMPLIFIEDDATABASENAME + '.data')
+        os.remove(SIMPLIFIEDDATABASENAME + '.index')
         # Generate and apply queries, giving scorings to points
 
         # Remove x points with the fewest points
@@ -332,6 +344,14 @@ if __name__ == "__main__":
         # Log the exception information to the file
         logger.error(f"Script crashed with the following error: {e}")
         logger.error("Trace:\n%s", traceback.format_exc()) # Log the full traceback
+
+        if os.path.exists(CSVNAME + '.data') and os.path.exists(CSVNAME + '.index'):
+            os.remove(CSVNAME + '.data')
+            os.remove(CSVNAME + '.index')
+
+        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+            os.remove(SIMPLIFIEDDATABASENAME + '.data')
+            os.remove(SIMPLIFIEDDATABASENAME + '.index')
 
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")

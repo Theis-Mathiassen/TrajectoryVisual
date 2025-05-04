@@ -1,4 +1,4 @@
-from src.gridSearch import createConfigs
+from src.gridSearch import createConfigs, Configuration
 from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
@@ -12,9 +12,7 @@ import copy
 import pickle
 import math
 from tqdm import tqdm
-import pandas as pd
 import os
-#import logging
 from src.log import logger, ERROR_LOG_FILENAME
 import traceback # traceback for information on python stack traces
 
@@ -26,13 +24,6 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
 
 
-logging.basicConfig(
-    level=logging.ERROR, # Log only ERROR level messages and above
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename=LOG_FILENAME, # Log to this file
-    filemode='a' # Append mode, use 'w' to overwrite each time
-)
-logger = logging.getLogger(__name__)
 
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):

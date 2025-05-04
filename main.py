@@ -14,7 +14,8 @@ import math
 from tqdm import tqdm
 import pandas as pd
 import os
-import logging
+#import logging
+from src.log import logger, ERROR_LOG_FILENAME
 import traceback # traceback for information on python stack traces
 
 sys.path.append("src/")
@@ -62,14 +63,16 @@ def main(config):
     ## Load Dataset
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
 
+
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
-
+    logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-
+    logger.info('Completed get_Tdrive.')
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
     #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    logger.info('Copying trajectories.')
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
@@ -125,8 +128,6 @@ def main(config):
 
 
 def gridSearch(allCombinations):
-
-
     configScore = list()
     for config in tqdm(allCombinations):
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
@@ -135,26 +136,27 @@ def gridSearch(allCombinations):
         ORIGTrajectories = copy.deepcopy(origTrajectories)
 
         giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
-        print(config.epochs)
+        logger.info(f'Processing config with epochs: {config.epochs}')
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
+        logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        configScore.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree)
+        simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
+        
+        configScore.append({
+            'cr': config.compression_rate,
+            'f1Scores': f1score,
+            'simplificationError': simplificationError
+        })
 
-        # While above compression rate
-        print(configScore[-1]['f1Scores'])
+        logger.info('Run info: %s', configScore[-1]['f1Scores'])
         simpRtree.close()
 
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
             os.remove(SIMPLIFIEDDATABASENAME + '.data')
             os.remove(SIMPLIFIEDDATABASENAME + '.index')
-        # Generate and apply queries, giving scorings to points
-
-        # Remove x points with the fewest points
-
-        # Collect evaluation data
-            # getAverageF1ScoreAll, GetSimplificationError
 
     ## Save results
     try:
@@ -164,34 +166,48 @@ def gridSearch(allCombinations):
     except Exception as e:
         print(f"err saving results: {e}")
         logger.error("problems when saving results to pickle file.")
-        logger.error(traceback.format_exc()) 
+        logger.error(traceback.format_exc())
 
     ## Plot models
-
     pass
 
 if __name__ == "__main__":
-    config = {}
-    config["epochs"] = [100]                    # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
-    config["DB_size"] = [100]               # Amount of trajectories to load (Potentially irrelevant)
-    config["verbose"] = True                    # Print progress
-    config["trainTestSplit"] = [0.8]            # Train/test split
-    config["numberOfEachQuery"] = [100]         # Number of queries used to simplify database
-    config["QueriesPerTrajectory"] = [0.1]      # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    logger.info("---------------------------    Main Start    ---------------------------")
+    # Create a single configuration object
+    config = Configuration(
+        epochs=100,
+        compression_rate=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95],  
+        DB_size=100,
+        trainTestSplit=0.8,
+        numberOfEachQuery=100,
+        QueriesPerTrajectory=0.005,
+        verbose=True
+    )
 
-    print("Script starting...") 
     try:
-        allCombinations = createConfigs(config["epochs"], config["compression_rate"], config["DB_size"],
-            config["trainTestSplit"], config["numberOfEachQuery"], config["QueriesPerTrajectory"])
-        main(allCombinations[0])
-        #gridSearch(allCombinations)
+        # If compression_rate is a list, use gridSearch
+        if isinstance(config.compression_rate, list):
+            # Create all combinations for grid search
+            allCombinations = createConfigs(
+                [config.epochs],
+                config.compression_rate,
+                [config.DB_size],
+                [config.trainTestSplit],
+                [config.numberOfEachQuery],
+                [config.QueriesPerTrajectory],
+                [config.verbose]
+            )
+            gridSearch(allCombinations)
+        else:
+            # For single config testing
+            main(config)
+            
         print("Script finished successfully.") 
 
     except Exception as e:
         print(f"\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
-        print(f"See {LOG_FILENAME} for detailed err traces.")
+        print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
         # Log the exception information to the file
         logger.error(f"Script crashed with the following error: {e}")
@@ -200,10 +216,11 @@ if __name__ == "__main__":
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
 
-    
+
     # Cleanup temporary cache files
     filesToClear = ["cached_rtree_query_eval_results.pkl"]
 
     for fileString in filesToClear:
         if os.path.exists(fileString):
             os.remove(fileString)
+

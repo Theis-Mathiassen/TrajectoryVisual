@@ -7,7 +7,7 @@ import copy
 import random
 from rtree import index
 import math
-import numpy as np
+from numba import vectorize, float64, jit, njit
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -40,8 +40,11 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
@@ -59,8 +62,11 @@ class ParamUtil:
         yMax = self.yMax """
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
-    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         centerTime = centerNode.t
         minId = 0
@@ -92,8 +98,11 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index]
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         centerTime = centerNode.t
         tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
@@ -176,31 +185,31 @@ def lcss(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
 
     # Then call the actual function. Do this to only deep copy once
 
-    lcssActual(epsilon, delta, origin, trajectory)
+    return lcssActual(epsilon, delta, origin, trajectory)
 
 def lcssActual(epsilon, delta, origin : Trajectory, trajectory : Trajectory) :
 
     
     # Prepare variables, but only if they are needed later.
     if (len(origin.nodes) != 0 and len(trajectory.nodes) != 0) :
-        ogHead = [origin.nodes[0].x, origin.nodes[0].y]
-        tHead = [trajectory.nodes[0].x, trajectory.nodes[0].y]
-        timeDiff = np.abs(origin.nodes[0].t - trajectory.nodes[0].t)
+        ogHead = dict({'x': origin.nodes.data[0].x, 'y' : origin.nodes.data[0].y})
+        tHead = dict({'x' : trajectory.nodes.data[0].x, 'y': trajectory.nodes.data[0].y})
+        timeDiff = np.abs(origin.nodes.data[0].t - trajectory.nodes.data[0].t)
         
     if (len(origin.nodes) == 0 or len(trajectory.nodes) == 0) :
         return 0
     elif (euc_dist_diff_2d(ogHead, tHead) <= epsilon and (timeDiff <= delta)) : 
         newOrigin = origin 
-        newOrigin.nodes.pop(0)
+        newOrigin.nodes = newOrigin.nodes[1:]
         newTrajectory = trajectory
-        newTrajectory.nodes.pop(0)
-        return lcss(epsilon, delta, newOrigin, newTrajectory)+1
+        newTrajectory.nodes = newTrajectory.nodes[1:]
+        return lcssActual(epsilon, delta, newOrigin, newTrajectory)+1
     else :
         newOrigin = origin
-        newOrigin.nodes.pop(0)
+        newOrigin.nodes = newOrigin.nodes[1:]
         newTrajectory = trajectory
-        newTrajectory.nodes.pop(0)
-        return max(lcss(epsilon, delta, newOrigin, trajectory), lcss(epsilon, delta, newTrajectory, origin))
+        newTrajectory.nodes = newTrajectory.nodes[1:]
+        return max(lcssActual(epsilon, delta, newOrigin, trajectory), lcssActual(epsilon, delta, newTrajectory, origin))
 
 
 # Idea is to find the optimal route for insert delete matches. 
@@ -317,9 +326,12 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes.compressed()
 
+    # if len(originNodes) == 0 or len(otherNodes) == 0:
+    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
     npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
+
 
 
     def get_distances(evalNodes, referenceNodes):
@@ -347,6 +359,7 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     return spatial_similarity * weight + temporal_similarity * (1 - weight)
 
+@jit(nopython=True, cache=True)
 def spatial_distance(node, nodes):
 
     dx = np.abs(nodes[:,0] - node[0])
@@ -356,7 +369,7 @@ def spatial_distance(node, nodes):
 
     return np.min(distances)
 
-
+@jit(nopython=True, cache=True)
 def temporal_distance(node, nodes):
     
     distances = np.abs(nodes[:,2] - node[2])
@@ -380,36 +393,6 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
     npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
 
-
-    def get_min_dist_node(origin_node, nodes, func):
-        min = math.inf
-        closestIndex = None
-        for index, node in enumerate(nodes[0:]):
-            dist = func(origin_node, node)
-            if dist < min:
-                min = dist
-                closestIndex = index
-
-        return closestIndex, min
-
-    # Like the ones above but also return the index of the min val
-    def temporal_distance_func(node, other_nodes):
-        
-        distances = np.abs(other_nodes[:,2] - node[2])
-
-        min_idx = np.argmin(distances)
-        return min_idx, np.min(distances)
-    
-    def spatial_distance_func(node, other_nodes):
-
-        dx = np.abs(other_nodes[:,0] - node[0])
-        dy = np.abs(other_nodes[:,1] - node[1])
-
-        distances = np.sqrt(dx**2 + dy**2)
-
-        min_idx = np.argmin(distances)
-        return min_idx, np.min(distances)
-
     for origin_node in npOrigin:
         for func in [spatial_distance_func, temporal_distance_func]:
             closestNodeIndex, dist = func(origin_node, npOther)
@@ -419,3 +402,36 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
 
             otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
 
+
+           
+def get_min_dist_node(origin_node, nodes, func):
+    min = math.inf
+    closestIndex = None
+    for index, node in enumerate(nodes[0:]):
+        dist = func(origin_node, node)
+        if dist < min:
+            min = dist
+            closestIndex = index
+
+    return closestIndex, min
+
+# Like the ones above but also return the index of the min val
+@jit(nopython=True, cache=True)
+def temporal_distance_func(node, other_nodes):
+    
+    distances = np.abs(other_nodes[:,2] - node[2])
+
+    min_idx = np.argmin(distances)
+    return min_idx, np.min(distances)
+
+
+@jit(nopython=True, cache=True)
+def spatial_distance_func(node, other_nodes):
+
+    dx = np.abs(other_nodes[:,0] - node[0])
+    dy = np.abs(other_nodes[:,1] - node[1])
+
+    distances = np.sqrt(dx**2 + dy**2)
+
+    min_idx = np.argmin(distances)
+    return min_idx, np.min(distances)

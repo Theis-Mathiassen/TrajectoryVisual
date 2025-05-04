@@ -1,14 +1,16 @@
 import itertools
-from dataclasses import dataclass # Using dataclasses for brevity
+from dataclasses import dataclass
+from typing import Union, List
 
 @dataclass
 class Configuration:
     epochs: int
-    compression_rate: float
+    compression_rate: Union[float, List[float]]  # Can be either a single float or a list of floats
     DB_size: int
     trainTestSplit: float
     numberOfEachQuery: int
     QueriesPerTrajectory: float
+    verbose: bool = True  # Default value is True
 
 
 def createConfigs(*configs):

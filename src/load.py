@@ -4,6 +4,7 @@ import numpy.ma as ma
 import pandas as pd
 import os
 import re
+import random
 
 import shutil
 import copy
@@ -16,15 +17,50 @@ from tqdm import tqdm
 from src.Node import Node
 from src.Trajectory import Trajectory
 from src.Filter import Filter
+from src.log import logger
 
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
+
+# Handle frequent problem that occurs with corrupted load
+def checkRtreeIndexEmpty(filename):
+    if os.path.exists(filename + '.index'):
+        if os.path.getsize(filename + '.index') == 0:
+            logger.info("Found issue with old rtree deleting before load...")
+            os.remove(filename + ".index")
+            os.remove(filename + ".data")
+
+DEBUG = False
 
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 
 #The whole function should be refactored such that functions are applied in chunks. Right now reading the csv gives swap-hell..
 #Drop rows with polylines of length 0..
 
+def debugLoad(df):
+    print("Validating parsed POLYLINE structures...")
+    bad_polyline_rows = df[df["POLYLINE"].apply(
+        lambda poly: not isinstance(poly, list) or any(
+            not isinstance(p, (list, tuple)) or len(p) != 3 for p in poly
+        )
+    )]
+
+    print(f"[DEBUG] Malformed POLYLINEs: {len(bad_polyline_rows)}")
+    
+    dup_trip_ids = df[df["TRIP_ID"].duplicated()]
+    print(f"[DEBUG] Duplicate TRIP_IDs: {len(dup_trip_ids)}")
+
+    def has_duplicate_points(poly):
+        seen = set()
+        for point in poly:
+            tup = tuple(point)
+            if tup in seen:
+                return True
+            seen.add(tup)
+        return False
+
+    dup_point_rows = df[df["POLYLINE"].apply(has_duplicate_points)]
+    print(f"[DEBUG] Polylines with duplicate GPS points: {len(dup_point_rows)}")
 
 def checkCurrentRtreeMatches(Rtree, trajectories, filename):
     """
@@ -34,7 +70,7 @@ def checkCurrentRtreeMatches(Rtree, trajectories, filename):
 
     # If Rtree does not match Trajectories, delete Rtree and create a new one
     if not checkCurrentRtreeMatchesHelper(Rtree, trajectories):
-        print("Rtree does not match Trajectories, deleting Rtree and creating a new one...")
+        logger.info("Rtree does not match Trajectories, deleting Rtree and creating a new one...")
         Rtree.close()
         #del Rtree # This deletes the old Rtree from program memory, allowing us to delete the index and data files
         os.remove(filename + '.index')
@@ -45,7 +81,9 @@ def checkCurrentRtreeMatches(Rtree, trajectories, filename):
 
 def checkCurrentRtreeMatchesHelper(Rtree, trajectories) -> bool:
     trajectoriesList = list(trajectories.values())
-    for trajectory in trajectoriesList[:10]:
+    
+    for i in range(10):
+        trajectory = random.choice(trajectoriesList)
         firstNode = trajectory.nodes[0]
 
         hits = list(Rtree.intersection((firstNode.x, firstNode.y, firstNode.t, firstNode.x, firstNode.y, firstNode.t), objects="raw"))
@@ -72,14 +110,18 @@ def checkCurrentRtreeMatchesHelper(Rtree, trajectories) -> bool:
 
 def get_Tdrive(filename="") :
     cwd = os.getcwd()
-    path = os.path.join(cwd, 'datasets', 'Tdrive.csv')
+    path = os.path.join(cwd, 'datasets', 'TDrive.csv')
     if os.path.exists(path):
-        print("Tdrive already loaded to CSV, skipping load from folder...")
+        logger.info("Tdrive already loaded to CSV, skipping load from folder...")
     else:
         tDriveToCsv()
 
-    Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
+    
+    checkRtreeIndexEmpty(filename=filename)
 
+    logger.info("Loading and creating Tdrive dataset")
+    Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
+    logger.info("Loading and creating Tdrive dataset")
 
 
     # If Rtree does not match Trajectories, delete Rtree and create a new one
@@ -127,6 +169,8 @@ def load_Tdrive(src : str, filename="") :
     
 def jsonLoadsNumpy(polylineString) :
     if pd.isna(polylineString) or not isinstance(polylineString, str) :
+        if DEBUG:
+            print(f"Malformed (NaN or non-str): {polylineString}")
         return []
     
 
@@ -169,10 +213,89 @@ def load_Tdrive_Rtree(filename=""):
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
 
-
+    logger.info("Reading csv into dataframe.")
     df = pd.read_csv(path, converters={'POLYLINE' : jsonLoadsNumpy, 'TRIP_ID' : json.loads})
+
+    if DEBUG:
+        print("[DEBUG] \nUSING [DEBUG MODE] only loading first 1000 rows\n[DEBUG]")
+        df = df.head(1000)
+
+
+    # Drop rows with bad coordinates
+    def has_bad_coords(poly):
+        if not isinstance(poly, list) or not poly:
+            return True
+        
+        invalid_coords = []
+        for i, (lon, lat, t) in enumerate(poly):
+            try:
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    invalid_coords.append((i, lon, lat))
+            except TypeError:
+                return True
+            
+        if DEBUG and invalid_coords:
+            print(f"Invalid coordinates found: {invalid_coords}")
+        
+        return bool(invalid_coords)
+    logger.info("Validating coordinates.")
+    bad_coords_mask = df["POLYLINE"].progress_apply(has_bad_coords)
+    df.drop(index=df[bad_coords_mask].index, inplace=True)
+
+    # Drop duplicates
+    def remove_duplicate_nodes(polyline):
+        if not polyline:
+            return []
+        
+        seen = set()
+        new_polyline = []
+        duplicate_count = 0
+        
+        for point in polyline:
+            point_tuple = tuple(point)
+            if point_tuple not in seen:
+                seen.add(point_tuple)
+                new_polyline.append(point)
+            else:
+                duplicate_count += 1
+        
+        if duplicate_count > 0 and DEBUG:
+            print(f"Removed {duplicate_count} duplicate points from polyline")
+        
+        return new_polyline
+    logger.info("Removing duplicate nodes.")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(remove_duplicate_nodes)
+
+    # Convert to meters
+    def convert_polyline_to_meters(polyline):
+        arr = []
+        try:
+            for lon, lat, t in polyline:
+                try:
+                    east, north = lonLatToMetric(lon, lat)
+                    # basic checks for converted values (just for added safety and logging in case of unexpected results)
+                    if not all(isinstance(x, (int, float)) for x in (east, north)):
+                        print(f"Warning: Invalid conversion result for lon={lon}, lat={lat}")
+                        continue
+                    arr.append((east, north, t))
+                except Exception as e:
+                    print(f"Warning: Failed to convert coordinates (lon={lon}, lat={lat}): {str(e)}")
+                    continue
+            return arr
+        except Exception as e:
+            print(f"Error processing polyline: {str(e)}")
+            return []
+    logger.info("Lat lon converting to meters.")
+    df["POLYLINE"] = df["POLYLINE"].progress_apply(convert_polyline_to_meters)
+
+
+
+
     
-    
+    # if DEBUG:
+    #     debugLoad(df)
+
+
     # Set up properties
     p = index.Property()
     p.dimension = 3
@@ -180,6 +303,7 @@ def load_Tdrive_Rtree(filename=""):
     p.idx_extension = 'index'
     p.leaf_capacity = 1000
     p.pagesize = PAGESIZE
+    p.storage = 1
     #p.filename = filename
 
     """ if filename=='' :
@@ -200,12 +324,13 @@ def load_Tdrive_Rtree(filename=""):
     polylines = np.array(df['POLYLINE'])
     trip_ids = np.array(df['TRIP_ID'])
     
+    logger.info("Loading trajecories into rtree.")
     if os.path.exists(filename + '.index'):
         Rtree_ = index.Index(filename, properties=p)
     else:
         Rtree_ = index.Index(filename, TDriveDataStream(polylines, trip_ids), properties=p)
     
-    print("Creating trajectories..")
+    logger.info("Creating trajectories.")
     c = 0
     delete_rec = {}
     Trajectories = {}
@@ -399,7 +524,8 @@ def build_Rtree(dataset, filename='') :
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])
     trip_ids = np.array(df['TRIP_ID'])
-    
+
+    checkRtreeIndexEmpty(filename=filename)
     
     if os.path.exists(filename + '.index'):
         Rtree_ = index.Index(filename, properties=p)
@@ -599,6 +725,7 @@ def tDriveToCsv():
         taxiIdx += 1
         
     csvdf = pd.concat([csvdf, pd.DataFrame(super_x, columns=['TRIP_ID', 'POLYLINE'])], ignore_index=True, axis=0)
+    logger.info('Saving TDrive to csv.');
     csvdf.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'TDrive.csv'), sep=',', index=False)
 
 def datastreamTriple(polylines, trip_ids):

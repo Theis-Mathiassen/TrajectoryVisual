@@ -10,7 +10,7 @@ class Configuration:
     trainTestSplit: float
     numberOfEachQuery: int
     QueriesPerTrajectory: float
-    verbose: bool = True  # Default value is True
+    verbose: bool = True  
 
 
 def createConfigs(*configs):

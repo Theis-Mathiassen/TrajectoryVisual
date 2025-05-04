@@ -9,14 +9,14 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "${file} range",
             "console": "integratedTerminal"
         },
         {
             "name": "Python Debugger: Main",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "main.py range",
             "console": "integratedTerminal"
         }
     ]

@@ -19,9 +19,9 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
         for filename in pickleFiles:
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:
-                for q, r in f:
-                    if not isinstance(q, ClusterQuery):
+                hits = pickle.load(f)
+                for q, r in hits:
+                    if not isinstance(q, ClusterQuery): # no cluster query for now
                         q.distribute(trajectories, r)
                     else:
                         q.distribute(trajectories)
-    #print("Done!")

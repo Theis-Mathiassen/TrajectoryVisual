@@ -35,3 +35,6 @@ def createConfigs(*configs):
             continue
 
     return all_config_objects
+
+if __name__ == "__main__":
+    print(createConfigs([0.5], [100], [0.8], [100], [0.005, 0.01, 0.02], [True]))

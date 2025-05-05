@@ -20,9 +20,7 @@ sys.path.append("src/")
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-LOG_FILENAME = 'script_error_log.log' # Define a log file name
 PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
-
 
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):
@@ -66,9 +64,6 @@ def main(config):
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
     }
-
-    ## Setup data collection environment, that is evaluation after each epoch
-    # ---- Set number of queries to be created ----
 
     if config.QueriesPerTrajectory != None:
         config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))

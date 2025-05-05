@@ -1,5 +1,16 @@
 import math
+from numba import int32, float32
+from numba.experimental import jitclass
 
+spec = [
+    ('id', int32),
+    ('x', float32),
+    ('y', float32),
+    ('t', float32),
+    ('score', float32),
+]
+
+#@jitclass(spec)
 class Node:
     __slots__ = ['score', 'id', 'x', 'y', 't']
     """ score: int

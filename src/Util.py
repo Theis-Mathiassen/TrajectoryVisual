@@ -7,7 +7,7 @@ import copy
 import random
 from rtree import index
 import math
-from numba import vectorize, float64, jit, njit
+from numba import vectorize, float64,float32, jit, njit, types, prange
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -312,54 +312,7 @@ def get_visited(pathTracker, length_x, length_y):
     
     return visited
 
-
-
-# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
-def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
-    """
-    Gets the spatio-temporal distance between two lists of nodes
-
-    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
-
-    result = spatial dist * weight + temporal dist * (1 - weight)`
-    """
-    originNodes = originTrajectory.nodes.compressed()
-    otherNodes = otherTrajectory.nodes.compressed()
-
-    # if len(originNodes) == 0 or len(otherNodes) == 0:
-    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
-
-    npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
-    npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
-
-
-
-    def get_distances(evalNodes, referenceNodes):
-        spatial_similarity = 0
-        temporal_similarity = 0
-
-        for node in evalNodes:
-            spatial_similarity += spatial_distance(node, referenceNodes)
-            temporal_similarity += temporal_distance(node, referenceNodes)
-
-        evalLength = len(evalNodes)
-
-        spatial_similarity = spatial_similarity / evalLength
-        temporal_similarity = temporal_similarity / evalLength
-
-        return spatial_similarity, temporal_similarity
-    
-
-    spatial_similarity_1, temporal_similarity_1 = get_distances(npOrigin, npOther)
-    spatial_similarity_2, temporal_similarity_2 = get_distances(npOther, npOrigin)
-
-
-    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
-    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
-
-    return spatial_similarity * weight + temporal_similarity * (1 - weight)
-
-@jit(nopython=True, cache=True)
+@jit(float64(float64[:], float64[:,:]), nopython=True, cache=True)
 def spatial_distance(node, nodes):
 
     dx = np.abs(nodes[:,0] - node[0])
@@ -369,12 +322,83 @@ def spatial_distance(node, nodes):
 
     return np.min(distances)
 
-@jit(nopython=True, cache=True)
+@jit(float64(float64[:], float64[:,:]), nopython=True, cache=True)
 def temporal_distance(node, nodes):
     
     distances = np.abs(nodes[:,2] - node[2])
 
     return np.min(distances)
+
+
+
+@jit(float64(float64[:,:], float64[:,:]), cache=True, looplift=True)
+def get_distancesSpatial(evalNodes, referenceNodes):
+        spatial_similarity = 0
+        evalLength = len(evalNodes)
+
+        for idx in range(evalLength):
+            spatial_similarity += spatial_distance(evalNodes[idx], referenceNodes)
+
+
+
+        spatial_similarity = spatial_similarity / evalLength
+
+        return spatial_similarity
+
+
+@jit(float64(float64[:,:], float64[:,:]), cache=True, looplift=True)
+def get_distancesTemporal(evalNodes, referenceNodes):
+        temporal_similarity = 0
+        evalLength = len(evalNodes)
+
+        for idx in range(evalLength):
+            temporal_similarity += temporal_distance(evalNodes[idx], referenceNodes)
+
+
+        temporal_similarity = temporal_similarity / evalLength
+
+        return temporal_similarity
+
+
+def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    originNodes = originTrajectory.nodes.compressed()
+    otherNodes = otherTrajectory.nodes.compressed()
+    
+    npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
+    npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
+    
+    return spatio_temporal_linear_combine_distance_real(npOrigin, npOther, weight)
+    
+# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
+@jit(float64(float64[:,:], float64[:,:], float64), nopython=True, cache=True, fastmath=True)
+def spatio_temporal_linear_combine_distance_real(npOrigin, npOther, weight):
+    """
+    Gets the spatio-temporal distance between two lists of nodes
+
+    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
+
+    result = spatial dist * weight + temporal dist * (1 - weight)`
+    """
+    #originNodes = originTrajectory.nodes.compressed()
+    #otherNodes = otherTrajectory.nodes.compressed()
+
+    # if len(originNodes) == 0 or len(otherNodes) == 0:
+    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
+
+    
+
+
+    spatial_similarity_1 = get_distancesSpatial(npOrigin, npOther)
+    temporal_similarity_1 = get_distancesTemporal(npOrigin, npOther)
+    spatial_similarity_2 = get_distancesSpatial(npOther, npOrigin)
+    temporal_similarity_2 = get_distancesTemporal(npOther, npOrigin)
+
+
+    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
+    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
+
+    return spatial_similarity * weight + temporal_similarity * (1 - weight)
+
 
 
 def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):

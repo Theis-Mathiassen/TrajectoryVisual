@@ -1,4 +1,4 @@
-from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
+#from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
@@ -29,15 +29,19 @@ PICKLE_HITS = ['RangeQueryHits.pkl']
 #### main
 def main(config):
 
+    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
+
+    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+
+         
     logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
     logger.info('Completed get_Tdrive.')
-    """     
     logger.info('Copying trajectories.')
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
-    } """
+    } 
 
     ## Setup data collection environment, that is evaluation after each epoch
 

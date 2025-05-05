@@ -4,7 +4,7 @@ from src.Node import Node
 from src.Query import Query
 import numpy as np
 from src.Util import euc_dist_diff_2d
-import rangeQuery
+#import rangeQuery
 
 
 class RangeQuery(Query):

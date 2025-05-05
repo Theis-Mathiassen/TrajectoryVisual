@@ -6,22 +6,22 @@ from src.log import logger
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
-        for Query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
-            logger.info('Gives scores for query %s', type(Query))
+        for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
+            logger.info('Gives scores for query %s', type(query))
             # Get result of query
-            result = Query.run(Rtree)
+            result = query.run(Rtree)
             # Distribute points
-            if not isinstance(Query, ClusterQuery):
-                Query.distribute(trajectories, result)
+            if not isinstance(query, ClusterQuery):
+                query.distribute(trajectories, result)
             else:
-                Query.distribute(trajectories)
+                query.distribute(trajectories)
     elif pickleFiles is not None: 
         for filename in pickleFiles:
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:
                 hits = pickle.load(f)
-                for q, r in hits:
+                for query, result in tqdm(hits, desc="Scoring queries"):
                     if not isinstance(q, ClusterQuery): # no cluster query for now
-                        q.distribute(trajectories, r)
+                        query.distribute(trajectories, result)
                     else:
-                        q.distribute(trajectories)
+                        query.distribute(trajectories)

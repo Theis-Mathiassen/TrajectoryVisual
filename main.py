@@ -21,6 +21,7 @@ sys.path.append("src/")
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
+CACHE_FILE = 'cached_rtree_query_eval_results.pkl'
 
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):
@@ -55,6 +56,10 @@ def prepareRtree(config, origRtree, origTrajectories):
 
 #### main
 def main(config):
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+        logger.info(f"Cleared cache file: {CACHE_FILE}")
+
     logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
     logger.info('Completed get_Tdrive.')
@@ -95,6 +100,11 @@ def main(config):
 def gridSearch(allCombinations):
     configScore = list()
     for config in tqdm(allCombinations):
+        # we need to clear cache file for each configuration
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
+            logger.info(f"Cleared cache file: {CACHE_FILE}")
+
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
         origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
 
@@ -177,7 +187,6 @@ if __name__ == "__main__":
 
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
-
 
     # Cleanup temporary cache files
     filesToClear = ["cached_rtree_query_eval_results.pkl"]

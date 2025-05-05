@@ -1,7 +1,7 @@
 import itertools
 from dataclasses import dataclass
 from typing import Union, List
-
+from src.log import logger
 @dataclass
 class Configuration:
     compression_rate: Union[float, List[float]]  # Can be either a single float or a list of floats
@@ -29,8 +29,8 @@ def createConfigs(*configs):
             config_object = Configuration(*combination_tuple)
             all_config_objects.append(config_object)
         except TypeError as e:
-            print(f"Error creating Configuration object for tuple {combination_tuple}: {e}")
-            print(f"Check if the number of elements in the tuple matches the "
+            logger.error(f"Error creating Configuration object for tuple {combination_tuple}: {e}")
+            logger.error(f"Check if the number of elements in the tuple matches the "
                     f"expected arguments for {Configuration.__name__}.__init__")
             continue
 

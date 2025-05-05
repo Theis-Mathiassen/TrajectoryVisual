@@ -110,7 +110,7 @@ def getF1Score(query : Query, rtree_original, rtree_simplified, trajectories_ori
 
     else: # For all other queries
         
-        setOriginal_result = runAndGenerateSet(rtree_original, query, use_cache=False, differentTrajs=trajectories_original)
+        setOriginal_result = runAndGenerateSet(rtree_original, query, use_cache=True, differentTrajs=trajectories_original)
         setSimplified_result = runAndGenerateSet(rtree_simplified, query)
 
 

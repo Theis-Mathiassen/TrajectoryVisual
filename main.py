@@ -2,7 +2,7 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError, getF1Sc
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from src.load import build_Rtree1, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
+from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.Query import Query
 from src.clusterQuery import ClusterQuery
@@ -13,9 +13,10 @@ import copy
 import pickle
 import math
 from tqdm import tqdm
-import pandas as pd 
+import pandas as pd
 import os
-import logging
+#import logging
+from src.log import logger, ERROR_LOG_FILENAME
 import traceback # traceback for information on python stack traces
 import multiprocessing as mp
 from collections import defaultdict
@@ -27,77 +28,68 @@ sys.path.append("src/")
 CSVNAME = 'trimmed_small_train'#first_10000_train'
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-LOG_FILENAME = 'script_error_log.log' # Define a log file name
+PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
 MULTIPROCESSTEST = True
+PAGESIZE = 16000
 
-logging.basicConfig(
-    level=logging.ERROR, # Log only ERROR level messages and above
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename=LOG_FILENAME, # Log to this file
-    filemode='a' # Append mode, use 'w' to overwrite each time
-)
-logger = logging.getLogger(__name__)
-
-def initPoolProcesses(rtree, traj):
-    #global origRtree
-    #origRtree = rtree
-    #origRtree, _ = loadRtree(CSVNAME, traj)
-    #global rtree
-    #rtree, _ = loadRtree(rtreeName, trajectories)
-    pass
 
 def workerFnc(inputTuple):
     # Syntactic sugar
     queries = inputTuple[0]
-    trajectories = copy.deepcopy(inputTuple[1])
+    rtree, trajectories = loadRtree(CSVNAME+str(inputTuple[3]), inputTuple[1])[0], origTrajectories 
 
     # rtree, trajectories = build_Rtree("trimmed_small_train.csv", filename=("trimmed_small_train"+ str(inputTuple[3])))#get_Tdrive(filename="TDrive.csv")
 
     for query in queries:
-        result = query.run(origRtree)
-        # print(result)
+        result = query.run(rtree)
+        #print(result)
         if not isinstance(query, ClusterQuery):
+            lock.acquire()
             query.distribute(trajectories, result)
+            lock.release()
+            #print(result[0].nodes[0].score)
         else:
             query.distribute(trajectories)
+    print("Worker Final:", list(trajectories.items())[0][1].nodes[0].score)
+    rtree.close()
     return trajectories
-
-def f1WorkerInit(traj):
-    #global oRtree, simpRtree
-    #oRtree, _ = loadRtree(CSVNAME, traj)
-    #simpRtree, _ = loadRtree(SIMPLIFIEDDATABASENAME, traj)
-    #oRtree, _ = loadRtree(CSVNAME, traj)
-    pass
 
 def f1ScoreWorkerFnc(inputTuple):
     out = []
     queries: list[Query] = inputTuple[0]
-    trajectories = copy.deepcopy(inputTuple[1])
+    rtree, trajectories = loadRtree(CSVNAME+str(inputTuple[3]), inputTuple[1])[0], simpTrajectories 
+    simpRtree, _ = loadRtree(SIMPLIFIEDDATABASENAME+str(inputTuple[3]), simpTrajectories)
 
     for query in queries:
-        val = getF1Score(query, origRtree, simpRtree, trajectories)
+        val = getF1Score(query, rtree, simpRtree, trajectories)
         # print(val)
         out.append(val)
     # print(out)
+    rtree.close()
+    simpRtree.close()
     return sum(out)/len(out)
 
-#### main
-def main(config):
+
+def prepare():
     ## Load Dataset
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
-    
-    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
-    
-    global origRtree
 
-    origRtree, origTrajectories = build_Rtree1("trimmed_small_train.csv", filename="trimmed_small_train")#get_Tdrive(filename="TDrive.csv")
+    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
+    logger.info('Starting get_Tdrive.')    
+
+    global lock
+    lock = mp.Lock()
+
+    global origTrajectories
+    origRtree, origTrajectories = build_Rtree("trimmed_small_train.csv", filename="trimmed_small_train")#get_Tdrive(filename="TDrive.csv")
 
     # print(origRtree.properties)
-    
+    logger.info('Completed get_Tdrive.')    
     # simpRtree, simpTrajectories = build_Rtree("first_10000_train_trimmed.csv", filename="simplified_Taxi")
     ## Setup reinforcement learning algorithms (t2vec, etc.)
 
     #ORIGTrajectories = copy.deepcopy(origTrajectories)
+    logger.info('Copying trajectories.')
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
@@ -110,28 +102,46 @@ def main(config):
 
 
     # ---- Create training queries -----
+    logger.info('Creating training queries.')
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
-    
 
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+
+    #logger.info('Creating range queries.')
+    #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    #logger.info('Creating similarity queries.')
+    #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    logger.info('Creating KNN queries.')
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] * config["trainTestSplit"]))
+    logger.info('Creating evaluation queries.')
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    #logger.info('Creating range queries.')
+    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    #logger.info('Creating similarity queries.')
+    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    logger.info('Creating KNN queries.')
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
 
-    
+
     compressionRateScores = list()
 
+    return origRtree, origTrajectories, origRtreeQueriesTraining, origRtreeQueriesEvaluation, ORIGTrajectories, compressionRateScores
+
+    
+
+#### main
+def main(config):
+    logger.info('Prepare data')
+    origRtree, origTrajectories, origRtreeQueriesTraining, origRtreeQueriesEvaluation, ORIGTrajectories, compressionRateScores = prepare()
+
+    # Sort compression_rate from highest to lowest
     #origTrajectoriesSize = sum(list(map(lambda T: len(T.nodes), origTrajectories)))
 
     ## Main Loop
@@ -168,7 +178,7 @@ def main(config):
 
                 processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
 
-            inputList.append([processQueries, origTrajectories])
+            inputList.append([processQueries, origTrajectories, origRtree, i])
         
         # for i, chunk in enumerate(inputList):
         #     print(f"Process {i} received {len(chunk[0])} queries")
@@ -177,7 +187,7 @@ def main(config):
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor: #os.cpu_count()
             # Run the worker function
             res = list(executor.map(workerFnc, inputList))
-            executor.shutdown()
+            executor.shutdown(wait=True)
 
         combined = defaultdict(lambda: copy.deepcopy(list(res[0].values())[0]))
 
@@ -195,17 +205,20 @@ def main(config):
         # for key in res[11].keys():
         #     for i in range(len(res[0][key].nodes)):
         #         score += res[11][key].nodes[i].score + res[1][key].nodes[i].score + res[2][key].nodes[i].score
+        print()
         print(len(res))
         print(score)
-        
+        print()
+
         # for result in res[1:]:
         #     print(result)
+    # for tid, traj in res[0].items():
+    #     print("Parent See:", traj.nodes[0].score)
 
-    
-    # for key in origTrajectories.keys():
-        # for i in range(len(res)):
-            # for node in origTrajectories[key].nodes:
-                # node.score += res[i][key].nodes[node.id].score
+    for key in origTrajectories.keys():
+        for i in range(len(res)):
+            for node in origTrajectories[key].nodes:
+                node.score += res[i][key].nodes[node.id].score
     # print(score)
     # # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
@@ -240,7 +253,7 @@ def main(config):
                     continue
 
                 processQueries.extend(queryList[firstQueryIdx:lastQueryIdx])
-            # print(processQueries)
+            #print(processQueries)
             inputList.append([processQueries])
         # print(inputList)
 
@@ -249,17 +262,22 @@ def main(config):
     for cr in tqdm(config["compression_rate"], desc="compression rate"):
         if MULTIPROCESSTEST:
             print(f"\nCompression rate: {cr}")
+            global simpTrajectories
             simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
             global simpRtree
             simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
             
+            id = 0
             for input in inputList:
                 input.append(simpTrajectories)
+                input.append(simpRtree)
+                input.append(id)
+                id += 1
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor: #os.cpu_count()
                 # Run the worker function
                 res = list(executor.map(f1ScoreWorkerFnc, inputList))
-                executor.shutdown()
+                executor.shutdown(wait=True)
 
             # print(res)
                 print()
@@ -275,28 +293,32 @@ def main(config):
 
             simpRtree.close()
         elif not MULTIPROCESSTEST:
+            logger.info('Give nodes scores.')
             giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
 
+            # Begin evaluation at different compression rates
+
+
+            logger.info('Performing loop for compression rate %s', cr);
+
+            logger.info('Dropping nodes.')
             simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
 
+            logger.info('Loading simplified trajectories into Rtree.')
             simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-            compressionRateScores.append({ 'cr' : cr, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+            logger.info('Calculating f1 scores.')
+            f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, ORIGTrajectories)
+            logger.info('Calculating simplification errors.')
+            simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
+            compressionRateScores.append({ 'cr' : cr, 'f1Scores' : f1score, 'simplificationError' : simplificationError})
             # While above compression rate
-            print()
-            print(compressionRateScores[-1]['f1Scores'])
-            print()
-
+            logger.info('Run info: %s',compressionRateScores[-1]['f1Scores'])
             simpRtree.close()
-    origRtree.close()
 
-    if os.path.exists(CSVNAME + '.data') and os.path.exists(CSVNAME + '.index'):
-        os.remove(CSVNAME + '.data')
-        os.remove(CSVNAME + '.index')
-
-    if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-        os.remove(SIMPLIFIEDDATABASENAME + '.data')
-        os.remove(SIMPLIFIEDDATABASENAME + '.index')
+        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
+            os.remove(SIMPLIFIEDDATABASENAME + '.data')
+            os.remove(SIMPLIFIEDDATABASENAME + '.index')
         # Generate and apply queries, giving scorings to points
 
         # Remove x points with the fewest points
@@ -312,7 +334,7 @@ def main(config):
     except Exception as e:
         print(f"err saving results: {e}")
         logger.error("problems when saving results to pickle file.")
-        logger.error(traceback.format_exc()) 
+        logger.error(traceback.format_exc())
 
     ## Plot models
 
@@ -322,6 +344,7 @@ def main(config):
 
 
 if __name__ == "__main__":
+    logger.info("---------------------------    Main Start    ---------------------------")
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
@@ -331,36 +354,28 @@ if __name__ == "__main__":
     config["numberOfEachQuery"] = 100       # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
 
-    print("Script starting...") 
+    #print("Script starting...")
     try:
+        logger.info("Script starting...")
         main(config)
-        print("Script finished successfully.") 
+        logger.info("Script finished successfully.")
 
     except Exception as e:
         print(f"\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
-        print(f"See {LOG_FILENAME} for detailed err traces.")
+        print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
         # Log the exception information to the file
         logger.error(f"Script crashed with the following error: {e}")
         logger.error("Trace:\n%s", traceback.format_exc()) # Log the full traceback
 
-        if os.path.exists(CSVNAME + '.data') and os.path.exists(CSVNAME + '.index'):
-            os.remove(CSVNAME + '.data')
-            os.remove(CSVNAME + '.index')
-
-        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-            os.remove(SIMPLIFIEDDATABASENAME + '.data')
-            os.remove(SIMPLIFIEDDATABASENAME + '.index')
-
     finally:
         print("\n execution finished (i.e. it either completed or crashed).")
 
-    
+
     # Cleanup temporary cache files
     filesToClear = ["cached_rtree_query_eval_results.pkl"]
 
     for fileString in filesToClear:
         if os.path.exists(fileString):
             os.remove(fileString)
-            

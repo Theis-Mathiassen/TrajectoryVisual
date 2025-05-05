@@ -30,6 +30,8 @@ class SimilarityQuery(Query):
         self.streak = 25
         self.trajectories = params["trajectories"]
 
+    def __str__(self):
+        return "SimilarityQuery"
 
     def run(self, rtree):
         #Find matches og filtrer dem som ikke er indenfor delta
@@ -58,9 +60,10 @@ class SimilarityQuery(Query):
         
         hits = []
         
+        T = self.trajectories
         # For each trajectory, find or interpolate a point at time t
         for trajectory_id, node_ids in trajectory_nodes.items():
-            trajectory = self.trajectories[trajectory_id]
+            trajectory = T[trajectory_id]
             # sort nodes by time (BUT is this necessary? read that we assume total ordering)
             nodes = [trajectory.nodes.data[node_id] for node_id in node_ids]
             nodes.sort(key=lambda x: x.t)

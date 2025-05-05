@@ -17,6 +17,7 @@ from tqdm import tqdm
 from src.Node import Node
 from src.Trajectory import Trajectory
 from src.Filter import Filter
+from src.log import logger
 
 CHUNKSIZE = 10**5
 PAGESIZE = 16000
@@ -25,7 +26,7 @@ PAGESIZE = 16000
 def checkRtreeIndexEmpty(filename):
     if os.path.exists(filename + '.index'):
         if os.path.getsize(filename + '.index') == 0:
-            print("Found issue with old rtree deleting before load...")
+            logger.info("Found issue with old rtree deleting before load...")
             os.remove(filename + ".index")
             os.remove(filename + ".data")
 
@@ -69,7 +70,7 @@ def checkCurrentRtreeMatches(Rtree, trajectories, filename):
 
     # If Rtree does not match Trajectories, delete Rtree and create a new one
     if not checkCurrentRtreeMatchesHelper(Rtree, trajectories):
-        print("Rtree does not match Trajectories, deleting Rtree and creating a new one...")
+        logger.info("Rtree does not match Trajectories, deleting Rtree and creating a new one...")
         Rtree.close()
         #del Rtree # This deletes the old Rtree from program memory, allowing us to delete the index and data files
         os.remove(filename + '.index')
@@ -111,14 +112,16 @@ def get_Tdrive(filename="") :
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', 'TDrive.csv')
     if os.path.exists(path):
-        print("Tdrive already loaded to CSV, skipping load from folder...")
+        logger.info("Tdrive already loaded to CSV, skipping load from folder...")
     else:
         tDriveToCsv()
 
+    
     checkRtreeIndexEmpty(filename=filename)
 
+    logger.info("Loading and creating Tdrive dataset")
     Rtree, Trajectories = load_Tdrive_Rtree(filename=filename)
-
+    logger.info("Loading and creating Tdrive dataset")
 
 
     # If Rtree does not match Trajectories, delete Rtree and create a new one
@@ -210,7 +213,7 @@ def load_Tdrive_Rtree(filename=""):
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets', dataset)
 
-
+    logger.info("Reading csv into dataframe.")
     df = pd.read_csv(path, converters={'POLYLINE' : jsonLoadsNumpy, 'TRIP_ID' : json.loads})
 
     if DEBUG:
@@ -235,7 +238,7 @@ def load_Tdrive_Rtree(filename=""):
             print(f"Invalid coordinates found: {invalid_coords}")
         
         return bool(invalid_coords)
-    print("Validating coordinates...")
+    logger.info("Validating coordinates.")
     bad_coords_mask = df["POLYLINE"].progress_apply(has_bad_coords)
     df.drop(index=df[bad_coords_mask].index, inplace=True)
 
@@ -260,7 +263,7 @@ def load_Tdrive_Rtree(filename=""):
             print(f"Removed {duplicate_count} duplicate points from polyline")
         
         return new_polyline
-    print("Removing duplicates...")
+    logger.info("Removing duplicate nodes.")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(remove_duplicate_nodes)
 
     # Convert to meters
@@ -282,7 +285,7 @@ def load_Tdrive_Rtree(filename=""):
         except Exception as e:
             print(f"Error processing polyline: {str(e)}")
             return []
-    print("Converting to meters...")
+    logger.info("Lat lon converting to meters.")
     df["POLYLINE"] = df["POLYLINE"].progress_apply(convert_polyline_to_meters)
 
 
@@ -300,6 +303,7 @@ def load_Tdrive_Rtree(filename=""):
     p.idx_extension = 'index'
     p.leaf_capacity = 1000
     p.pagesize = PAGESIZE
+    p.storage = 1
     #p.filename = filename
 
     """ if filename=='' :
@@ -320,12 +324,13 @@ def load_Tdrive_Rtree(filename=""):
     polylines = np.array(df['POLYLINE'])
     trip_ids = np.array(df['TRIP_ID'])
     
+    logger.info("Loading trajecories into rtree.")
     if os.path.exists(filename + '.index'):
         Rtree_ = index.Index(filename, properties=p)
     else:
         Rtree_ = index.Index(filename, TDriveDataStream(polylines, trip_ids), properties=p)
     
-    print("Creating trajectories..")
+    logger.info("Creating trajectories.")
     c = 0
     delete_rec = {}
     Trajectories = {}
@@ -723,6 +728,7 @@ def tDriveToCsv():
         taxiIdx += 1
         
     csvdf = pd.concat([csvdf, pd.DataFrame(super_x, columns=['TRIP_ID', 'POLYLINE'])], ignore_index=True, axis=0)
+    logger.info('Saving TDrive to csv.');
     csvdf.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'TDrive.csv'), sep=',', index=False)
 
 def datastreamTriple(polylines, trip_ids):

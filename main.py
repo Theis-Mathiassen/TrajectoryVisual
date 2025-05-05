@@ -31,11 +31,11 @@ def prepareRtree(config, origRtree, origTrajectories):
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, flag=config.range_flag)
     logger.info('Creating similarity queries.')
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system)
     logger.info('Creating KNN queries.')
-    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
@@ -44,11 +44,11 @@ def prepareRtree(config, origRtree, origTrajectories):
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation, flag=config.range_flag)
     logger.info('Creating similarity queries.')
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation, scoring_system=config.similarity_system)
     logger.info('Creating KNN queries.')
-    origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
+    origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation, distance_method=config.knn_method)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
     return origRtreeQueriesTraining, origRtreeQueriesEvaluation
 
@@ -83,8 +83,8 @@ def main(config):
 
     compressionRateScores = list()
     compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
-
     print(compressionRateScores[-1]['f1Scores'])
+
     simpRtree.close()
 
     if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
@@ -124,8 +124,8 @@ def gridSearch(allCombinations):
             'f1Scores': f1score,
             'simplificationError': simplificationError
         })
-
         logger.info('Run info: %s', configScore[-1]['f1Scores'])
+
         simpRtree.close()
 
         if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
@@ -142,11 +142,14 @@ def gridSearch(allCombinations):
         logger.error("problems when saving results to pickle file.")
         logger.error(traceback.format_exc())
 
-    ## Plot models
-    pass
 
 if __name__ == "__main__":
     logger.info("---------------------------    Main Start    ---------------------------")
+    
+    # Parse command line arguments
+    args = parse_args()
+    logger.info(f"Using query methods - KNN: {args.knn}, Range: {args.range}, Similarity: {args.similarity}")
+    
     # Create a single configuration object
     config = Configuration(
         compression_rate=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95],  
@@ -154,7 +157,10 @@ if __name__ == "__main__":
         trainTestSplit=0.8,
         numberOfEachQuery=100,
         QueriesPerTrajectory=0.005,
-        verbose=True
+        verbose=True,
+        knn_method=args.knn,
+        range_flag=args.range,
+        similarity_system=args.similarity
     )
 
     try:
@@ -167,7 +173,10 @@ if __name__ == "__main__":
                 [config.trainTestSplit],
                 [config.numberOfEachQuery],
                 [config.QueriesPerTrajectory],
-                [config.verbose]
+                [config.verbose],
+                [config.knn_method],
+                [config.range_flag],
+                [config.similarity_system]
             )
             gridSearch(allCombinations)
         else:

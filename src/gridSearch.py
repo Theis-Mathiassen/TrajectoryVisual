@@ -1,7 +1,9 @@
 import itertools
 from dataclasses import dataclass
 from typing import Union, List
+import argparse
 from src.log import logger
+
 @dataclass
 class Configuration:
     compression_rate: Union[float, List[float]]  # Can be either a single float or a list of floats
@@ -10,7 +12,20 @@ class Configuration:
     numberOfEachQuery: int
     QueriesPerTrajectory: float
     verbose: bool = True  
+    # Query method parameters
+    knn_method: int = 1  # Only 1 is implemented (spatio temporal linear combine distance)
+    range_flag: int = 1  # 1-4 for different distribute methods
+    similarity_system: str = "c"  # "c", "a", "c+f", "m"
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Run trajectory simplification with specified query methods')
+    parser.add_argument('--knn', type=int, default=1, choices=[1], 
+                      help='KNN distance method (only 1 is implemented)')
+    parser.add_argument('--range', type=int, default=1, choices=[1,2,3,4],
+                      help='Range query distribute flag (1: winner_takes_all, 2: shared_equally(True), 3: shared_equally(False), 4: gradient_points)')
+    parser.add_argument('--similarity', type=str, default="c", choices=["c", "a", "c+f", "m"],
+                      help='Similarity query scoring system (c: closest, a: all, c+f: closest+furthest, m: moving away)')
+    return parser.parse_args()
 
 def createConfigs(*configs):
     """

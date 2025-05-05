@@ -15,29 +15,41 @@ class QueryWrapper:
         self.random = random
         self.trajectories = trajectories
         
-    def createRangeQueries(self, rtree, paramUtil : ParamUtil):
+    def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1):
         if self.random:
             for query in range(self.numberOfEachQuery):
-                self.RangeQueries.append(RangeQuery(paramUtil.rangeParams(rtree)))
+                params = paramUtil.rangeParams(rtree)
+                params["flag"] = flag
+                self.RangeQueries.append(RangeQuery(params))
         else:
             for trajectory in self.trajectories.values():
-                self.RangeQueries.append(RangeQuery(paramUtil.rangeParams(rtree, index=trajectory.id)))
+                params = paramUtil.rangeParams(rtree, index=trajectory.id)
+                params["flag"] = flag
+                self.RangeQueries.append(RangeQuery(params))
         
-    def createKNNQueries(self, rtree, paramUtil : ParamUtil):
+    def createKNNQueries(self, rtree, paramUtil : ParamUtil, distance_method: int = 1):
         if self.random:
             for query in range(self.numberOfEachQuery):
-                self.KNNQueries.append(KnnQuery(paramUtil.knnParams(rtree)))
+                params = paramUtil.knnParams(rtree)
+                params["distanceMethod"] = distance_method
+                self.KNNQueries.append(KnnQuery(params))
         else:
             for trajectory in self.trajectories.values():
-                self.KNNQueries.append(KnnQuery(paramUtil.knnParams(rtree, index=trajectory.id)))
+                params = paramUtil.knnParams(rtree, index=trajectory.id)
+                params["distanceMethod"] = distance_method
+                self.KNNQueries.append(KnnQuery(params))
     
-    def createSimilarityQueries(self, rtree, paramUtil : ParamUtil):
+    def createSimilarityQueries(self, rtree, paramUtil : ParamUtil, scoring_system: str = "c"):
         if self.random:
             for query in range(self.numberOfEachQuery):
-                self.SimilarityQueries.append(SimilarityQuery(paramUtil.similarityParams(rtree)))
+                params = paramUtil.similarityParams(rtree)
+                params["scoringSystem"] = scoring_system
+                self.SimilarityQueries.append(SimilarityQuery(params))
         else:
             for trajectory in self.trajectories.values():
-                self.SimilarityQueries.append(SimilarityQuery(paramUtil.similarityParams(rtree, index=trajectory.id)))
+                params = paramUtil.similarityParams(rtree, index=trajectory.id)
+                params["scoringSystem"] = scoring_system
+                self.SimilarityQueries.append(SimilarityQuery(params))
         
     def createClusterQueries(self, rtree, paramUtil : ParamUtil):
         self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))

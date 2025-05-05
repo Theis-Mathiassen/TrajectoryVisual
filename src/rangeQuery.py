@@ -90,7 +90,6 @@ class RangeQuery(Query):
                 if n.id == node_id[0] :
                     n.score += 1
 
-
         q_bbox = [self.centerx, self.centery, self.centert]
         q_bbox_dict = {'x' : q_bbox[0], 'y' : q_bbox[1], 't' : q_bbox[2]}
         # Key = Trajectory id, value = (Node id, distance)
@@ -99,8 +98,7 @@ class RangeQuery(Query):
         # Get matches into correct format
         #matches = [(n.object, n.bbox) for n in self.hits]
 
-
-        for hit in matches : 
+        for hit in matches: 
             trajectory_id, node_id = hit
             node = self.trajectories.get(trajectory_id).nodes[node_id]
 

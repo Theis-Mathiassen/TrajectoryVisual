@@ -4,7 +4,6 @@ from typing import Union, List
 
 @dataclass
 class Configuration:
-    epochs: int
     compression_rate: Union[float, List[float]]  # Can be either a single float or a list of floats
     DB_size: int
     trainTestSplit: float

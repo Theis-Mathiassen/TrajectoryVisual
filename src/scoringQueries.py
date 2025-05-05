@@ -6,7 +6,6 @@ from src.log import logger
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
-        #print("Scoring queries..")
         for Query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
             logger.info('Gives scores for query %s', type(Query))
             # Get result of query
@@ -22,7 +21,7 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
             with open(filename, 'rb') as f:
                 for q, r in f:
                     if not isinstance(q, ClusterQuery):
-                        Query.distribute(trajectories, r)
+                        q.distribute(trajectories, r)
                     else:
-                        Query.distribute(trajectories)
+                        q.distribute(trajectories)
     #print("Done!")

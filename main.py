@@ -20,7 +20,7 @@ sys.path.append("src/")
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
+PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
 CACHE_FILE = 'cached_rtree_query_eval_results.pkl'
 
 # Prepare RTrees for training and testing

@@ -15,6 +15,7 @@ import pickle
 import math
 import os
 import traceback # traceback for information on python stack traces
+import argparse
 
 sys.path.append("src/")
 
@@ -76,13 +77,13 @@ def main(config):
 
     origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
 
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, PICKLE_HITS)
+    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS)
 
     simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
     simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
     compressionRateScores = list()
-    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
     print(compressionRateScores[-1]['f1Scores'])
 
     simpRtree.close()
@@ -116,7 +117,7 @@ def gridSearch(allCombinations):
         logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree)
+        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories)
         simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
         
         configScore.append({
@@ -147,7 +148,13 @@ if __name__ == "__main__":
     logger.info("---------------------------    Main Start    ---------------------------")
     
     # Parse command line arguments
-    args = parse_args()
+    
+    # Set up command line argument parsing
+    parser = argparse.ArgumentParser(description='Specify the method for distributing points.')
+    parser.add_argument('--knn', type=int, help='Distance method 1 -> Use spatio temporal linear combine distance.')
+    parser.add_argument('--range', type=int, help='Method: 1 -> winner_takes_all, 2 -> shared_equally(1 point total), 3 -> shared_equally(1 point each.), 4 -> gradient_points')
+    parser.add_argument('--similarity', type=str, help='C -> Closest, A -> All, c+f -> Closest + Farthest, m -> moving away for a longer period than streak')
+    args = parser.parse_args()
     logger.info(f"Using query methods - KNN: {args.knn}, Range: {args.range}, Similarity: {args.similarity}")
     
     # Create a single configuration object

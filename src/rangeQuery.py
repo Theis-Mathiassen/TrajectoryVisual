@@ -27,6 +27,7 @@ class RangeQuery(Query):
         self.y2 = params["y2"]
         self.t2 = params["t2"]
         self.origin = params["origin"]
+        self.originId = params["origin"].id
         self.trajectories = params["trajectories"]
         self.flag = params["flag"]
         self.centerx = (self.x2+self.x1)/2
@@ -36,7 +37,7 @@ class RangeQuery(Query):
     def __str__(self):
         return "RangeQuery"
 
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # Gets nodes in range query
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
 
@@ -100,7 +101,7 @@ class RangeQuery(Query):
 
         for hit in matches: 
             trajectory_id, node_id = hit
-            node = self.trajectories.get(trajectory_id).nodes[node_id]
+            node = trajectories.get(trajectory_id).nodes[node_id]
 
             dist_current = euc_dist_diff_2d(dict({'x' : node.x, 'y' : node.y, 't' : node.t}), q_bbox_dict)
 

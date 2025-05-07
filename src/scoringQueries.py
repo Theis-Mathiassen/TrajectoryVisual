@@ -1,9 +1,11 @@
 from src.QueryWrapper import QueryWrapper
 from src.clusterQuery import ClusterQuery
 from tqdm import tqdm
+import pickle
+import random
 from src.log import logger
 
-def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None):
+def giveQueryScorings(Rtree, trajectories, numberToTrain, queryWrapper : QueryWrapper = None, pickleFiles = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
         for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
@@ -20,8 +22,10 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:
                 hits = pickle.load(f)
-                for query, result in tqdm(hits, desc="Scoring queries"):
-                    if not isinstance(q, ClusterQuery): # no cluster query for now
+                listOfQueriesIdx = random.sample(range(0, len(hits)), numberToTrain // len(pickleFiles))
+                for idx in tqdm(listOfQueriesIdx, desc="Scoring queries"):
+                    query, result = hits[idx]
+                    if not isinstance(query, ClusterQuery): # no cluster query for now
                         query.distribute(trajectories, result)
                     else:
                         query.distribute(trajectories)

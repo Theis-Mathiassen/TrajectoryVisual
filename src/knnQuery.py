@@ -12,6 +12,7 @@ class KnnQuery(Query):
     
     def __init__(self, params):
         self.trajectory = params["origin"]
+        self.originId = params["origin"].id
         self.k = params["k"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
@@ -25,9 +26,9 @@ class KnnQuery(Query):
     def __str__(self):
         return "KnnQuery"
 
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # Finds trajectory segments that match the time window of the query
-        return self.run2(rtree, self.trajectories)
+        return self.run2(rtree, trajectories)
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 

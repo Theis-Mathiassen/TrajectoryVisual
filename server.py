@@ -31,18 +31,22 @@ PICKLE_HITS = ['RangeQueryHits.pkl']
 ready = False
 jobs_backlog = []
 jobs_active = []
+origRtree = None
+origTrajectories = None
 
 dictQueryResults = {}
 
 
 
 def prepare():
+    global origRtree, origTrajectories, jobs_backlog, jobs_active, ready, dictQueryResults
+
+
+    allCombinations = [(1,1,'a')]
+
 
     logger.info("---------------------------    Main Start    ---------------------------")
-    # Set up command line argument parsing
-    parser = argparse.ArgumentParser(description='Run trajectory queries with specified query type')
-    parser.add_argument('query_type', type=str, help='Query type to run (range, similarity, knn, or cluster)')
-    args = parser.parse_args()
+    
     
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
@@ -52,53 +56,26 @@ def prepare():
     config["trainTestSplit"] = 0.8          # Train/test split
     config["numberOfEachQuery"] = 5     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
-    config["query_type"] = args.query_type  # Query type from command line args
 
 
     logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
     logger.info('Completed get_Tdrive.')
-    """     
-    logger.info('Copying trajectories.')
-    ORIGTrajectories = {
-        tid : copy.deepcopy(traj)
-        for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
-    } """
 
-    ## Setup data collection environment, that is evaluation after each epoch
-
-    # ---- Set number of queries to be created ----
-    if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
-
-
-    # ---- Create training queries -----
-    logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories)
-    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
-    
-    # Create the specified query type based on command line argument
-    query_type = config["query_type"].lower()
-    print(f"Creating {query_type} queries...")
-    
-    if query_type == "range":
-        logger.info('Creating range queries.')
-        origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
-    elif query_type == "similarity":
-        logger.info('Creating similarity queries.')
-        origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    elif query_type == "knn":
-        logger.info('Creating KNN queries.')
-        origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    elif query_type == "cluster":
-        logger.info('Creating cluster queries.')
-        origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
-    else:
-        print(f"Unknown query type: {query_type}")
-        print("Available query types: range, similarity, knn, cluster")
-        sys.exit(1)
 
     
-    jobs_backlog = origRtreeQueriesTraining.getQueries()
+
+    for (KNN_distanceMethod, RangeQuery_flag, SimilarityQuery_scoringSystem) in allCombinations:
+        for filename in PICKLE_HITS:
+            logger.info('Pickle file already exists with name: %s', filename)
+            with open(filename, 'rb') as f:
+                hits = pickle.load(f)
+                #for q, r in f: -> for q, r in hits:
+                for q, r in tqdm(hits):
+                    jobs_backlog.append([KNN_distanceMethod, RangeQuery_flag, SimilarityQuery_scoringSystem, q, r])
+                    # q.distribute(origTrajectories, r)
+    
+    #jobs_backlog = origRtreeQueriesTraining.getQueries()
     ready = True
 
 
@@ -121,7 +98,24 @@ def get_job():
         return None, 503
     if len(jobs_backlog) > 0:
         jobs_active.append(jobs_backlog[0])
-        return jobs_backlog.pop(0), 200
+        #return jobs_backlog.pop(0).to_dict(), 200
+    
+        # Pop the list representing the job from the backlog
+        job_details = jobs_backlog.pop(0)
+
+        # Extract the RangeQuery object (assuming it's at index 3)
+        range_query_object = job_details[3]
+
+        # Create a dictionary to return, including the serializable RangeQuery data
+        # You should also include other relevant details from job_details if needed in the response
+        return_data = {
+            "status": "success", # Or some other status indicator
+            "method": job_details[0], # KNN_distanceMethod
+            "flag": job_details[1], # RangeQuery_flag
+            "scoring_system": job_details[2], # SimilarityQuery_scoringSystem
+            "range_query": range_query_object.to_dict(), # Convert RangeQuery to dict
+            "additional_data_r": job_details[4] # Assuming r is at index 4, include if serializable
+        }
     else:
         return None, 204
 @app.route("/result", methods=["POST"])

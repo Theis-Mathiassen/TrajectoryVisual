@@ -18,6 +18,23 @@ class RangeQuery(Query):
     centerx: float
     centery: float
     centert: float
+
+    def to_dict(self):
+        return {
+            "x1": self.x1,
+            "y1": self.y1,
+            "t1": self.t1,
+            "x2": self.x2,
+            "y2": self.y2,
+            "t2": self.t2,
+            "flag": self.flag,
+            "centerx": self.centerx,
+            "centery": self.centery,
+            "centert": self.centert,
+            # Include other attributes if needed, ensuring they are serializable
+            # For 'origin' and 'trajectories', you might need to serialize
+            # their relevant data as well, or exclude them if not needed in JSON.
+        }
     
     def __init__(self, params):
         self.x1 = params["x1"]

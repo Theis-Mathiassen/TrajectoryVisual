@@ -91,12 +91,12 @@ def main(config):
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
     logger.info('Give nodes scores.')
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, PICKLE_HITS)
 
     # Begin evaluation at different compression rates
 
     for cr in tqdm(config["compression_rate"], desc="compression rate"):        
-        logger.info('Performing loop for compression rate %s', cr);
+        logger.info('Performing loop for compression rate %s', cr)
 
         logger.info('Dropping nodes.')
         simpTrajectories = dropNodes(origRtree, origTrajectories, cr)

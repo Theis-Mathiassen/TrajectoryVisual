@@ -21,10 +21,10 @@ def giveQueryScorings(Rtree, trajectories, numberToTrain, queryWrapper : QueryWr
         for filename in pickleFiles:
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:
-                hits = pickle.load(f)
+                #hits = pickle.load(f)
                 # listOfQueriesIdx = random.sample(range(0, len(hits)), numberToTrain // len(pickleFiles))
-                for idx in tqdm(hits, desc="Scoring queries"):
-                    query, result = hits[idx]
+                for query, result in tqdm(f, desc="Scoring queries"):
+                    #query, result = hits[idx]
                     if not isinstance(query, ClusterQuery): # no cluster query for now
                         query.distribute(trajectories, result)
                     else:

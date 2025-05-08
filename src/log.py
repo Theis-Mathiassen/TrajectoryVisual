@@ -4,11 +4,11 @@ import sys
 import os
 
 
-output_dir = os.environ.get('JOB_OUTPUT_DIR', '.');
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 
 
 
-print(output_dir)
+print(f"Output dir: {output_dir}")
 
 # --- Configuration Variables ---
 ERROR_LOG_FILENAME = os.path.join(output_dir, 'script_error_log.log') # Define a log file name

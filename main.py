@@ -7,7 +7,7 @@ from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get
 from src.dropNodes import dropNodes
 from src.log import logger, ERROR_LOG_FILENAME
 from tqdm import tqdm
-
+from pathlib import Path
 import os
 import sys
 import copy
@@ -19,11 +19,13 @@ import argparse
 
 sys.path.append("src/")
 output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
-CACHE_FILE = 'cached_rtree_query_eval_results.pkl'
+CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
 # Prepare RTrees for training and testing
 def prepareRtree(config, origRtree, origTrajectories):
@@ -89,9 +91,9 @@ def main(config):
 
     simpRtree.close()
 
-    if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-        os.remove(SIMPLIFIEDDATABASENAME + '.data')
-        os.remove(SIMPLIFIEDDATABASENAME + '.index')
+    if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
+        os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
+        os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
 
     ## Save results
     with open(os.path.join(output_dir, 'scores.pkl'), 'wb') as file:
@@ -130,9 +132,9 @@ def gridSearch(allCombinations, args):
 
         simpRtree.close()
 
-        if os.path.exists(SIMPLIFIEDDATABASENAME + '.data') and os.path.exists(SIMPLIFIEDDATABASENAME + '.index'):
-            os.remove(SIMPLIFIEDDATABASENAME + '.data')
-            os.remove(SIMPLIFIEDDATABASENAME + '.index')
+        if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
+            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
+            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
 
     ## Save results with unique filename based on the combo of query methods through cmd args
     try:

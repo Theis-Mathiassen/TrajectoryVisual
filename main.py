@@ -18,6 +18,7 @@ import traceback # traceback for information on python stack traces
 import argparse
 
 sys.path.append("src/")
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
@@ -93,7 +94,7 @@ def main(config):
         os.remove(SIMPLIFIEDDATABASENAME + '.index')
 
     ## Save results
-    with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+    with open(os.path.join(output_dir, 'scores.pkl'), 'wb') as file:
         pickle.dump(compressionRateScores, file)
         file.close()
 
@@ -136,7 +137,7 @@ def gridSearch(allCombinations, args):
     ## Save results with unique filename based on the combo of query methods through cmd args
     try:
         filename = f"scores_knn{args.knn}_range{args.range}_sim{args.similarity}.pkl"
-        with open(os.path.join(os.getcwd(), filename), 'wb') as file:
+        with open(os.path.join(output_dir, filename), 'wb') as file:
             pickle.dump(configScore, file)
             file.close()
         logger.info(f"Results saved to {filename}")
@@ -158,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument('--similarity', type=str, help='c -> Closest, a -> All, c+f -> Closest + Farthest, m -> moving away for a longer period than streak')
     args = parser.parse_args()
     logger.info(f"Using query methods - KNN: {args.knn}, Range: {args.range}, Similarity: {args.similarity}")
+    print(f"Using query methods - KNN: {args.knn}, Range: {args.range}, Similarity: {args.similarity}")
     
     # Create a single configuration object
     config = Configuration(
@@ -212,6 +214,7 @@ if __name__ == "__main__":
     filesToClear = ["cached_rtree_query_eval_results.pkl"]
 
     for fileString in filesToClear:
-        if os.path.exists(fileString):
-            os.remove(fileString)
+        filePath = os.path.join(output_dir, fileString);
+        if os.path.exists(filePath):
+            os.remove(filePath)
 

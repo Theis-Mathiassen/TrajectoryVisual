@@ -30,4 +30,4 @@ RUN uv sync --locked
 COPY . /app
 
 # Command to run the script (will be overridden by docker compose run/exec)
-# CMD ["uv", "run", "main.py"]
+ENTRYPOINT ["uv", "run", "main.py"]

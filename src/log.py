@@ -1,10 +1,18 @@
 # log_config.py
 import logging
 import sys
+import os
+
+
+output_dir = os.environ.get('JOB_OUTPUT_DIR', '.');
+
+
+
+print(output_dir)
 
 # --- Configuration Variables ---
-ERROR_LOG_FILENAME = 'script_error_log.log' # Define a log file name
-STATUS_LOG_FILENAME = 'script_status_log.log' # Define a log file name
+ERROR_LOG_FILENAME = os.path.join(output_dir, 'script_error_log.log') # Define a log file name
+STATUS_LOG_FILENAME = os.path.join(output_dir, 'script_status_log.log') # Define a log file name
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 APP_LOG_LEVEL = logging.DEBUG # Or logging.INFO
 # Define a main logger name for your application

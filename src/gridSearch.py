@@ -2,7 +2,7 @@ import itertools
 from dataclasses import dataclass
 from typing import Union, List
 import argparse
-from src.log import logger
+from log import logger
 
 @dataclass
 class Configuration:

@@ -3,6 +3,7 @@ from src.clusterQuery import ClusterQuery
 from tqdm import tqdm
 from src.log import logger
 
+
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
@@ -25,4 +26,5 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
                         Query.distribute(trajectories, r)
                     else:
                         Query.distribute(trajectories)
+
     #print("Done!")

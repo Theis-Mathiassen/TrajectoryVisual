@@ -1,5 +1,5 @@
 import numpy as np
-from TRACLUS import traclus
+from src.TRACLUS import traclus
 from src.load import load_Tdrive, build_Rtree
 
 def convert_trajectories_to_numpy(trajectories):

@@ -60,7 +60,7 @@ def prepare():
     #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     logger.info('Creating KNN queries.')
     origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     logger.info('Creating evaluation queries.')
@@ -73,7 +73,7 @@ def prepare():
     #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     logger.info('Creating KNN queries.')
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
-    # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
+    #origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
 
 

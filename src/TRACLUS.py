@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 from sklearn.cluster import OPTICS
 from scipy.spatial.distance import euclidean as d_euclidean
+from tqdm import tqdm
 
 import pickle
 import os
@@ -317,11 +318,11 @@ def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_paral
     # Create Distance Matrix between all trajectories
     n_partitions = len(partitions)
     dist_matrix = np.zeros((n_partitions, n_partitions))
-    for i in range(n_partitions):
-        if progress_bar: print(f'Progress: {i+1}/{n_partitions}', end='\r')
+    for i in tqdm(range(n_partitions), desc="Creating distance matrix"):
+        # if progress_bar: print(f'Progress: {i+1}/{n_partitions}', end='\r')
         for j in range(i+1):
             dist_matrix[i,j] = dist_matrix[j,i] = distance(partitions[i], partitions[j], directional=directional, w_perpendicular=w_perpendicular, w_parallel=w_parallel, w_angular=w_angular)
-            print(f'Progress: {i+1}/{n_partitions}', end='\r')
+            #print(f'Progress: {i+1}/{n_partitions}', end='\r')
 
     # Main Diagonal
     for i in range(n_partitions):
@@ -503,13 +504,15 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
     if progress_bar:
         print()
 
-    # Get the representative trajectories
-    if progress_bar:
-        print("Getting representative trajectories...")
+    # NOTE we de not use representative trajectories, therefore no need to run the following code
+
+    # # Get the representative trajectories
+    # if progress_bar:
+    #     print("Getting representative trajectories...")
     representative_trajectories = []
-    for cluster in clusters:
-        representative_trajectories.append(get_representative_trajectory(cluster))
-    if progress_bar:
-        print()
+    # for cluster in clusters:
+    #     representative_trajectories.append(get_representative_trajectory(cluster))
+    # if progress_bar:
+    #     print()
 
     return partitions, segments, dist_matrix, clusters, cluster_assignments, representative_trajectories

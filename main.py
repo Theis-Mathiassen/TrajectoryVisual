@@ -135,7 +135,7 @@ def gridSearch(allCombinations, args):
 
     ## Save results with unique filename based on the combo of query methods through cmd args
     try:
-        filename = f"scores_knn{args.knn_method}_range{args.range_flag}_sim{args.similarity}.pkl"
+        filename = f"scores_knn{args.knn}_range{args.range}_sim{args.similarity}.pkl"
         with open(os.path.join(os.getcwd(), filename), 'wb') as file:
             pickle.dump(configScore, file)
             file.close()

@@ -52,6 +52,9 @@ class ClusterQuery(Query):
         self.temporalWindowSize = self.params["temporalWindowSize"]
 
 
+    def __str__(self):
+        return "ClusterQuery"
+
     def _trajectory_to_numpy(self, trajectory):
         """Convert a Trajectory object to numpy array format required by TRACLUS."""
         return np.array([[node.x, node.y] for node in trajectory.nodes])

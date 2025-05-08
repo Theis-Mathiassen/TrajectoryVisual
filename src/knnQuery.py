@@ -22,10 +22,12 @@ class KnnQuery(Query):
         self.trajectories = params["trajectories"]
         self.distanceMethod = 1 # 0 -> DTW, 1 -> spatioTemporalDist, 2 -> LCSS
 
+    def __str__(self):
+        return "KnnQuery"
 
     def run(self, rtree):
         # Finds trajectory segments that match the time window of the query
-        return self.run2(rtree)
+        return self.run2(rtree, self.trajectories)
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
@@ -81,7 +83,7 @@ class KnnQuery(Query):
         # Get top k trajectories
         return [x for x in trajectories_output if x.id in topKIds]
 
-    def run2(self, rtree):
+    def run2(self, rtree, T):
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         
         hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
@@ -98,7 +100,7 @@ class KnnQuery(Query):
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
             minIndex = min(trajectories[trajectory])
             maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
+            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]
             
         
         if len(trajectories.keys()) <= self.k:

@@ -18,6 +18,7 @@ import traceback # traceback for information on python stack traces
 import argparse
 
 sys.path.append("src/")
+output_dir = os.environ.get('JOB_OUTPUT_DIR', '.');
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'

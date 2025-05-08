@@ -1,13 +1,7 @@
-version: '3.8'
-
 services:
   trainer:
     build: . # Build using the Dockerfile in the current directory
     volumes:
-      # Mount the current directory into the container's /app.
-      # This allows the container to access your scripts (main.py),
-      # data (datasets/, *.data, *.index), the commands file,
-      # and write output back to your host machine (e.g., scores.pkl).
       - .:/app
     working_dir: /app # Set the working directory inside the container
     # command: "tail -f /dev/null" # Keep container running for debugging if needed

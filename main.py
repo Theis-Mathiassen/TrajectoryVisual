@@ -98,7 +98,7 @@ def main(config):
         file.close()
 
 
-def gridSearch(allCombinations):
+def gridSearch(allCombinations, args):
     configScore = list()
     for config in tqdm(allCombinations):
         # we need to clear cache file for each configuration
@@ -133,11 +133,13 @@ def gridSearch(allCombinations):
             os.remove(SIMPLIFIEDDATABASENAME + '.data')
             os.remove(SIMPLIFIEDDATABASENAME + '.index')
 
-    ## Save results
+    ## Save results with unique filename based on the combo of query methods through cmd args
     try:
-        with open(os.path.join(os.getcwd(), 'scores.pkl'), 'wb') as file:
+        filename = f"scores_knn{args.knn_method}_range{args.range_flag}_sim{args.similarity}.pkl"
+        with open(os.path.join(os.getcwd(), filename), 'wb') as file:
             pickle.dump(configScore, file)
             file.close()
+        logger.info(f"Results saved to {filename}")
     except Exception as e:
         print(f"err saving results: {e}")
         logger.error("problems when saving results to pickle file.")
@@ -185,7 +187,7 @@ if __name__ == "__main__":
                 [config.range_flag],
                 [config.similarity_system]
             )
-            gridSearch(allCombinations)
+            gridSearch(allCombinations, args)
         else:
             # For single config testing
             main(config)

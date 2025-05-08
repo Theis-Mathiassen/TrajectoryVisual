@@ -77,7 +77,7 @@ def main(config):
     for Query in tqdm(origRtreeQueriesTraining.getQueries(), desc="Running queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
         # Get result of query
         logger.info('Running query %s', type(Query))
-        result = Query.run(origRtree)
+        result = Query.run(origRtree, origTrajectories)
         # Distribute points
         queryResults.append((Query, result))
     #print("Done!")
@@ -87,7 +87,7 @@ def main(config):
     for q, r in queryResults:
         if str(q) not in dictQueryResults:
             dictQueryResults[str(q)] = []
-        dictQueryResults[str(q)].append((q,r))
+        dictQueryResults[str(q)].append((q ,r))
     
     logger.info('Saving results to pickle files.')
     for queryType in dictQueryResults.keys():    
@@ -112,7 +112,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     config = {}
-    config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress

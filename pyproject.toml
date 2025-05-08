@@ -3,6 +3,7 @@ name = "trajectoryvisual-1"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "numba>=0.61.2",
     "numpy>=2.2.4",
     "pandas>=2.2.3",
     "rtree>=1.4.0",

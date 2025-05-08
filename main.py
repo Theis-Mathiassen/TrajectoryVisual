@@ -111,7 +111,7 @@ def gridSearch(allCombinations, args):
 
         ORIGTrajectories = copy.deepcopy(origTrajectories)
 
-        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
         logger.info('Loading simplified trajectories into Rtree.')
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Specify the method for distributing points.')
     parser.add_argument('--knn', type=int, help='Distance method 1 -> Use spatio temporal linear combine distance.')
     parser.add_argument('--range', type=int, help='Method: 1 -> winner_takes_all, 2 -> shared_equally(1 point total), 3 -> shared_equally(1 point each.), 4 -> gradient_points')
-    parser.add_argument('--similarity', type=str, help='C -> Closest, A -> All, c+f -> Closest + Farthest, m -> moving away for a longer period than streak')
+    parser.add_argument('--similarity', type=str, help='c -> Closest, a -> All, c+f -> Closest + Farthest, m -> moving away for a longer period than streak')
     args = parser.parse_args()
     logger.info(f"Using query methods - KNN: {args.knn}, Range: {args.range}, Similarity: {args.similarity}")
     
@@ -175,6 +175,7 @@ if __name__ == "__main__":
     try:
         # If compression_rate is a list, use gridSearch
         if isinstance(config.compression_rate, list):
+            print("Running grid search")
             # Create all combinations for grid search
             allCombinations = createConfigs(
                 config.compression_rate,
@@ -190,6 +191,7 @@ if __name__ == "__main__":
             gridSearch(allCombinations, args)
         else:
             # For single config testing
+            print("Not running grid search")
             main(config)
             
         print("Script finished successfully.") 

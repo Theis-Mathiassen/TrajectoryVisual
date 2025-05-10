@@ -106,7 +106,7 @@ def partition2segments(partition):
         raise ValueError("partition must be of shape (n, 2)")
     
     segments = []
-    for i in range(partition.shape[0]-1):
+    for i in range(0, partition.shape[0]-1, 2):
         segments.append(np.array([[partition[i, 0], partition[i, 1]], [partition[i+1, 0], partition[i+1, 1]]]))
 
     return segments
@@ -227,7 +227,7 @@ def distance(l1, l2, directional=True, w_perpendicular=1, w_parallel=1, w_angula
     """
 
     perpendicular_distance = d_perpendicular(l1, l2)
-    parallel_distance = d_parallel(l1, l2)
+    parallel_distance = d_parallel(l1, l2) #remove?
     angular_distance = d_angular(l1, l2, directional=directional)
 
     return (w_perpendicular * perpendicular_distance) + (w_parallel * parallel_distance) + (w_angular * angular_distance)

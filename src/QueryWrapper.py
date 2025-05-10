@@ -40,7 +40,13 @@ class QueryWrapper:
                 self.SimilarityQueries.append(SimilarityQuery(paramUtil.similarityParams(rtree, index=trajectory.id)))
         
     def createClusterQueries(self, rtree, paramUtil : ParamUtil):
-        self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
-            
+        #self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
+        if self.random:
+            for query in range(self.numberOfEachQuery):
+                self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
+        else:
+            for trajectory in self.trajectories.values():
+                self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree, index=trajectory.id)))
+                    
     def getQueries(self):
         return [*self.RangeQueries, *self.SimilarityQueries, *self.KNNQueries, *self.ClusterQueries]

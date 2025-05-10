@@ -115,20 +115,23 @@ class ParamUtil:
         k = k
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def clusterParams(self, rtree: index.Index, temporalWindowSize = 5400, minLines = 2, centerToEdge = 1000):
-        randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
-        origin = randomTrajectory
-        #centerTime = centerNode.t
-        tMin = self.tMin
-        tMax = self.tMax
-        xMin = self.xMin
-        xMax = self.xMax
-        yMin = self.yMin
-        yMax = self.yMax
-        eps = None
+    def clusterParams(self, rtree: index.Index, temporalWindowSize = 5400, minLines = 2, centerToEdge = 1000, index = None, eps = None):
+        if index == None:
+            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+        else:
+            randomTrajectory: Trajectory = self.trajectories[index]
+        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
+        centerX = centerNode.x
+        centerY = centerNode.y
+        tMin = max(centerNode.t - temporalWindowSize, self.tMin)
+        tMax = min(centerNode.t + temporalWindowSize, self.tMax)
+        xMin = max(centerX - centerToEdge, self.xMin)
+        xMax = min(centerX + centerToEdge, self.xMax)
+        yMin = max(centerY - centerToEdge, self.yMin)
+        yMax = min(centerY + centerToEdge, self.yMax)
+        eps = eps
         linesMin = minLines
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = origin, eps = eps, linesMin = linesMin, trajectories = self.trajectories, centerToEdge = centerToEdge, temporalWindowSize = temporalWindowSize)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = eps, linesMin = linesMin, trajectories = self.trajectories, centerToEdge = centerToEdge, temporalWindowSize = temporalWindowSize)
     
 def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
     north = lat * 110574.0

@@ -117,7 +117,7 @@ if __name__ == "__main__":
     
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.8, 0.9, 0.95, 0.975, 0.99]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split

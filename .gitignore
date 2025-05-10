@@ -20,3 +20,4 @@ datasets/
 *.data
 *.index
 .DS_Store
+*.nbi

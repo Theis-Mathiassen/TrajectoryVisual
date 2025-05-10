@@ -30,11 +30,14 @@ class Trajectory:
 
         # Get the string representation of each point in the trajectory
         for i in range(len(self.nodes)):
-            out += self.nodes[i].__str__()
+            out = str.join(out, self.nodes[i].__str__())
             print("out: " + out)
 
         # Return the full trajectory
         return f'Trajectory: \n[{out}]\n'"""
     
-def pointCount(self):
+    def pointCount(self):
         return len(self.nodes)
+    
+    def unmaskedCount(self):
+        return len(self.nodes.compressed())

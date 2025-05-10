@@ -4,6 +4,7 @@ from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
 from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
+from src.rdp import rdpMaskTrajectories
 
 import os
 import sys
@@ -20,9 +21,9 @@ import traceback # traceback for information on python stack traces
 sys.path.append("src/")
 
 CSVNAME = 'first_10000_train'
-DATABASENAME = 'original_Taxi'
+DATABASENAME = 'original_TDrive'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['RangeQueryHits.pkl'] # Define filenames for query hits
+PICKLE_HITS = ['TDriveRangeQueryHits.pkl', 'TDriveSimilarityQueryHits.pkl', 'TDriveKnnQueryHits.pkl'] # Define filenames for query hits
 
 def prepare():
     ## Load Dataset
@@ -58,8 +59,8 @@ def prepare():
     #origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     #logger.info('Creating similarity queries.')
     #origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
-    logger.info('Creating KNN queries.')
-    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+    #logger.info('Creating KNN queries.')
+    #origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
@@ -67,15 +68,27 @@ def prepare():
     origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config["numberOfEachQuery"] - config["numberOfEachQuery"] * config["trainTestSplit"]))
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
-    #logger.info('Creating range queries.')
-    #origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
-    #logger.info('Creating similarity queries.')
-    #origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
+    logger.info('Creating range queries.')
+    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation)
+    logger.info('Creating similarity queries.')
+    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation)
     logger.info('Creating KNN queries.')
     origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
 
-
+    if not os.path.exists('rdpTrajectories1_5.pkl'):
+        rdpMaskTrajectories(origTrajectories, 1.5)
+        try:
+            with open(os.path.join(os.getcwd(), 'rdpTrajectories1_5.pkl'), 'wb') as file:
+                pickle.dump(origTrajectories, file)
+                file.close()
+        except Exception as e:
+            print(f"err saving results: {e}")
+            logger.error("problems when saving rdp results to pickle file.")
+            logger.error(traceback.format_exc())
+    
+    for trajectory in origTrajectories.keys():
+        origTrajectories[trajectory].nodes.mask = False
 
     compressionRateScores = list()
 
@@ -91,7 +104,11 @@ def main(config):
     # Sort compression_rate from highest to lowest
     config["compression_rate"].sort(reverse=True)
     logger.info('Give nodes scores.')
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining)
+    
+    with open(os.path.join(os.getcwd(), 'rdpTrajectories.pkl'), 'rb') as file:
+        trajectoriesWithRdpMask = pickle.load(file)
+        
+    giveQueryScorings(origRtree, origTrajectories, 100, pickleFiles=PICKLE_HITS)
 
     # Begin evaluation at different compression rates
 
@@ -99,7 +116,7 @@ def main(config):
         logger.info('Performing loop for compression rate %s', cr);
 
         logger.info('Dropping nodes.')
-        simpTrajectories = dropNodes(origRtree, origTrajectories, cr)
+        simpTrajectories = dropNodes(origRtree, origTrajectories, cr, trajectoriesWithRdpMask)
 
         logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
@@ -144,7 +161,7 @@ if __name__ == "__main__":
     logger.info("---------------------------    Main Start    ---------------------------")
     config = {}
     config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split

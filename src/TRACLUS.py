@@ -5,6 +5,8 @@
 
 import argparse
 import numpy as np
+import numba as nb
+from numba.extending import overload
 from sklearn.cluster import OPTICS
 from scipy.spatial.distance import euclidean as d_euclidean
 from tqdm import tqdm
@@ -55,6 +57,7 @@ def sub_sample_trajectory(trajectory, sample_n=30):
     include = np.linspace(0, trajectory.shape[0]-1, sample_n, dtype=np.int32)
     return trajectory[include]
 
+
 def calculate_line_euclidean_length(line):
     """
         Calculate the euclidean length of a all points in the line.
@@ -63,10 +66,27 @@ def calculate_line_euclidean_length(line):
     for i in range(0, line.shape[0]):
         if i == 0:
             continue
-        total_length += d_euclidean(line[i-1], line[i])
+        total_length += np.linalg.norm(line[i-1]- line[i])
 
     return total_length
 
+
+@nb.jit([nb.float64[:](nb.float64[:,:], nb.float64[:]), nb.float64[:,:](nb.float64[:,:], nb.float64[:,:])], nopython = True, fastmath = True)
+def jit_matmul(mat, v):
+    return mat @ v
+
+# Slope to rotation matrix
+@nb.jit(nb.float64[:,:](nb.float64), nopython = True)
+def slope_to_rotation_matrix(slope):
+    """
+        Convert slope to rotation matrix.
+    """
+    a = np.array([[1, slope], [-slope, 1]])
+    return a
+
+
+#@nb.jit(nopython = True)
+@nb.jit(nb.float64[:](nb.float64[:], nb.float64[:,:]), )
 def get_point_projection_on_line(point, line):
     """
         Get the projection of a point on a line.
@@ -80,20 +100,21 @@ def get_point_projection_on_line(point, line):
         return np.array([line[0,0], point[1]])
     
     # Convert the slope to a rotation matrix
-    R = slope_to_rotation_matrix(line_slope)
+    r = slope_to_rotation_matrix(line_slope)
 
     # Rotate the line and point
-    rot_line = np.matmul(line, R.T)
-    rot_point = np.matmul(point, R.T)
+    rot_line = jit_matmul(r.T, line)
+    rot_point = jit_matmul(r.T, point)
 
     # Get the projection
     proj = np.array([rot_point[0], rot_line[0,1]])
 
     # Undo the rotation for the projection
-    R_inverse = np.linalg.inv(R)
-    proj = np.matmul(proj, R_inverse.T)
+    R_inverse = np.linalg.inv(r)
+    proj = jit_matmul(R_inverse.T, proj)
 
     return proj
+
 
 def partition2segments(partition):
     """
@@ -118,13 +139,14 @@ def partition2segments(partition):
 # d_euclidean = lambda p1, p2: np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 # Perpendicular Distance
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True)
 def d_perpendicular(l1, l2):
     """
         Calculate the perpendicular distance between two lines.
     """
     # Find the shorter line and assign that as l_shorter
     l_shorter = l_longer = None
-    l1_len, l2_len = d_euclidean(l1[0], l1[-1]), d_euclidean(l2[0], l2[-1])
+    l1_len, l2_len = np.linalg.norm(l1[0]- l1[-1]), np.linalg.norm(l2[0]- l2[-1])
     if l1_len < l2_len:
         l_shorter = l1
         l_longer = l2
@@ -135,21 +157,22 @@ def d_perpendicular(l1, l2):
     ps = get_point_projection_on_line(l_shorter[0], l_longer)
     pe = get_point_projection_on_line(l_shorter[-1], l_longer)
 
-    lehmer_1 = d_euclidean(l_shorter[0], ps)
-    lehmer_2 = d_euclidean(l_shorter[-1], pe)
+    lehmer_1 = np.linalg.norm(l_shorter[0]- ps)
+    lehmer_2 = np.linalg.norm(l_shorter[-1]- pe)
 
     if lehmer_1 == 0 and lehmer_2 == 0:
-        return 0
+        return 0.0
     return (lehmer_1**2 + lehmer_2**2) / (lehmer_1 + lehmer_2)#, ps, pe, l_shorter[0], l_shorter[-1]
     
 # Parallel Distance
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True)
 def d_parallel(l1, l2):
     """
         Calculate the parallel distance between two lines.
     """
     # Find the shorter line and assign that as l_shorter
     l_shorter = l_longer = None
-    l1_len, l2_len = d_euclidean(l1[0], l1[-1]), d_euclidean(l2[0], l2[-1])
+    l1_len, l2_len = np.linalg.norm(l1[0]- l1[-1]), np.linalg.norm(l2[0]- l2[-1])
     if l1_len < l2_len:
         l_shorter = l1
         l_longer = l2
@@ -160,12 +183,13 @@ def d_parallel(l1, l2):
     ps = get_point_projection_on_line(l_shorter[0], l_longer)
     pe = get_point_projection_on_line(l_shorter[-1], l_longer)
 
-    parallel_1 = min(d_euclidean(l_longer[0], ps), d_euclidean(l_longer[-1], ps))
-    parallel_2 = min(d_euclidean(l_longer[0], pe), d_euclidean(l_longer[-1], pe))
+    parallel_1 = min(np.linalg.norm(l_longer[0]- ps), np.linalg.norm(l_longer[-1]- ps))
+    parallel_2 = min(np.linalg.norm(l_longer[0]- pe), np.linalg.norm(l_longer[-1]- pe))
 
     return min(parallel_1, parallel_2)
 
 # Angular Distance
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:], nb.bool), nopython = True)
 def d_angular(l1, l2, directional=True):
     """
         Calculate the angular distance between two lines.
@@ -173,7 +197,7 @@ def d_angular(l1, l2, directional=True):
 
     # Find the shorter line and assign that as l_shorter
     l_shorter = l_longer = None
-    l1_len, l2_len = d_euclidean(l1[0], l1[-1]), d_euclidean(l2[0], l2[-1])
+    l1_len, l2_len = np.linalg.norm(l1[0]- l1[-1]), np.linalg.norm(l2[0]- l2[-1])
     if l1_len < l2_len:
         l_shorter = l1
         l_longer = l2
@@ -202,7 +226,7 @@ def d_angular(l1, l2, directional=True):
         theta1 = np.abs(np.arctan(tan_theta1))
         theta = min(theta0, theta1)
     else:
-        tan_theta0 = (shorter_slope - longer_slope) / (1 + shorter_slope * longer_slope)
+        tan_theta0 = (shorter_slope - longer_slope) / (1 + abs(shorter_slope * longer_slope))
         tan_theta1 = tan_theta0 * -1
 
         theta0 = np.abs(np.arctan(tan_theta0))
@@ -211,10 +235,10 @@ def d_angular(l1, l2, directional=True):
         theta = min(theta0, theta1)
 
     if directional:
-        return np.sin(theta) * d_euclidean(l_longer[0], l_longer[-1])
+        return np.sin(theta) * np.linalg.norm(l_longer[0]- l_longer[-1])
 
     if 0 <= theta < (90 * np.pi / 180):
-        return np.sin(theta) * d_euclidean(l_longer[0], l_longer[-1])
+        return np.sin(theta) * np.linalg.norm(l_longer[0]- l_longer[-1])
     elif (90 * np.pi / 180) <= theta <= np.pi:
         return np.sin(theta)
     else:
@@ -239,7 +263,7 @@ def minimum_desription_length(start_idx, curr_idx, trajectory, w_angular=1, w_pe
     """
     LH = LDH = 0
     for i in range(start_idx, curr_idx-1):
-        ed = d_euclidean(trajectory[i], trajectory[i+1])
+        ed = np.linalg.norm(trajectory[i]- trajectory[i+1])
         LH += max(0, np.log2(ed, where=ed>0))
         if par:
             for j in range(start_idx, i-1):
@@ -261,12 +285,6 @@ def slope_to_angle(slope, degrees=True):
         return np.arctan(slope)
     return np.arctan(slope) * 180 / np.pi
 
-# Slope to rotation matrix
-def slope_to_rotation_matrix(slope):
-    """
-        Convert slope to rotation matrix.
-    """
-    return np.array([[1, slope], [-slope, 1]])
 
 # Get cluster majority line orientation
 def get_average_direction_slope(line_list):

@@ -198,7 +198,7 @@ class ClusterQuery(Query):
         numpy_trajectories = [] #[np.array([[node.x, node.y] for node in nodes]) for nodes in trajectories_id_to_nodes.values()]
 
         for trajectory in trajectories.values():
-            coords = np.array([[node.x, node.y] for node in trajectory])
+            coords = np.ascontiguousarray([[node.x, node.y] for node in trajectory])
             numpy_trajectories.append(coords)
 
 

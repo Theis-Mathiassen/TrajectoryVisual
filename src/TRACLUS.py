@@ -6,6 +6,7 @@
 import argparse
 import numpy as np
 import numba as nb
+from numba.typed import List
 from numba.extending import overload
 from sklearn.cluster import OPTICS
 from scipy.spatial.distance import euclidean as d_euclidean
@@ -84,6 +85,14 @@ def slope_to_rotation_matrix(slope):
     a = np.array([[1, slope], [-slope, 1]])
     return a
 
+@nb.jit(nb.float64[:,:](nb.float64))
+def slope_to_rotation_matrix_transposed(slope):
+    """
+        Convert slope to rotation matrix.
+    """
+    a = np.array([[1, slope], [-slope, 1]])
+    aT = np.ascontiguousarray(a.T)
+    return aT
 
 #@nb.jit(nopython = True)
 @nb.jit(nb.float64[:](nb.float64[:], nb.float64[:,:]), )
@@ -100,18 +109,18 @@ def get_point_projection_on_line(point, line):
         return np.array([line[0,0], point[1]])
     
     # Convert the slope to a rotation matrix
-    r = slope_to_rotation_matrix(line_slope)
+    r = slope_to_rotation_matrix_transposed(line_slope)
 
     # Rotate the line and point
-    rot_line = jit_matmul(r.T, line)
-    rot_point = jit_matmul(r.T, point)
+    rot_line = jit_matmul(r, line)
+    rot_point = jit_matmul(r, point)
 
     # Get the projection
     proj = np.array([rot_point[0], rot_line[0,1]])
 
     # Undo the rotation for the projection
-    R_inverse = np.linalg.inv(r)
-    proj = jit_matmul(R_inverse.T, proj)
+    R_inverse_transposed = np.ascontiguousarray(np.linalg.inv(r).T)
+    proj = jit_matmul(R_inverse_transposed, proj)
 
     return proj
 
@@ -245,6 +254,7 @@ def d_angular(l1, l2, directional=True):
         raise ValueError("Theta is not in the range of 0 to 180 degrees.")
 
 # Total Trajectory Distance
+@nb.jit(nb.float64(nb.float64[:, :], nb.float64[:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, fastmath = True)
 def distance(l1, l2, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
     """
         Get the total trajectory distance using all three distance formulas.
@@ -332,14 +342,18 @@ def smooth_trajectory(trajectory, window_size=5):
     return smoothed_trajectory
 
 # Get Distance Matrix
-def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1, progress_bar=False):
+@nb.jit(nb.float64[:,:](nb.float64[:,:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, parallel=True)
+def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
     # Create Distance Matrix between all trajectories
     n_partitions = len(partitions)
     dist_matrix = np.zeros((n_partitions, n_partitions))
-    for i in tqdm(range(n_partitions), desc="Creating distance matrix"):
+    #for i in tqdm(range(n_partitions), desc="Creating distance matrix"):
+    for i in nb.prange(n_partitions):
+    #for i in nb.prange(n_partitions):
         # if progress_bar: print(f'Progress: {i+1}/{n_partitions}', end='\r')
         for j in range(i+1):
-            dist_matrix[i,j] = dist_matrix[j,i] = distance(partitions[i], partitions[j], directional=directional, w_perpendicular=w_perpendicular, w_parallel=w_parallel, w_angular=w_angular)
+            dist_matrix[i,j] = distance(partitions[i], partitions[j], directional=directional, w_perpendicular=w_perpendicular, w_parallel=w_parallel, w_angular=w_angular)
+            dist_matrix[j,i] = dist_matrix[i, j]
             #print(f'Progress: {i+1}/{n_partitions}', end='\r')
 
     # Main Diagonal
@@ -347,11 +361,20 @@ def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_paral
         dist_matrix[i,i] = 0
 
     # Check for nans and warn if any are found
-    if np.isnan(dist_matrix).any():
+    """if np.isnan(dist_matrix).any():
         warnings.warn("Distance matrix contains NaN values")
     
         # Replace the nans with the maximum value
-        dist_matrix[np.isnan(dist_matrix)] = 9999999
+        dist_matrix[np.isnan(dist_matrix)] = 9999999"""
+    
+    """nans = np.isnan(dist_matrix)
+    if nans.any():
+        #warnings.warn("Distance matrix contains NaN values")
+    
+        # Replace the nans with the maximum value
+        for (idxi, idxj) in nans:
+            if nans[idxi, idxj] == True:
+                dist_matrix[idxi, idxj] = 9999999"""
 
     return dist_matrix
 
@@ -408,11 +431,12 @@ def get_representative_trajectory(lines, min_lines=3):
     # Get the average rotation matrix for all the lines
     average_slope = get_average_direction_slope(lines)
     rotation_matrix = slope_to_rotation_matrix(average_slope)
+    rotation_matrix_transposed = slope_to_rotation_matrix_transposed(average_slope)
 
     # Rotate all lines such that they are parallel to the x-axis
     rotated_lines = []
     for line in lines:
-        rotated_lines.append(np.matmul(line, rotation_matrix.T))
+        rotated_lines.append(np.matmul(line, rotation_matrix_transposed))
 
     # Let starting_and_ending_points be the set of all starting and ending points of the lines
     starting_and_ending_points = []
@@ -457,7 +481,8 @@ def get_representative_trajectory(lines, min_lines=3):
 
     # Undo the rotation for the generated representative points
     representative_points = np.array(representative_points)
-    representative_points = np.matmul(representative_points, np.linalg.inv(rotation_matrix).T)
+    rotation_matrix_inverse_transposed = np.array(np.linalg.inv(rotation_matrix).T, order='C')
+    representative_points = np.matmul(representative_points, rotation_matrix_inverse_transposed)
     
     return representative_points
 
@@ -503,8 +528,10 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
     else:
         segments = partitions
 
+    segments = np.array(segments)
+
     # Get distance matrix
-    dist_matrix = get_distance_matrix(segments, directional=directional, w_perpendicular=d_weights[0], w_parallel=d_weights[1], w_angular=d_weights[2], progress_bar=progress_bar)
+    dist_matrix = get_distance_matrix(segments, directional=directional, w_perpendicular=d_weights[0], w_parallel=d_weights[1], w_angular=d_weights[2])
 
     # Group the partitions
     if progress_bar:

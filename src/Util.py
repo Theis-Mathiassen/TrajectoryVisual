@@ -323,6 +323,11 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     result = spatial dist * weight + temporal dist * (1 - weight)`
     """
+
+    # If no nodes, return infinity
+    if len(originTrajectory.nodes.compressed()) == 0 or len(otherTrajectory.nodes.compressed()) == 0:
+        return float('inf')
+
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes.compressed()
 
@@ -385,7 +390,6 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     Not which from the origin trajectory are closest to others, as we are rewarding others
 
     We also factor the alpha weight in
-
     """
     origin_nodes = originTrajectory.nodes.compressed()
     other_nodes = otherTrajectory.nodes.compressed()
@@ -401,7 +405,6 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
                 dist = 1
 
             otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
-
 
            
 def get_min_dist_node(origin_node, nodes, func):

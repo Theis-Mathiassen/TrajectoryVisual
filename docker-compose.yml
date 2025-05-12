@@ -1,0 +1,7 @@
+services:
+  trainer:
+    build: . # Build using the Dockerfile in the current directory
+    volumes:
+      - .:/app
+    working_dir: /app # Set the working directory inside the container
+    # command: "tail -f /dev/null" # Keep container running for debugging if needed

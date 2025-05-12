@@ -72,12 +72,12 @@ def calculate_line_euclidean_length(line):
     return total_length
 
 
-@nb.jit([nb.float64[:](nb.float64[:,:], nb.float64[:]), nb.float64[:,:](nb.float64[:,:], nb.float64[:,:])], nopython = True, fastmath = True)
+@nb.jit([nb.float64[:](nb.float64[:,:], nb.float64[:]), nb.float64[:,:](nb.float64[:,:], nb.float64[:,:])], nopython = True, fastmath = True, cache=True)
 def jit_matmul(mat, v):
     return mat @ v
 
 # Slope to rotation matrix
-@nb.jit(nb.float64[:,:](nb.float64), nopython = True)
+@nb.jit(nb.float64[:,:](nb.float64), nopython = True, cache=True)
 def slope_to_rotation_matrix(slope):
     """
         Convert slope to rotation matrix.
@@ -85,7 +85,7 @@ def slope_to_rotation_matrix(slope):
     a = np.array([[1, slope], [-slope, 1]])
     return a
 
-@nb.jit(nb.float64[:,:](nb.float64))
+@nb.jit(nb.float64[:,:](nb.float64), cache=True)
 def slope_to_rotation_matrix_transposed(slope):
     """
         Convert slope to rotation matrix.
@@ -95,7 +95,7 @@ def slope_to_rotation_matrix_transposed(slope):
     return aT
 
 #@nb.jit(nopython = True)
-@nb.jit(nb.float64[:](nb.float64[:], nb.float64[:,:]), )
+@nb.jit(nb.float64[:](nb.float64[:], nb.float64[:,:]), cache=True)
 def get_point_projection_on_line(point, line):
     """
         Get the projection of a point on a line.
@@ -148,7 +148,7 @@ def partition2segments(partition):
 # d_euclidean = lambda p1, p2: np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 # Perpendicular Distance
-@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True)
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True, cache=True)
 def d_perpendicular(l1, l2):
     """
         Calculate the perpendicular distance between two lines.
@@ -174,7 +174,7 @@ def d_perpendicular(l1, l2):
     return (lehmer_1**2 + lehmer_2**2) / (lehmer_1 + lehmer_2)#, ps, pe, l_shorter[0], l_shorter[-1]
     
 # Parallel Distance
-@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True)
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:]), nopython = True, cache=True)
 def d_parallel(l1, l2):
     """
         Calculate the parallel distance between two lines.
@@ -198,7 +198,7 @@ def d_parallel(l1, l2):
     return min(parallel_1, parallel_2)
 
 # Angular Distance
-@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:], nb.bool), nopython = True)
+@nb.jit(nb.float64(nb.float64[:,:], nb.float64[:,:], nb.bool), nopython = True, cache=True)
 def d_angular(l1, l2, directional=True):
     """
         Calculate the angular distance between two lines.
@@ -254,7 +254,7 @@ def d_angular(l1, l2, directional=True):
         raise ValueError("Theta is not in the range of 0 to 180 degrees.")
 
 # Total Trajectory Distance
-@nb.jit(nb.float64(nb.float64[:, :], nb.float64[:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, fastmath = True)
+@nb.jit(nb.float64(nb.float64[:, :], nb.float64[:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, fastmath = True, cache=True)
 def distance(l1, l2, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
     """
         Get the total trajectory distance using all three distance formulas.
@@ -342,7 +342,7 @@ def smooth_trajectory(trajectory, window_size=5):
     return smoothed_trajectory
 
 # Get Distance Matrix
-@nb.jit(nb.float64[:,:](nb.float64[:,:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, parallel=True)
+@nb.jit(nb.float64[:,:](nb.float64[:,:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, parallel=True, cache=True)
 def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
     # Create Distance Matrix between all trajectories
     n_partitions = len(partitions)
@@ -352,7 +352,10 @@ def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_paral
     #for i in nb.prange(n_partitions):
         # if progress_bar: print(f'Progress: {i+1}/{n_partitions}', end='\r')
         for j in range(i+1):
-            dist_matrix[i,j] = distance(partitions[i], partitions[j], directional=directional, w_perpendicular=w_perpendicular, w_parallel=w_parallel, w_angular=w_angular)
+            d = distance(partitions[i], partitions[j], directional=directional, w_perpendicular=w_perpendicular, w_parallel=w_parallel, w_angular=w_angular)
+            if np.isnan(d) :
+                d = 9999999
+            dist_matrix[i,j] = d
             dist_matrix[j,i] = dist_matrix[i, j]
             #print(f'Progress: {i+1}/{n_partitions}', end='\r')
 
@@ -528,7 +531,7 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
     else:
         segments = partitions
 
-    segments = np.array(segments)
+    segments = np.array(segments, order='C')
 
     # Get distance matrix
     dist_matrix = get_distance_matrix(segments, directional=directional, w_perpendicular=d_weights[0], w_parallel=d_weights[1], w_angular=d_weights[2])

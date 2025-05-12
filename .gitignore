@@ -20,3 +20,7 @@ datasets/
 *.data
 *.index
 .DS_Store
+*.nbi
+*.nbc
+*.pkl
+*.log

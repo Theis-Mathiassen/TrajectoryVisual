@@ -6,7 +6,7 @@ import pathlib
 from typing import Any, Dict, List
 
 #Aggregate all score-pickle files into a single CSV.
-# example use: python collect_scores.py results  scores_summary.csv
+# example use: uv run collect_scores.py results  scores_summary.csv
 
 def _flatten(rec: Dict[str, Any]) -> Dict[str, float]:
     f1_1, f1_2, f1_3, f1_4, f1_5 = rec["f1Scores"]

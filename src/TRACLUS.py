@@ -599,4 +599,32 @@ def DBSCAN(segments, epsilon = 2.0 , minLines = 3):
             otherNeighbors = neighbourhood(otherSeg, segments, epsilon=epsilon)
             
             if len(otherNeighbors) >= minLines: seedSet = seedSet.union(otherNeighbors)
+  
+  
+#Based on the original TRACLUS paper      
+def lineSegmentClustering(segments, epsilon = 2.0, minLines =3): 
+    clusterId = 0
+    clusterLabels = {}
+    for seg in segments:
+        clusterLabels[seg] = None
         
+    for seg in segments:
+        if clusterLabels[seg] == -1:
+            neighbors = neighbourhood(seg, segments)
+            if len(neighbors) >= minLines:
+                for n in neighbors:
+                    clusterLabels[n] = clusterId
+                Q = neighbors.discard(seg) 
+        
+        
+def expandCluster(queue, segments, clusterId, clusterLabels, epsilon=2.0, minLines = 3):
+    while len(queue) > 0:
+        M =  queue.pop()
+        Mneighbors = neighbourhood(M, segments, epsilon=epsilon)
+        if len(Mneighbors) >= minLines:
+            for N in Mneighbors:
+                if clusterLabels[N] is None or clusterLabels[N] == -1:
+                    clusterLabels[N] = clusterId
+                if clusterLabels[N] is None:
+                    queue = queue.union(N)
+        queue.remove(M)

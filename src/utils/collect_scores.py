@@ -62,7 +62,7 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"wrote rote {len(rows)} rows to {args.out_csv}")
+    print(f"wrote {len(rows)} rows to {args.out_csv}")
 
 
 if __name__ == "__main__":

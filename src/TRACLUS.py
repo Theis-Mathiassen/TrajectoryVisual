@@ -564,3 +564,39 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
     #     print()
 
     return partitions, segments, dist_matrix, clusters, cluster_assignments, representative_trajectories
+
+
+def neighbourhood(seg, segments, epsilon = 2.0, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
+    segmentSet = {}
+    for tmpSegment in segments:
+        #short, long = seg, tmpSegment if len(seg) > len(tmpSegment) else tmpSegment, seg
+        if distance(seg, tmpSegment, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1) <= epsilon:
+            segmentSet.append(tmpSegment)
+    return segmentSet
+
+def DBSCAN(segments, epsilon = 2.0 , minLines = 3):
+    clusterId = 0
+    clusterLabels = {}
+    for seg in segments:
+        if seg in clusterLabels: continue
+        
+        neighbors = neighbourhood(seg, segments, epsilon=epsilon)
+        
+        if len(neighbors) < minLines:
+            clusterLabels[seg] = -1
+            continue
+        
+        clusterId += 1
+        clusterLabels[seg] = clusterId
+        seedSet = neighbors.remove(seg)
+        
+        for otherSeg in seedSet:
+            if otherSeg in clusterLabels: continue #Maybe other way around?
+            if clusterLabels[otherSeg] == -1: clusterLabels[otherSeg] = clusterId
+            
+            clusterLabels[otherSeg] = clusterId
+            
+            otherNeighbors = neighbourhood(otherSeg, segments, epsilon=epsilon)
+            
+            if len(otherNeighbors) >= minLines: seedSet = seedSet.union(otherNeighbors)
+        

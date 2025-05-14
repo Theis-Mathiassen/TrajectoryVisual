@@ -1,11 +1,14 @@
 from src.QueryWrapper import QueryWrapper
 from src.clusterQuery import ClusterQuery
+from src.rangeQuery import RangeQuery
+from src.similarityQuery import SimilarityQuery
+from src.knnQuery import KnnQuery
 from tqdm import tqdm
 import pickle
 import random
 from src.log import logger
 
-def giveQueryScorings(Rtree, trajectories, numberToTrain, queryWrapper : QueryWrapper = None, pickleFiles = None):
+def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None, numerToTrain = None, config = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
         for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
@@ -22,10 +25,29 @@ def giveQueryScorings(Rtree, trajectories, numberToTrain, queryWrapper : QueryWr
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:
                 hits = pickle.load(f)
-                # listOfQueriesIdx = random.sample(range(0, len(hits)), numberToTrain // len(pickleFiles))
-                for query, result in tqdm(hits, desc="Scoring queries"):
-                    #query, result = hits[idx]
+
+                # Set amount of queries to run
+                amountToRun = len(hits)
+                if numerToTrain is not None:
+                    amountToRun = min(amountToRun, numerToTrain)
+                    hits.shuffle() # Randomize
+
+                for i in tqdm(range(amountToRun), desc="Scoring queries"):
+                    query, result = hits[i]
+
+                    setDistributeType(config, query) # Set query distribute type based on config
+
                     if not isinstance(query, ClusterQuery): # no cluster query for now
                         query.distribute(trajectories, result)
                     else:
                         query.distribute(trajectories)
+
+
+def setDistributeType(config, query):
+    if config is None:
+        return
+    elif isinstance(query, RangeQuery):
+        query.flag = config["range_flag"]
+    elif isinstance(query, SimilarityQuery):
+        query.scoringSystem = config["similarity_system"]
+

@@ -16,6 +16,8 @@ import pickle
 import os
 import warnings
 
+minTrajectoriesInCluster = 2
+
 # UTILITY FUNCTIONS
 
 def load_trajectories(filepath):
@@ -514,7 +516,8 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
         if progress_bar:
             print(f"\rTrajectory {i + 1}/{len(trajectories)}", end='')
             i += 1
-        partitions.append(partition(trajectory, directional=directional, progress_bar=False, w_perpendicular=mdl_weights[0], w_angular=mdl_weights[2]))
+        trajPartitions = partition(trajectory, directional=directional, progress_bar=False, w_perpendicular=mdl_weights[0], w_angular=mdl_weights[2])
+        partitions.append(trajPartitions)
     if progress_bar:
         print()
 
@@ -527,7 +530,8 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
         for parts in partitions:
             if progress_bar:
                 print(f"\rPartition {i + 1}/{len(parts)}", end='')
-            segments += partition2segments(parts)
+            partitionInSegments = partition2segments(parts)
+            segments += partitionInSegments
     else:
         segments = partitions
 
@@ -602,19 +606,39 @@ def DBSCAN(segments, epsilon = 2.0 , minLines = 3):
   
   
 #Based on the original TRACLUS paper      
-def lineSegmentClustering(segments, epsilon = 2.0, minLines =3): 
+def lineSegmentClustering(segments, trajectoryDict, epsilon = 2.0, minLines =3): 
     clusterId = 0
     clusterLabels = {}
     for seg in segments:
         clusterLabels[seg] = None
         
     for seg in segments:
-        if clusterLabels[seg] == -1:
+        if clusterLabels[seg] is None:
             neighbors = neighbourhood(seg, segments)
             if len(neighbors) >= minLines:
                 for n in neighbors:
                     clusterLabels[n] = clusterId
                 Q = neighbors.discard(seg) 
+                expandCluster(Q, segments, clusterId, clusterLabels, epsilon=epsilon, minLines=minLines)
+                clusterId += 1
+            else: clusterLabels[seg] = -1
+    
+    clusterDict = {}
+    for seg in clusterLabels:
+        if clusterDict[clusterLabels[seg]] is None: clusterDict[clusterLabels[seg]] = []
+        clusterDict[clusterLabels[seg]].append(seg)
+      
+    removedClusters = {}
+    
+    for clusterId in clusterDict:
+        numberOfTrajectories = len(set(map(lambda seg : trajectoryDict[seg], clusterDict[clusterId]))) #KIG DEN HER
+        
+        if numberOfTrajectories < minTrajectoriesInCluster:
+            removedClusters[clusterId] = clusterDict.pop(clusterId)
+        
+    return clusterDict, removedClusters
+    
+                
         
         
 def expandCluster(queue, segments, clusterId, clusterLabels, epsilon=2.0, minLines = 3):
@@ -628,3 +652,60 @@ def expandCluster(queue, segments, clusterId, clusterLabels, epsilon=2.0, minLin
                 if clusterLabels[N] is None:
                     queue = queue.union(N)
         queue.remove(M)
+        
+def traclusOrig(trajectories, max_eps=2.0, min_samples=5, directional=True, use_segments=True, clustering_algorithm=OPTICS, mdl_weights=[1,1,1], d_weights=[1,1,1], progress_bar=False):
+    """
+        Trajectory Clustering Algorithm
+    """
+    # Ensure that the trajectories are a list of numpy arrays of shape (n, 2)
+    if not isinstance(trajectories, list):
+        raise TypeError("Trajectories must be a list")
+    for trajectory in trajectories:
+        if not isinstance(trajectory, np.ndarray):
+            raise TypeError("Trajectories must be a list of numpy arrays")
+        elif len(trajectory.shape) != 2:
+            raise ValueError("Trajectories must be a list of numpy arrays of shape (n, 2)")
+        elif trajectory.shape[1] != 2:
+            raise ValueError("Trajectories must be a list of numpy arrays of shape (n, 2)")
+
+    # Partition the trajectories
+    if progress_bar:
+        print("Partitioning trajectories...")
+    partitions = []
+    partitionToTrajId = {}
+    i = 0
+    for trajectory in trajectories:
+        if progress_bar:
+            print(f"\rTrajectory {i + 1}/{len(trajectories)}", end='')
+            i += 1
+        trajPartitions = partition(trajectory, directional=directional, progress_bar=False, w_perpendicular=mdl_weights[0], w_angular=mdl_weights[2])
+        for part in trajPartitions: 
+            partitionToTrajId[part] = trajectory
+        partitions.append(trajPartitions)
+    if progress_bar:
+        print()
+
+    # Get the segments for each partition
+    segments = []
+    segmentToTrajId = {}
+    if use_segments:
+        if progress_bar:
+            print("Converting partitioned trajectories to segments...")
+        i = 0
+        for parts in partitions:
+            if progress_bar:
+                print(f"\rPartition {i + 1}/{len(parts)}", end='')
+            partitionInSegments = partition2segments(parts)
+            for seg in partitionInSegments:
+                segmentToTrajId[seg] = partitionToTrajId[parts]
+            segments += partitionInSegments
+    else:
+        segments = partitions
+        segmentToTrajId = partitionToTrajId
+
+    segments = np.array(segments, order='C')
+
+    clusters, removedClusters = lineSegmentClustering(segments, segmentToTrajId, epsilon=max_eps, minLines=min_samples)
+    
+
+    return partitions, clusters

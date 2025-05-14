@@ -23,7 +23,7 @@ class SimilarityQuery(Query):
         self.y1 = params["y1"]
         self.y2 = params["y2"]
         self.delta = params["delta"]
-        self.scoringSystem = "a"    # Between "c", "a", "c+f", "m"
+        self.scoringSystem = params["scoringSystem"]    # Between "c", "a", "c+f", "m"
                                     # C -> Closest
                                     # A -> All
                                     # c+f -> Closest + Farthest

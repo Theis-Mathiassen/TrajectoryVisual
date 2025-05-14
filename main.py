@@ -27,7 +27,6 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
-# Prepare RTrees for training and testing
 def prepareQueries(config, origRtree, origTrajectories):
     # ---- Create training queries -----
     logger.info('Creating training queries.')

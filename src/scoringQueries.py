@@ -8,7 +8,7 @@ import pickle
 import random
 from src.log import logger
 
-def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None, numerToTrain = None, config = None):
+def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None, numberToTrain = None, config = None):
     if queryWrapper is not None and pickleFiles is None:
         # Extract all queries
         for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
@@ -28,8 +28,8 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
 
                 # Set amount of queries to run
                 amountToRun = len(hits)
-                if numerToTrain is not None:
-                    amountToRun = min(amountToRun, numerToTrain)
+                if numberToTrain is not None:
+                    amountToRun = min(amountToRun, numberToTrain)
                     hits.shuffle() # Randomize
 
                 for i in tqdm(range(amountToRun), desc="Scoring queries"):

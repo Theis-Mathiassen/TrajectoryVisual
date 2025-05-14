@@ -99,10 +99,14 @@ class KnnQuery(Query):
         
         for trajectory in trajectories: 
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
-            minIndex = min(trajectories[trajectory])
+            """minIndex = min(trajectories[trajectory])
             maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]
-            
+            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]"""
+            sortedNodes = sorted(trajectories[trajectory], key=lambda x: x, reverse=False)
+            nodes = [T[trajectory].nodes[nodeid] for nodeid in sortedNodes]
+            trajectories[trajectory] = nodes
+
+
         
         if len(trajectories.keys()) <= self.k:
             return [Trajectory(id, nodes) for id, nodes in trajectories.items()]

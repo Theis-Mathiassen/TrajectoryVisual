@@ -27,8 +27,7 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
-# Prepare RTrees for training and testing
-def prepareRtree(config, origRtree, origTrajectories):
+def prepareQueries(config, origRtree, origTrajectories):
     # ---- Create training queries -----
     logger.info('Creating training queries.')
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit))
@@ -78,9 +77,9 @@ def main(config):
         config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))
     logger.info(f"Number of queries to be created: {config.numberOfEachQuery}")
 
-    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
+    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories)
 
-    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS)
+    giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
 
     simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
     simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
@@ -110,11 +109,11 @@ def gridSearch(allCombinations, args):
             logger.info(f"Cleared cache file: {CACHE_FILE}")
 
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareRtree(config, origRtree, origTrajectories)
+        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories)
 
         ORIGTrajectories = copy.deepcopy(origTrajectories)
 
-        giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS)
+        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
         logger.info('Loading simplified trajectories into Rtree.')

@@ -47,7 +47,7 @@ def setDistributeType(config, query):
     if config is None:
         return
     elif isinstance(query, RangeQuery):
-        query.flag = config["range_flag"]
+        query.flag = config.range_flag
     elif isinstance(query, SimilarityQuery):
-        query.scoringSystem = config["similarity_system"]
+        query.scoringSystem = config.similarity_system
 

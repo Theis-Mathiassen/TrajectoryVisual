@@ -265,9 +265,13 @@ class SimilarityQuery(Query):
                 nodesPerTrajectory[trajectory_id] = []
             nodesPerTrajectory[trajectory_id].append(node_id)
         
+        originNodes = [originNode for originNode in self.trajectory.nodes.compressed() if originNode.t >= self.t1 and originNode.t <= self.t2]
+        originNodesTimestamps = np.array([originNode.t for originNode in originNodes])
+        
         for trajectory_id in nodesPerTrajectory.keys():
             trajectoryNodes = [self.trajectories[trajectory_id].nodes[node_id] for node_id in nodesPerTrajectory[trajectory_id]]
-            originNodes = [originNode for originNode in self.trajectory.nodes.compressed() if any(originNode.t == trajectoryNode.t for trajectoryNode in trajectoryNodes)]
+            #originNodes = [originNode for originNode in self.trajectory.nodes.compressed() if any(originNode.t == trajectoryNode.t for trajectoryNode in trajectoryNodes)]
+            matchedOriginNodesIdx = [np.argmin(originNodesTimestamps - self.trajectories[trajectory_id].nodes[node_id].t) for node_id in nodesPerTrajectory[trajectory_id]]
             #originNodes = sorted(originNodes, key = lambda node : node.t)
             nodeDistances = []
             # Det her er langsommere men mere smooth. Der er stensikkert en måde at speedy det godt op med numpy.
@@ -278,11 +282,13 @@ class SimilarityQuery(Query):
             for node_id in nodesPerTrajectory[trajectory_id]:
                 node = self.trajectories[trajectory_id].nodes.data[node_id]
                 point1 = np.array((node.x, node.y))
-                for originNode in originNodes:
-                    if originNode.t == node.t:
+                for originNodeid in matchedOriginNodesIdx:
+                    point2 = np.array((originNodes[originNodeid].x, originNodes[originNodeid].y))
+                    nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
+                    """if originNode.t == node.t:
                         point2 = np.array((originNode.x, originNode.y))
                         nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
-                        break 
+                        break """
             nodeDistances = sorted(nodeDistances, key = lambda node : node[1])
             nodesPerTrajectory[trajectory_id] = nodeDistances
             

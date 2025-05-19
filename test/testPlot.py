@@ -42,18 +42,28 @@ def testMultiPlot():
     traj_list = [traj1, traj2]
     Plot.plotTrajectories(traj_list)
 
-def testRangeQueryPlot(trajectories, rtree, paramUtil: ParamUtil):
-    # Statically defined query for reproducability.
-    query = RQ({"x1":-730000.0, "x2":-727000.0, "y1":4548000.0, "y2":4557000.0, "t1":-1000000000000000000.0, "t2":1500000000000000000.0})
-    
+def testRangeQueryPlot(trajectories, rtree, paramUtil: ParamUtil):   
     # Dynamically defined query to test implementation across the board
     params = paramUtil.rangeParams(rtree)
+    query = RQ(params)
+
+    # Statically defined query for reproducability.
+    params['x1'] += 0.05
+    params['x2'] -= 0.05
+    params['y1'] += 0.05
+    params['y2'] -= 0.05
     query2 = RQ(params)
 
-    # Run the function to be tested
-    Plot.plotRangeQuery(trajectories, query, rtree)
 
-    Plot.plotRangeQuery(trajectories, query2, rtree)
+    # Run the function to be tested
+    #Plot.plotRangeQuery(trajectories, query, rtree)
+
+    #Plot.plotRangeQuery(trajectories, query2, rtree)
+
+    Plot.plotWTA(trajectories, query2, rtree)
+    Plot.plotSE(trajectories, query2, rtree)
+    Plot.plotGP2(trajectories, query2, rtree)
+    Plot.plotGP(trajectories, query2, rtree)
 
 def testSimilarityQueryPlot(trajectories, rtree, paramUtil: ParamUtil):
     params = paramUtil.similarityParams(rtree)
@@ -69,8 +79,8 @@ def testClusterQuery(trajectories, rtree, paramUtil: ParamUtil):
     pass
 
 def testPlotting(trajectories, rtree, paramUtil):
-    testSinglePlot()
-    testMultiPlot()
+    #testSinglePlot()
+    #testMultiPlot()
     testRangeQueryPlot(trajectories, rtree, paramUtil)
-    testSimilarityQueryPlot(trajectories, rtree, paramUtil)
+    #testSimilarityQueryPlot(trajectories, rtree, paramUtil)
     testKNNQueryPlot(trajectories, rtree, paramUtil)

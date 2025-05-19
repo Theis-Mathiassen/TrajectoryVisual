@@ -18,13 +18,13 @@ sys.path.append(full_path_test)
 
 # All remaining imports
 import load
-from Util import ParamUtil
+from src.Util import ParamUtil
 import testNode as tP
 import testTrajectory as tT
 import testPlot as tPP
 
 def testMain():
-    load.load_Tdrive()
+    # load.load_Tdrive()
     Rtree_, Trajectories = load.build_Rtree("trimmed_small_train.csv", "simplified_Tdrive")
 
     # Initialize params

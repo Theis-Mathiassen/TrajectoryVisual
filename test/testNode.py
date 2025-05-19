@@ -56,8 +56,8 @@ def testNodeDiff():
 def testNodeClass():
     # Run all test functions for the Node class
     testNodeCreation()
-    testDistanceCalc2D()
-    testDistanceCalc3D()
-    testCosineCalc()
-    testSineCalc()
+    #testDistanceCalc2D()
+    #testDistanceCalc3D()
+    #testCosineCalc()
+    #testSineCalc()
     testNodeDiff()

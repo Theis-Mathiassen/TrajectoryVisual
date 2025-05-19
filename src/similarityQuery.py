@@ -51,17 +51,18 @@ class SimilarityQuery(Query):
                 trajectory_nodes[trajectory_id] = []
             trajectory_nodes[trajectory_id].append(node_id)
         
-        pops = []   
+        """pops = []   
         for trajectory_id, nodes in trajectory_nodes.items():
             if max(nodes) - min(nodes) != len(nodes) - 1:
                 pops.append(trajectory_id)      
         
         for trajectory_id in pops:
-            trajectory_nodes.pop(trajectory_id)
+            trajectory_nodes.pop(trajectory_id)"""
         
         hits = []
         
         T = trajectories
+        originTrajNodes = T[self.originId].nodes.compressed()
         # For each trajectory, find or interpolate a point at time t
         for trajectory_id, node_ids in trajectory_nodes.items():
             trajectory = T[trajectory_id]
@@ -73,7 +74,7 @@ class SimilarityQuery(Query):
             
             withinSentinel = True
             
-            for node in self.trajectory.nodes.data:
+            for node in originTrajNodes:
                 point1 = np.array((node.x, node.y))
                 t = node.t
                 # find bracketing nodes (two nodes with timestamps that surround t)
@@ -271,7 +272,17 @@ class SimilarityQuery(Query):
         for trajectory_id in nodesPerTrajectory.keys():
             trajectoryNodes = [self.trajectories[trajectory_id].nodes[node_id] for node_id in nodesPerTrajectory[trajectory_id]]
             #originNodes = [originNode for originNode in self.trajectory.nodes.compressed() if any(originNode.t == trajectoryNode.t for trajectoryNode in trajectoryNodes)]
-            matchedOriginNodesIdx = [np.argmin(originNodesTimestamps - self.trajectories[trajectory_id].nodes[node_id].t) for node_id in nodesPerTrajectory[trajectory_id]]
+            matchedOriginNodesIdx = [] #[np.argmin(originNodesTimestamps - self.trajectories[trajectory_id].nodes[node_id].t) for node_id in nodesPerTrajectory[trajectory_id]]
+            
+            for nodeIdx in nodesPerTrajectory[trajectory_id]:
+                otherTimestamp = self.trajectories[trajectory_id].nodes[nodeIdx].t
+                y = np.abs(originNodesTimestamps - otherTimestamp)
+                x = np.argmin(y)
+                matchedOriginNodesIdx.append(x)
+            
+            """for idx in range(len(nodesPerTrajectory[trajectory_id])):
+                matchedOriginNodesIdx[idx] = np.argmin(originNodesTimestamps - self.trajectories[trajectory_id].nodes[nodesPerTrajectory[idx]].t)"""
+                
             #originNodes = sorted(originNodes, key = lambda node : node.t)
             nodeDistances = []
             # Det her er langsommere men mere smooth. Der er stensikkert en måde at speedy det godt op med numpy.

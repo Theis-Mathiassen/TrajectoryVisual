@@ -35,7 +35,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
     # ---- 
     avgCoordinateValues = None
 
-    if useGaussian: # TODO Update later to not do this when using pickle hits
+    if useGaussian: 
         avgCoordinateValues = getAverageNodeCoordinates(origTrajectories)
 
 
@@ -206,8 +206,8 @@ if __name__ == "__main__":
     config = Configuration(
         compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
         DB_size=100,
-        trainTestSplit=0.5,
-        numberOfEachQuery=10,
+        trainTestSplit=0,
+        numberOfEachQuery=100,
         QueriesPerTrajectory=None,
         verbose=True,
         knn_method=args.knn,

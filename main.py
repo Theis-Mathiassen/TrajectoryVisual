@@ -17,6 +17,8 @@ import os
 import traceback # traceback for information on python stack traces
 import argparse
 
+import numpy as np
+
 sys.path.append("src/")
 output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -28,7 +30,44 @@ PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pk
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
 # Prepare RTrees for training and testing
-def prepareQueries(config, origRtree, origTrajectories):
+def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
+
+    # ---- 
+    if useGaussian: # Update later to not do this when using pickle hits
+        logger.info("Using Gaussian distribution for creating queries instead of uniform distribution.")
+
+        # Find average location
+        totalNodes = 0
+        avgx = 0
+        avgy = 0
+        avgt = 0
+        for traj in tqdm(origTrajectories.values(), desc="Finding average location of nodes"):
+            nodes = traj.nodes.compressed()
+            totalNodes += len(nodes)
+            for node in nodes:
+                avgx += node.x
+                avgy += node.y
+                avgt += node.t
+
+        avgx /= totalNodes
+        avgy /= totalNodes
+        avgt /= totalNodes
+
+        sigma = 0.25
+
+        
+
+        my = 0.5
+
+        np.random.normal([avgx, avgy, avgt], sigma)	
+
+
+
+            
+
+        # ML SIMp config: Gaussian distribution (with parameters 𝜇 = 0.5 and 𝜎 = 0.25), note that they 
+
+
     # ---- Create training queries -----
     logger.info('Creating training queries.')
     origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit))

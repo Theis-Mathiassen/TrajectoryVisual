@@ -1,5 +1,6 @@
 .venv
 datasets/
+src/utils/plots
 *.md
 *.dat
 *.idx

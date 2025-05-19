@@ -10,7 +10,7 @@ import random
 from rtree import index
 
 class QueryWrapper:
-    def __init__(self, numberOfEachQuery, random = True, trajectories = None, useGaussian = False, avgCoordinateValues = None, sigma = None, rtree: index.Index = None):
+    def __init__(self, numberOfEachQuery, random = True, trajectories = None, useGaussian = False, avgCoordinateValues = None, rtree: index.Index = None, sigma = 500):
         self.numberOfEachQuery = numberOfEachQuery
         self.RangeQueries = []#list[RangeQuery]
         self.KNNQueries = []#list[KnnQuery]
@@ -21,6 +21,7 @@ class QueryWrapper:
         self.useGaussian = useGaussian
         self.avgCoordinateValues = avgCoordinateValues
         self.rtree = rtree
+        self.sigma = sigma
         
     def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1):
         if self.random:
@@ -30,7 +31,7 @@ class QueryWrapper:
                 self.RangeQueries.append(RangeQuery(params))
         elif self.useGaussian:
             for query in range(self.numberOfEachQuery):
-                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                randomPoint = (np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3)))[0]
                 params = paramUtil.gaussianRangeParams(randomPoint)
                 params["flag"] = flag
                 self.RangeQueries.append(RangeQuery(params))
@@ -48,7 +49,7 @@ class QueryWrapper:
                 self.KNNQueries.append(KnnQuery(params))
         elif self.useGaussian:
             for query in range(self.numberOfEachQuery):
-                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                randomPoint = (np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3)))[0]
                 (trajectory_id, node_id) = self._getNearestNode(randomPoint)          
                 params = paramUtil.knnParams(rtree, index=trajectory_id, nodeIndex=node_id)
                 params["distanceMethod"] = distance_method
@@ -67,7 +68,7 @@ class QueryWrapper:
                 self.SimilarityQueries.append(SimilarityQuery(params))
         elif self.useGaussian:
             for query in range(self.numberOfEachQuery):
-                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                randomPoint = (np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3)))[0]
                 (trajectory_id, node_id) = self._getNearestNode(randomPoint)          
                 params = paramUtil.similarityParams(rtree, index=trajectory_id, nodeIndex=node_id)
                 params["scoringSystem"] = scoring_system

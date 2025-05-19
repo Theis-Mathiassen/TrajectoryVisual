@@ -40,7 +40,7 @@ def checkRtreeIndexEmpty(filename):
             os.remove(filename + ".index")
             os.remove(filename + ".data")
 
-DEBUG = False
+DEBUG = True
 
 #Function to load the Taxi dataset, convert columns and trim it. 
 #TO DO: 

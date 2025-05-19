@@ -346,11 +346,11 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
     """
 
     # If no nodes, return infinity
-    if len(originTrajectory.nodes.compressed()) == 0 or len(otherTrajectory.nodes.compressed()) == 0:
+    if len(originTrajectory.nodes.compressed()) == 0 or len(otherTrajectory.nodes) == 0:
         return float('inf')
 
     originNodes = originTrajectory.nodes.compressed()
-    otherNodes = otherTrajectory.nodes.compressed()
+    otherNodes = otherTrajectory.nodes
 
     # if len(originNodes) == 0 or len(otherNodes) == 0:
     #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors

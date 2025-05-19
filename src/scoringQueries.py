@@ -14,7 +14,7 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
         for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
             logger.info('Gives scores for query %s', type(query))
             # Get result of query
-            result = query.run(Rtree)
+            result = query.run(Rtree, trajectories)
             # Distribute points
             if not isinstance(query, ClusterQuery):
                 query.distribute(trajectories, result)
@@ -30,7 +30,8 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
                 amountToRun = len(hits)
                 if numberToTrain is not None:
                     amountToRun = min(amountToRun, numberToTrain)
-                    hits.shuffle() # Randomize
+                    random.shuffle(hits)
+                    #hits.shuffle() # Randomize
 
                 for i in tqdm(range(amountToRun), desc="Scoring queries"):
                     query, result = hits[i]

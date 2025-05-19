@@ -62,7 +62,16 @@ class SimilarityQuery(Query):
         hits = []
         
         T = trajectories
-        originTrajNodes = T[self.originId].nodes.compressed()
+        originTrajNodesCompressed = T[self.originId].nodes.compressed()
+        
+        originTrajNodes = [node for node in originTrajNodesCompressed if node.t >= self.t1 and node.t <= self.t2]
+        
+        if len(originTrajNodes) < 2:
+            originNodesTimestamps = np.array([originNode.t for originNode in originTrajNodesCompressed])
+            originTrajNodes.append(originTrajNodesCompressed[np.abs(originNodesTimestamps - self.t1).argmin()])
+            originTrajNodes.append(originTrajNodesCompressed[np.abs(originNodesTimestamps - self.t2).argmin()])
+            originTrajNodes.sort(key=lambda node: node.t)
+        
         # For each trajectory, find or interpolate a point at time t
         for trajectory_id, node_ids in trajectory_nodes.items():
             trajectory = T[trajectory_id]

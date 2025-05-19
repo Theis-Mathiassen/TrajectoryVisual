@@ -5,8 +5,12 @@ from src.clusterQuery import ClusterQuery
 from src.knnQuery import KnnQuery
 from src.similarityQuery import SimilarityQuery
 
+import numpy as np
+import random
+from rtree import index
+
 class QueryWrapper:
-    def __init__(self, numberOfEachQuery, random = True, trajectories = None):
+    def __init__(self, numberOfEachQuery, random = True, trajectories = None, useGaussian = False, avgCoordinateValues = None, sigma = None, rtree: index.Index = None):
         self.numberOfEachQuery = numberOfEachQuery
         self.RangeQueries = []#list[RangeQuery]
         self.KNNQueries = []#list[KnnQuery]
@@ -14,11 +18,20 @@ class QueryWrapper:
         self.ClusterQueries = [] #list[ClusterQuery]
         self.random = random
         self.trajectories = trajectories
+        self.useGaussian = useGaussian
+        self.avgCoordinateValues = avgCoordinateValues
+        self.rtree = rtree
         
     def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1):
         if self.random:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.rangeParams(rtree)
+                params["flag"] = flag
+                self.RangeQueries.append(RangeQuery(params))
+        elif self.useGaussian:
+            for query in range(self.numberOfEachQuery):
+                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                params = paramUtil.gaussianRangeParams(randomPoint)
                 params["flag"] = flag
                 self.RangeQueries.append(RangeQuery(params))
         else:
@@ -33,6 +46,13 @@ class QueryWrapper:
                 params = paramUtil.knnParams(rtree)
                 params["distanceMethod"] = distance_method
                 self.KNNQueries.append(KnnQuery(params))
+        elif self.useGaussian:
+            for query in range(self.numberOfEachQuery):
+                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                (trajectory_id, node_id) = self._getNearestNode(randomPoint)          
+                params = paramUtil.knnParams(rtree, index=trajectory_id, nodeIndex=node_id)
+                params["distanceMethod"] = distance_method
+                self.KNNQueries.append(KnnQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.knnParams(rtree, index=trajectory.id)
@@ -43,6 +63,13 @@ class QueryWrapper:
         if self.random:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.similarityParams(rtree)
+                params["scoringSystem"] = scoring_system
+                self.SimilarityQueries.append(SimilarityQuery(params))
+        elif self.useGaussian:
+            for query in range(self.numberOfEachQuery):
+                randomPoint = np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3))
+                (trajectory_id, node_id) = self._getNearestNode(randomPoint)          
+                params = paramUtil.similarityParams(rtree, index=trajectory_id, nodeIndex=node_id)
                 params["scoringSystem"] = scoring_system
                 self.SimilarityQueries.append(SimilarityQuery(params))
         else:
@@ -56,3 +83,20 @@ class QueryWrapper:
             
     def getQueries(self):
         return [*self.RangeQueries, *self.SimilarityQueries, *self.KNNQueries, *self.ClusterQueries]
+    
+    def _getNearestNode(self, point):
+        xcord = point[0]
+        ycord = point[1]
+        t = point[2]
+        nearestList = list(self.rtree.nearest((xcord, ycord, t, xcord, ycord, t), 1, objects="raw")) # If multiple nodes are equal distance they are all returned, despite only getting top 1
+
+        matches = len(nearestList)
+        if matches == 0:
+            raise Exception("No nearest node found")
+        elif matches == 1:
+            return nearestList[0]
+        
+        # The list is returned ordered by node index, so we should shuffle for fairness
+        return random.choice(nearestList)
+
+        

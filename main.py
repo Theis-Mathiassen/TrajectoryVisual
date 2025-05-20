@@ -36,7 +36,10 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
     avgCoordinateValues = None
 
     if useGaussian: 
-        avgCoordinateValues = getAverageNodeCoordinates(origTrajectories)
+        avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
+        stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)
+        print(avgCoordinatesValue)
+        print(stdCoordinatesValue)
 
 
     # ---- Create training queries -----
@@ -54,7 +57,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
 
     # ---- Create evaluation queries -----
     logger.info('Creating evaluation queries.')
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config.numberOfEachQuery - config.numberOfEachQuery * config.trainTestSplit))
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config.numberOfEachQuery - config.numberOfEachQuery * config.trainTestSplit), rtree=origRtree)
     origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')
@@ -91,7 +94,37 @@ def getAverageNodeCoordinates(trajectories):
 
     return avgCoordinateValues
 
+def getStandardDerivationNodeCoordinates(trajectories, averages):
+    logger.info("Using Gaussian distribution for creating queries instead of uniform distribution.")
 
+    # Find average location
+    totalNodes = 0
+    stdx = 0
+    stdy = 0
+    stdt = 0
+    for traj in tqdm(trajectories.values(), desc="Finding squared difference of nodes with mean"):
+        nodes = traj.nodes.compressed()
+        nodesx = np.array([node.x for node in nodes])
+        nodesy = np.array([node.y for node in nodes])
+        nodest = np.array([node.t for node in nodes])
+        totalNodes += len(nodes)
+        stdx += np.sum((nodesx - averages[0]) ** 2)
+        stdy += np.sum((nodesy - averages[1]) ** 2)
+        stdt += np.sum((nodest - averages[2]) ** 2)
+        
+        """for node in nodes:
+            avgx += node.x
+            avgy += node.y
+            avgt += node.t"""
+
+    stdx /= totalNodes
+    stdy /= totalNodes
+    stdt /= totalNodes
+
+
+    stdCoordinateValues = np.sqrt([stdx, stdy, stdt])
+
+    return stdCoordinateValues
 #### main
 def main(config):
     if os.path.exists(CACHE_FILE):

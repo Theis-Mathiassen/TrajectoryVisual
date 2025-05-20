@@ -7,6 +7,8 @@ from tqdm import tqdm
 import pickle
 import random
 from src.log import logger
+import pickle
+import random
 
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None, numberToTrain = None, config = None):
     if queryWrapper is not None and pickleFiles is None:

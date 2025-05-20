@@ -2,7 +2,7 @@
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
+from src.load import build_Rtree, get_geolife, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.clusterQuery import ClusterQuery
 #import logging
@@ -22,25 +22,24 @@ import traceback # traceback for information on python stack traces
 sys.path.append("src/")
 
 CSVNAME = 'first_10000_train'
-DATABASENAME = 'original_Taxi'
+DATABASENAME = 'geolife'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-LOG_FILENAME = 'script_error_log.log' # Define a log file name
-PICKLE_HITS = ['RangeQueryHits.pkl']
 
 USE_GAUSSIAN = True
 
 #### main
 def main(config):
+    logger.info('Using guassian: '+ USE_GAUSSIAN)
 
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
 
     #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
 
          
-    logger.info('Starting get_Tdrive.')
-    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-    logger.info('Completed get_Tdrive.')
+    logger.info('Starting load for: ' + DATABASENAME)
+    origRtree, origTrajectories = get_geolife(filename=DATABASENAME)
     logger.info('Copying trajectories.')
+    
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
@@ -115,7 +114,7 @@ def main(config):
 
     for queryType in dictQueryResults.keys():    
         try:
-            with open(os.path.join(os.getcwd(), gaussianExtra + str(queryType) + 'Hits.pkl'), 'wb') as file:
+            with open(os.path.join(os.getcwd(), gaussianExtra + str(queryType) + 'Hits_geolife.pkl'), 'wb') as file:
                 pickle.dump(dictQueryResults[queryType], file)
                 file.close()
         except Exception as e:

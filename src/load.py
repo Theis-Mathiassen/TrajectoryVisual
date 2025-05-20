@@ -145,8 +145,9 @@ def get_geolife(filename=""):
     csvFilename = filename + '.csv'
     path = os.path.join(cwd, 'datasets', csvFilename)
     if os.path.exists(path):
-        logger.info("Geolife already loaded to CSV, skipping load from folder...")
+        logger.info("Geolife already loaded to CSV, skipping load from folder")
     else:
+        logger.info("Could not fin Geolife as CSV, Creating it")
         srcdir = os.path.join('datasets', 'Geolife', 'Data')
         load_Geolife(src_dir=srcdir, filename=filename)
 

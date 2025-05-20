@@ -351,13 +351,11 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes
-    if (isinstance(otherNodes, np.ma.MaskedArray)):   # If masked / compressed
-        otherNodes = otherNodes.compressed()
-        print("Detected masked array")
+    #if (isinstance(otherNodes, np.ma.MaskedArray)):   # If masked / compressed
+    #examplePoint = otherNodes[0]
 
 
-    # if len(originNodes) == 0 or len(otherNodes) == 0:
-    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
+    otherNodes = [x for x in otherNodes if x is not np.ma.masked]
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
     npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])

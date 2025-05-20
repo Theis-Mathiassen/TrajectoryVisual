@@ -103,7 +103,7 @@ def main(config):
     logger.info('Completed get_Tdrive.')
 
     logger.info('Copying trajectories.')
-    ORIGTrajectories = {
+    uncompressedTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
     }
@@ -122,7 +122,7 @@ def main(config):
     simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
     compressionRateScores = list()
-    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories), 'simplificationError' : GetSimplificationError(uncompressedTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
     print(compressionRateScores[-1]['f1Scores'])
 
     simpRtree.close()
@@ -150,7 +150,7 @@ def gridSearch(allCombinations, args):
         origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
         #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
-        ORIGTrajectories = copy.deepcopy(origTrajectories)
+        uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
         #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
         giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
@@ -159,8 +159,8 @@ def gridSearch(allCombinations, args):
         logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories)
-        simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
+        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
+        simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
 
         configScore.append({
             'cr': config.compression_rate,

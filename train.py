@@ -16,7 +16,6 @@ import math
 import argparse
 from tqdm import tqdm
 import pandas as pd 
-import numpy as np
 import logging
 import traceback # traceback for information on python stack traces
 
@@ -34,19 +33,15 @@ USE_GAUSSIAN = True
 def main(config):
     logger.info('Using guassian: '+ str(USE_GAUSSIAN))
 
-    #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
-
-    #origRtree, origTrajectories = build_Rtree(CSVNAME + '_trimmed.csv', filename=DATABASENAME)
-
-         
     logger.info('Starting load for: ' + DATABASENAME)
     origRtree, origTrajectories = get_geolife(filename=DATABASENAME)
+    logger.info('Completed loading: ' + DATABASENAME)
+    """     
     logger.info('Copying trajectories.')
-    
     ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
-    } 
+    } """
 
     ## Setup data collection environment, that is evaluation after each epoch
 
@@ -58,16 +53,13 @@ def main(config):
     stdCoordinatesValue = None
     if USE_GAUSSIAN:
         avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
-        stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)
-        print(avgCoordinatesValue)
-        print(stdCoordinatesValue)
 
 
 
     # ---- Create training queries -----
     logger.info('Creating training queries.')
 
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories, useGaussian=USE_GAUSSIAN, avgCoordinateValues=avgCoordinatesValue, rtree=origRtree, sigma=stdCoordinatesValue)
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories, useGaussian=USE_GAUSSIAN, avgCoordinateValues=avgCoordinatesValue, rtree=origRtree, sigma=500)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
     # Create the specified query type based on command line argument
@@ -152,38 +144,6 @@ def getAverageNodeCoordinates(trajectories):
 
     return avgCoordinateValues
 
-
-def getStandardDerivationNodeCoordinates(trajectories, averages):
-    logger.info("Using Gaussian distribution for creating queries instead of uniform distribution.")
-
-    # Find average location
-    totalNodes = 0
-    stdx = 0
-    stdy = 0
-    stdt = 0
-    for traj in tqdm(trajectories.values(), desc="Finding squared difference of nodes with mean"):
-        nodes = traj.nodes.compressed()
-        nodesx = np.array([node.x for node in nodes])
-        nodesy = np.array([node.y for node in nodes])
-        nodest = np.array([node.t for node in nodes])
-        totalNodes += len(nodes)
-        stdx += np.sum((nodesx - averages[0]) ** 2)
-        stdy += np.sum((nodesy - averages[1]) ** 2)
-        stdt += np.sum((nodest - averages[2]) ** 2)
-        
-        """for node in nodes:
-            avgx += node.x
-            avgy += node.y
-            avgt += node.t"""
-
-    stdx /= totalNodes
-    stdy /= totalNodes
-    stdt /= totalNodes
-
-
-    stdCoordinateValues = np.sqrt([stdx, stdy, stdt])
-
-    return stdCoordinateValues
 
 if __name__ == "__main__":
     logger.info("---------------------------    Train.py Main Start    ---------------------------")

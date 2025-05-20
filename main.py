@@ -41,7 +41,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
 
     # ---- Create training queries -----
     logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, sigma=500, rtree=origRtree)
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=500)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')
@@ -147,13 +147,13 @@ def gridSearch(allCombinations, args):
 
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
         
-        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
+        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
         ORIGTrajectories = copy.deepcopy(origTrajectories)
 
-        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
-        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
+        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
+        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
         logger.info('Loading simplified trajectories into Rtree.')
@@ -161,7 +161,7 @@ def gridSearch(allCombinations, args):
 
         f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories)
         simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
-        
+
         configScore.append({
             'cr': config.compression_rate,
             'f1Scores': f1score,
@@ -206,8 +206,8 @@ if __name__ == "__main__":
     config = Configuration(
         compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
         DB_size=100,
-        trainTestSplit=0,
-        numberOfEachQuery=100,
+        trainTestSplit=0.5,
+        numberOfEachQuery=10,
         QueriesPerTrajectory=None,
         verbose=True,
         knn_method=args.knn,

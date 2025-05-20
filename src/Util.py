@@ -351,6 +351,10 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes
+    if (isinstance(otherNodes, np.ma.MaskedArray)):   # If masked / compressed
+        otherNodes = otherNodes.compressed()
+        print("Detected masked array")
+
 
     # if len(originNodes) == 0 or len(otherNodes) == 0:
     #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
@@ -413,7 +417,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     We also factor the alpha weight in
     """
     origin_nodes = originTrajectory.nodes.compressed()
-    other_nodes = otherTrajectory.nodes.compressed()
+    other_nodes = otherTrajectory.nodes
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
     npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
@@ -425,7 +429,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
             if dist < 1: # Set distance to a minimum of 1
                 dist = 1
 
-            otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
+            otherTrajectory.nodes[closestNodeIndex].score += weight / dist
 
            
 def get_min_dist_node(origin_node, nodes, func):

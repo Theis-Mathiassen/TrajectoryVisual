@@ -22,6 +22,7 @@ class QueryWrapper:
         self.avgCoordinateValues = avgCoordinateValues
         self.rtree = rtree
         self.sigma = sigma
+        self.bounds = rtree.bounds
         
     def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1):
         if self.random:
@@ -32,6 +33,9 @@ class QueryWrapper:
         elif self.useGaussian:
             for query in range(self.numberOfEachQuery):
                 randomPoint = (np.random.normal(self.avgCoordinateValues, self.sigma, size=(1, 3)))[0]
+                randomPoint[0] = np.clip(randomPoint[0], self.bounds[0], self.bounds[3])
+                randomPoint[1] = np.clip(randomPoint[1], self.bounds[1], self.bounds[4])
+                randomPoint[2] = np.clip(randomPoint[2], self.bounds[2], self.bounds[5])
                 params = paramUtil.gaussianRangeParams(randomPoint)
                 params["flag"] = flag
                 self.RangeQueries.append(RangeQuery(params))
@@ -86,9 +90,9 @@ class QueryWrapper:
         return [*self.RangeQueries, *self.SimilarityQueries, *self.KNNQueries, *self.ClusterQueries]
     
     def _getNearestNode(self, point):
-        xcord = point[0]
-        ycord = point[1]
-        t = point[2]
+        xcord = np.clip(point[0], self.bounds[0], self.bounds[3])
+        ycord = np.clip(point[1], self.bounds[1], self.bounds[4])
+        t = np.clip(point[2], self.bounds[2], self.bounds[5])
         nearestList = list(self.rtree.nearest((xcord, ycord, t, xcord, ycord, t), 1, objects="raw")) # If multiple nodes are equal distance they are all returned, despite only getting top 1
 
         matches = len(nearestList)

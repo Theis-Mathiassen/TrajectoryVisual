@@ -26,6 +26,8 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
 PICKLE_HITS = ['RangeQueryHits.pkl']
 
+USE_GAUSSIAN = True
+
 #### main
 def main(config):
 
@@ -49,9 +51,16 @@ def main(config):
     if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
 
+    avgCoordinatesValue = None
+    if USE_GAUSSIAN:
+        avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
+
+
+
     # ---- Create training queries -----
     logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories)
+
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(config["numberOfEachQuery"], random=False, trajectories=origTrajectories, useGaussian=USE_GAUSSIAN, avgCoordinateValues=avgCoordinatesValue, rtree=origRtree, sigma=500)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
     
     # Create the specified query type based on command line argument
@@ -81,7 +90,7 @@ def main(config):
     for Query in tqdm(origRtreeQueriesTraining.getQueries(), desc="Running queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
         # Get result of query
         logger.info('Running query %s', type(Query))
-        result = Query.run(origRtree)
+        result = Query.run(origRtree, origTrajectories)
         # Distribute points
         queryResults.append((Query, result))
     #print("Done!")
@@ -91,12 +100,18 @@ def main(config):
     for q, r in queryResults:
         if str(q) not in dictQueryResults:
             dictQueryResults[str(q)] = []
-        dictQueryResults[str(q)].append((q,r))
+        dictQueryResults[str(q)].append((q ,r))
     
     logger.info('Saving results to pickle files.')
+
+    gaussianExtra = ""
+    if USE_GAUSSIAN:
+        gaussianExtra = "Gaussian"
+
+
     for queryType in dictQueryResults.keys():    
         try:
-            with open(os.path.join(os.getcwd(), str(queryType) + 'Hits.pkl'), 'wb') as file:
+            with open(os.path.join(os.getcwd(), gaussianExtra + str(queryType) + 'Hits.pkl'), 'wb') as file:
                 pickle.dump(dictQueryResults[queryType], file)
                 file.close()
         except Exception as e:
@@ -106,22 +121,44 @@ def main(config):
     pass
 
 
+def getAverageNodeCoordinates(trajectories):
+    logger.info("Using Gaussian distribution for creating queries instead of uniform distribution.")
+
+    # Find average location
+    totalNodes = 0
+    avgx = 0
+    avgy = 0
+    avgt = 0
+    for traj in tqdm(trajectories.values(), desc="Finding average location of nodes"):
+        nodes = traj.nodes.compressed()
+        totalNodes += len(nodes)
+        for node in nodes:
+            avgx += node.x
+            avgy += node.y
+            avgt += node.t
+
+    avgx /= totalNodes
+    avgy /= totalNodes
+    avgt /= totalNodes
+
+    avgCoordinateValues = [avgx, avgy, avgt]
+
+    return avgCoordinateValues
 
 
 if __name__ == "__main__":
-    logger.info("---------------------------    Main Start    ---------------------------")
+    logger.info("---------------------------    Train.py Main Start    ---------------------------")
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(description='Run trajectory queries with specified query type')
     parser.add_argument('query_type', type=str, help='Query type to run (range, similarity, knn, or cluster)')
     args = parser.parse_args()
     
     config = {}
-    config["epochs"] = 100                  # Number of epochs to simplify the trajectory database
-    config["compression_rate"] = [0.8, 0.9, 0.95, 0.975, 0.99]      # Compression rate of the trajectory database
+    config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
     config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 5     # Number of queries used to simplify database    
+    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
     config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
     config["query_type"] = args.query_type  # Query type from command line args
 
@@ -150,3 +187,5 @@ if __name__ == "__main__":
         if os.path.exists(fileString):
             os.remove(fileString)
             
+
+

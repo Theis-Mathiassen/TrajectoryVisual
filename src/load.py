@@ -20,7 +20,17 @@ from src.Filter import Filter
 from src.log import logger
 
 CHUNKSIZE = 10**5
-PAGESIZE = 16000
+
+
+# Setup properties
+p = index.Property()
+p.dimension = 3
+p.dat_extension = 'data'
+p.idx_extension = 'index'
+p.leaf_capacity = 2000
+p.fill_factor = 0.9
+p.pagesize = 16000
+p.storage = 1
 
 # Handle frequent problem that occurs with corrupted load
 def checkRtreeIndexEmpty(filename):
@@ -130,6 +140,29 @@ def get_Tdrive(filename="") :
 
     return Rtree, Trajectories
 
+def get_geolife(filename=""):
+    cwd = os.getcwd()
+    csvFilename = filename + '.csv'
+    path = os.path.join(cwd, 'datasets', csvFilename)
+    if os.path.exists(path):
+        logger.info("Geolife already loaded to CSV, skipping load from folder...")
+    else:
+        srcdir = os.path.join('datasets', 'Geolife', 'Data')
+        load_Geolife(src_dir=srcdir, filename=filename)
+
+    
+    checkRtreeIndexEmpty(filename=filename)
+
+    logger.info("Loading and creating Geolife dataset")
+    Rtree, Trajectories = load_geolife_Rtree(filename=filename)
+    logger.info("Loading and creating Geolife dataset")
+
+
+    # If Rtree does not match Trajectories, delete Rtree and create a new one
+    Rtree = checkCurrentRtreeMatches(Rtree, Trajectories, filename)
+
+
+    return Rtree, Trajectories
 
 def load_Tdrive(src : str, filename="") : 
 
@@ -204,7 +237,41 @@ def jsonLoadsNumpy(polylineString) :
         return []  # Return empty list instead of crashing
 
 
+def load_geolife_Rtree(filename=""):
+    dataset = filename + '.csv'
+    tqdm.pandas()
+    cwd = os.getcwd()
+    path = os.path.join(cwd, 'datasets', dataset)
 
+    logger.info("Reading csv into dataframe.")
+    df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
+    
+    polylines = np.array(df['POLYLINE'])
+    trip_ids = np.array(df['TRIP_ID'])
+    
+    logger.info("Loading trajecories into rtree.")
+    if os.path.exists(filename + '.index'):
+        Rtree_ = index.Index(filename, properties=p)
+    else:
+        Rtree_ = index.Index(filename, GeolifeDataStream(polylines, trip_ids), properties=p)
+    
+    logger.info("Creating trajectories.")
+    c = 0
+    delete_rec = {}
+    Trajectories = {}
+    length = len(trip_ids)
+    for i in tqdm(range(length)):
+        c = 0
+        nodes = []
+        for x, y, t in polylines[i]:
+            nodes.append(Node(c, x, y, t))
+            c += 1
+        Trajectories.update({int(trip_ids[i]) : Trajectory(int(trip_ids[i]), ma.copy(nodes))})        
+    
+        
+    return Rtree_, Trajectories
+    
+    
 
 def load_Tdrive_Rtree(filename=""):
     dataset = "TDrive.csv"
@@ -296,14 +363,8 @@ def load_Tdrive_Rtree(filename=""):
     #     debugLoad(df)
 
 
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    p.storage = 1
+    
+    
     #p.filename = filename
 
     """ if filename=='' :
@@ -362,13 +423,6 @@ def build_Rtree(dataset, filename='') :
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
     #p.filename = filename
     
     polylines = np.array(df['POLYLINE'])
@@ -416,7 +470,7 @@ def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None,
         target_area: Tuple of (min_lat, max_lat, min_lon, max_lon) to filter trajectories by geographic area
     """
     cwd = os.getcwd()
-    base_path = os.path.join(cwd, 'src', src_dir)
+    base_path = os.path.join(cwd, src_dir)
     
     # Initialize lists to store trajectory data
     all_trajectories = []
@@ -431,6 +485,7 @@ def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None,
         if not os.path.exists(user_path):
             continue
             
+        secondsPerDay = 24*60*60
         # process each .plt file in the user's trajectory directory
         for plt_file in os.listdir(user_path):
             if not plt_file.endswith('.plt'):
@@ -449,12 +504,13 @@ def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None,
             points = []
             for line in lines[6:]:  # Skip header lines
                 try:
-                    lat, lon, _, _, _, _, _ = line.strip().split(',')
-                    lat, lon = float(lat), float(lon)
+                    lat, lon, _, _, time, _, _ = line.strip().split(',')
+                    lat, lon, time = float(lat), float(lon), float(time)
                     
                     # Convert to metric coordinates
                     x, y = lonLatToMetric(lon, lat)
-                    points.append([x, y])
+                    #time = time * secondsPerDay
+                    points.append([x, y, time])
                 except:
                     continue
                     
@@ -492,6 +548,7 @@ def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None,
             os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'), index=False)
     else:
+        
         if os.path.exists(os.path.join(cwd, 'datasets', filename)):
             os.remove(os.path.join(cwd, 'datasets', filename))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename), index=False)
@@ -512,13 +569,6 @@ def build_Rtree(dataset, filename='') :
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
     #p.filename = filename
     
     polylines = np.array(df['POLYLINE'])
@@ -582,14 +632,7 @@ def loadDataTrajectories(dataset):
     path = os.path.join(cwd, 'datasets', dataset)
     df = pd.read_csv(path, converters={'POLYLINE' : json.loads, 'TRIP_ID' : json.loads, 'TIMESTAMP' : json.loads})
     
-    # Set up properties
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    #p.filename = filename
+
     
     polylines = np.array(df['POLYLINE'])
     timestamps = np.array(df['TIMESTAMP'])
@@ -616,14 +659,6 @@ def loadDataTrajectories(dataset):
 #TO DO:
 #Fix it. Dont think it works, but maybe it isn't neccesary?
 def loadRtree(rtreeName : str, trajectories):
-    p = index.Property()
-    p.dimension = 3
-    p.dat_extension = 'data'
-    p.idx_extension = 'index'
-    p.leaf_capacity = 1000
-    p.pagesize = PAGESIZE
-    #p.filename = rtreeName
-    #p.overwrite = True
     #bounds = originalRtree.bounds
     #points = list(originalRtree.intersection((bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]), objects=True))
     rtreeCopy = index.Index(rtreeName, pointStream(trajectories), properties=p)
@@ -652,6 +687,21 @@ def datastream(polylines, timestamps, trip_ids):
                 t+=1
 
 def TDriveDataStream(polylines, trip_ids) :
+    c = 0
+    length = len(trip_ids)
+    for i in tqdm(range(length), total=length, desc="Loading trajectories into rtree") :
+        idx = 0
+        if len(polylines[i]) == 0:
+            pass
+        else:
+            for x, y, t in polylines[i] :
+                obj=(int(trip_ids[i]), idx)
+                yield (c, (x, y, t, x, y, t), obj)
+                c+=1
+                idx+=1
+
+#Generator function for geolife points
+def GeolifeDataStream(polylines, trip_ids) :
     c = 0
     length = len(trip_ids)
     for i in tqdm(range(length), total=length, desc="Loading trajectories into rtree") :

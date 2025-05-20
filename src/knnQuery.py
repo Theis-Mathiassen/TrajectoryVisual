@@ -4,6 +4,7 @@ from src.Trajectory import Trajectory
 from src.Util import DTWDistance, DTWDistanceWithScoring, spatio_temporal_linear_combine_distance, spatio_temporal_linear_combine_distance_with_scoring
 import math
 import numpy as np
+import numpy.ma as ma
 
 class KnnQuery(Query):
     trajectory: Trajectory
@@ -12,6 +13,7 @@ class KnnQuery(Query):
     
     def __init__(self, params):
         self.trajectory = params["origin"]
+        self.originId = params["origin"].id
         self.k = params["k"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
@@ -25,9 +27,9 @@ class KnnQuery(Query):
     def __str__(self):
         return "KnnQuery"
 
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # Finds trajectory segments that match the time window of the query
-        return self.run2(rtree, self.trajectories)
+        return self.run2(rtree, trajectories)
         originSegment = self.getSegmentInTimeWindow(self.trajectory)
         listOfTrajectorySegments = []
 
@@ -98,10 +100,14 @@ class KnnQuery(Query):
         
         for trajectory in trajectories: 
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
-            minIndex = min(trajectories[trajectory])
+            """minIndex = min(trajectories[trajectory])
             maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]
-            
+            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]"""
+            sortedNodes = sorted(trajectories[trajectory], key=lambda x: x, reverse=False)
+            nodes = [T[trajectory].nodes[nodeid] for nodeid in sortedNodes]
+            trajectories[trajectory] = nodes
+
+
         
         if len(trajectories.keys()) <= self.k:
             return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
@@ -113,6 +119,7 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
+        
 
         # If statement out here so it does not need repeating 
         if self.distanceMethod == 0: # Use DTW

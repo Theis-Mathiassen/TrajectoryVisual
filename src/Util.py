@@ -351,9 +351,6 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
 
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes
-    #if (isinstance(otherNodes, np.ma.MaskedArray)):   # If masked / compressed
-    #examplePoint = otherNodes[0]
-
 
     otherNodes = [x for x in otherNodes if x is not np.ma.masked]
 

@@ -30,7 +30,8 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
                 amountToRun = len(hits)
                 if numberToTrain is not None:
                     amountToRun = min(amountToRun, numberToTrain)
-                    hits.shuffle() # Randomize
+                    random.shuffle(hits)
+                    #hits.shuffle() # Randomize
 
                 for i in tqdm(range(amountToRun), desc="Scoring queries"):
                     query, result = hits[i]

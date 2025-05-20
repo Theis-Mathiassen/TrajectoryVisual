@@ -4,6 +4,7 @@ from src.Trajectory import Trajectory
 from src.Util import DTWDistance, DTWDistanceWithScoring, spatio_temporal_linear_combine_distance, spatio_temporal_linear_combine_distance_with_scoring
 import math
 import numpy as np
+import numpy.ma as ma
 
 class KnnQuery(Query):
     trajectory: Trajectory
@@ -103,7 +104,7 @@ class KnnQuery(Query):
             maxIndex = max(trajectories[trajectory])
             trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]"""
             sortedNodes = sorted(trajectories[trajectory], key=lambda x: x, reverse=False)
-            nodes = [T[trajectory].nodes[nodeid] for nodeid in sortedNodes]
+            nodes = [T[trajectory].nodes[nodeid] for nodeid in sortedNodes if T[trajectory].nodes[nodeid] is not ma.masked]
             trajectories[trajectory] = nodes
 
 
@@ -118,6 +119,7 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
+        
 
         # If statement out here so it does not need repeating 
         if self.distanceMethod == 0: # Use DTW

@@ -548,7 +548,9 @@ def load_Geolife(src_dir: str, filename: str = "", max_trajectories: int = None,
             os.remove(os.path.join(cwd, 'datasets', 'default.csv'))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', 'default.csv'), index=False)
     else:
-        
+        file, ext = os.path.splitext(filename)
+        if ext == "":
+            filename = filename + ".csv"
         if os.path.exists(os.path.join(cwd, 'datasets', filename)):
             os.remove(os.path.join(cwd, 'datasets', filename))
         df.to_csv(path_or_buf=os.path.join(cwd, 'datasets', filename), index=False)

@@ -62,12 +62,29 @@ class ParamUtil:
         yMax = self.yMax """
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
-    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None):
+    def gaussianRangeParams(self, point, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2):
+        centerX = point[0]
+        centerY = point[1]
+        centerT = point[2]
+        tMin = max(centerT - temporalWindowSize, self.tMin)
+        tMax = min(centerT + temporalWindowSize, self.tMax)
+        xMin = max(centerX - centerToEdge, self.xMin)
+        xMax = min(centerX + centerToEdge, self.xMax)
+        yMin = max(centerY - centerToEdge, self.yMin)
+        yMax = min(centerY + centerToEdge, self.yMax)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = None, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
+
+
+    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None, nodeIndex = None):
         if index == None:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        
+        if nodeIndex == None:
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        else:
+            centerNode: Node = randomTrajectory.nodes[nodeIndex]
         centerTime = centerNode.t
         minId = 0
         maxId = len(randomTrajectory.nodes) - 1
@@ -98,12 +115,16 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None):
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None, nodeIndex = None):
         if index == None:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        
+        if nodeIndex == None:
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        else:
+            centerNode: Node = randomTrajectory.nodes[nodeIndex]
         centerTime = centerNode.t
         tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
         tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
@@ -331,8 +352,7 @@ def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, other
     originNodes = originTrajectory.nodes.compressed()
     otherNodes = otherTrajectory.nodes
 
-    # if len(originNodes) == 0 or len(otherNodes) == 0:
-    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
+    otherNodes = [x for x in otherNodes if x is not np.ma.masked]
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
     npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
@@ -392,7 +412,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     We also factor the alpha weight in
     """
     origin_nodes = originTrajectory.nodes.compressed()
-    other_nodes = otherTrajectory.nodes.compressed()
+    other_nodes = otherTrajectory.nodes
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
     npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
@@ -404,7 +424,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
             if dist < 1: # Set distance to a minimum of 1
                 dist = 1
 
-            otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
+            otherTrajectory.nodes[closestNodeIndex].score += weight / dist
 
            
 def get_min_dist_node(origin_node, nodes, func):
@@ -438,3 +458,14 @@ def spatial_distance_func(node, other_nodes):
 
     min_idx = np.argmin(distances)
     return min_idx, np.min(distances)
+
+
+def getGaussianDist(avgVals, stdDeviation = 500):
+    """
+    We expect avgVals to be an array of 3
+
+    stdDeviation defaults to 500
+    """
+    result = np.random.normal(avgVals, stdDeviation, size=(1, 3))
+    return result
+

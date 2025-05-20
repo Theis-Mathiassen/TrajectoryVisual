@@ -17,6 +17,8 @@ import os
 import traceback # traceback for information on python stack traces
 import argparse
 
+import numpy as np
+
 sys.path.append("src/")
 output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -27,10 +29,19 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
-def prepareQueries(config, origRtree, origTrajectories):
+# Prepare RTrees for training and testing
+def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
+
+    # ---- 
+    avgCoordinateValues = None
+
+    if useGaussian: 
+        avgCoordinateValues = getAverageNodeCoordinates(origTrajectories)
+
+
     # ---- Create training queries -----
     logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit))
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=500)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')
@@ -56,6 +67,30 @@ def prepareQueries(config, origRtree, origTrajectories):
     return origRtreeQueriesTraining, origRtreeQueriesEvaluation
 
 
+def getAverageNodeCoordinates(trajectories):
+    logger.info("Using Gaussian distribution for creating queries instead of uniform distribution.")
+
+    # Find average location
+    totalNodes = 0
+    avgx = 0
+    avgy = 0
+    avgt = 0
+    for traj in tqdm(trajectories.values(), desc="Finding average location of nodes"):
+        nodes = traj.nodes.compressed()
+        totalNodes += len(nodes)
+        for node in nodes:
+            avgx += node.x
+            avgy += node.y
+            avgt += node.t
+
+    avgx /= totalNodes
+    avgy /= totalNodes
+    avgt /= totalNodes
+
+    avgCoordinateValues = [avgx, avgy, avgt]
+
+    return avgCoordinateValues
+
 
 #### main
 def main(config):
@@ -68,7 +103,7 @@ def main(config):
     logger.info('Completed get_Tdrive.')
 
     logger.info('Copying trajectories.')
-    ORIGTrajectories = {
+    uncompressedTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
     }
@@ -77,15 +112,17 @@ def main(config):
         config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))
     logger.info(f"Number of queries to be created: {config.numberOfEachQuery}")
 
-    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories)
+    #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
+    #giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=None, config=config)
 
     simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
     simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
     compressionRateScores = list()
-    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories), 'simplificationError' : GetSimplificationError(ORIGTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
+    compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories), 'simplificationError' : GetSimplificationError(uncompressedTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
     print(compressionRateScores[-1]['f1Scores'])
 
     simpRtree.close()
@@ -109,19 +146,22 @@ def gridSearch(allCombinations, args):
             logger.info(f"Cleared cache file: {CACHE_FILE}")
 
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories)
+        
+        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
-        ORIGTrajectories = copy.deepcopy(origTrajectories)
+        uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
         giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
+        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
         logger.info('Loading simplified trajectories into Rtree.')
         simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
-        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, origTrajectories)
-        simplificationError = GetSimplificationError(ORIGTrajectories, simpTrajectories)
-        
+        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
+        simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
+
         configScore.append({
             'cr': config.compression_rate,
             'f1Scores': f1score,

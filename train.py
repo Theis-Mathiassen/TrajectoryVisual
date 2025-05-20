@@ -32,7 +32,7 @@ USE_GAUSSIAN = True
 
 #### main
 def main(config):
-    logger.info('Using guassian: '+ USE_GAUSSIAN)
+    logger.info('Using guassian: '+ str(USE_GAUSSIAN))
 
     #load_Tdrive(CSVNAME + '.csv', CSVNAME + '_trimmed.csv')
 

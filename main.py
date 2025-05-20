@@ -147,13 +147,13 @@ def gridSearch(allCombinations, args):
 
         origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
         
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
-        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
+        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
         uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
-        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
-        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
+        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
+        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
         simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
 
         logger.info('Loading simplified trajectories into Rtree.')
@@ -206,8 +206,8 @@ if __name__ == "__main__":
     config = Configuration(
         compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
         DB_size=100,
-        trainTestSplit=0.5,
-        numberOfEachQuery=10,
+        trainTestSplit=0,
+        numberOfEachQuery=100,
         QueriesPerTrajectory=None,
         verbose=True,
         knn_method=args.knn,

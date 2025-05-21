@@ -1,4 +1,5 @@
 #from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
+from pathlib import Path
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
@@ -20,6 +21,8 @@ import logging
 import traceback # traceback for information on python stack traces
 
 sys.path.append("src/")
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
+Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 CSVNAME = 'first_10000_train'
 DATABASENAME = 'original_Taxi'
@@ -116,7 +119,7 @@ def main(config):
 
     for queryType in dictQueryResults.keys():    
         try:
-            with open(os.path.join(os.getcwd(), gaussianExtra + str(queryType) + 'Hits.pkl'), 'wb') as file:
+            with open(os.path.join(output_dir, gaussianExtra + str(queryType) + 'Hits.pkl'), 'wb') as file:
                 pickle.dump(dictQueryResults[queryType], file)
                 file.close()
         except Exception as e:

@@ -51,13 +51,13 @@ class SimilarityQuery(Query):
                 trajectory_nodes[trajectory_id] = []
             trajectory_nodes[trajectory_id].append(node_id)
         
-        """pops = []   
+        pops = []   
         for trajectory_id, nodes in trajectory_nodes.items():
-            if max(nodes) - min(nodes) != len(nodes) - 1:
+            if len([True for node in trajectories[trajectory_id].nodes[min(nodes):max(nodes)+1] if node is not ma.masked]) != len(nodes):
                 pops.append(trajectory_id)      
         
         for trajectory_id in pops:
-            trajectory_nodes.pop(trajectory_id)"""
+            trajectory_nodes.pop(trajectory_id)
         
         hits = []
         

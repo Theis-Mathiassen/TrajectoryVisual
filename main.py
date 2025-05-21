@@ -34,7 +34,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
 
     # ---- 
     avgCoordinateValues = None
-
+    stdCoordinatesValue = None
     if useGaussian: 
         avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
         stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)
@@ -44,7 +44,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
 
     # ---- Create training queries -----
     logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=500)
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=stdCoordinatesValue)
     origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
 
     logger.info('Creating range queries.')

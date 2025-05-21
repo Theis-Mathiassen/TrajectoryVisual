@@ -53,6 +53,7 @@ def main(config):
 
 
     avgCoordinatesValue = None
+    stdCoordinatesValue = None
     if USE_GAUSSIAN:
         avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
         stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)

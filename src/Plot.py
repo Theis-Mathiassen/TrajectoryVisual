@@ -176,15 +176,19 @@ def plotClusterQuery(trajectories: list[T], query: CQ, rtree):
     # Needs refactoring of the abstract class before this works
     pass
 
-def plotSimpVsOrig(origTraj, simpTraj):
+def plotSimpVsOrig(origTraj: T, simpTraj: T):
     # We assume that the input is a tuple of x-coordinates and y-coordinates in both cases.
     fig, (ax1, ax2) = plt.subplots(1, 2)
 
-    ax1.plot(origTraj[0], origTraj[1])
+    xs, ys = trajCoordSplit(origTraj)
+
+    ax1.plot(xs, ys)
     ax1.set_xlabel("Degrees of latitude")
     ax1.set_ylabel("Degrees of longitude")
 
-    ax2.plot(simpTraj[0], simpTraj[1])
+    xs, ys = trajCoordSplit(simpTraj)
+
+    ax2.plot(xs, ys)
     ax2.set_xlabel("Degrees of latitude")
     ax2.set_ylabel("Degrees of longitude")
 
@@ -423,7 +427,7 @@ def plotF1Scores(f1scores, cr_list, width=0.15, bar_labels=['averageF1Score', 'r
     else:
         tempPath = os.path.dirname(__file__)
         path = os.path.join(tempPath, "../Plots")
-        plt.savefig(f"{path}\Bar Plots\{plotname}.png", bbox_inches='tight')
+        plt.savefig(f"{path}/Bar Plots/{plotname}.png", bbox_inches='tight')
         plt.close()
 
 def plotResultHeatmap(data, xlabels, ylabels, f1score_type="F1 Score", show=False):
@@ -446,11 +450,37 @@ def plotResultHeatmap(data, xlabels, ylabels, f1score_type="F1 Score", show=Fals
     else:
         tempPath = os.path.dirname(__file__)
         path = os.path.join(tempPath, "../Plots")
-        plt.savefig(f"{path}\Heatmaps\heatmap_{saveName}.png", bbox_inches='tight')
+        plt.savefig(f"{path}/Heatmaps/heatmap_{saveName}.png", bbox_inches='tight')
+        plt.close()
+
+def plotDistributeHeatmap(data, xlabels, ylabels, type, compressionrate, show=False):
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.imshow(data, cmap='Blues', label='F1 Score', vmax=1, vmin=0)
+
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            plt.annotate(str(round(data[i][j], 4)), xy=(j, i),
+                         ha='center', va='center', color='Black')
+
+    ax.set_title(f"{type} F1 score with relation to distribution methods at cr {compressionrate}", fontweight='bold', fontsize=14)
+
+    ax.set_xlabel("Range Distribute", fontsize=14)
+    ax.set_ylabel("Similarity Distribute", fontsize=14)
+
+    ax.set_xticks(range(len(data[0])), xlabels, fontsize=9)
+    ax.set_yticks(range(len(data)), ylabels, fontsize=9)
+    
+    if show:
+        plt.show()
+    else:
+        saveName = f"{type}_Distribute_Heatmap_at_cr_{compressionrate}"
+        tempPath = os.path.dirname(__file__)
+        path = os.path.join(tempPath, "../Plots")
+        plt.savefig(f"{path}/Heatmaps/heatmap_{saveName}.png", bbox_inches='tight')
         plt.close()
 
 if __name__ == "__main__":
-    df = pd.read_csv('scores_summary - scores_summary.csv')
+    df = pd.read_csv('21mayscores - scores_summary_knn.csv')
 
     average_heatmap_matrix = []
     range_heatmap_matrix = []
@@ -462,41 +492,90 @@ if __name__ == "__main__":
     y_acc = [[], [], [], []]
     names = []
 
-    #print(df.head(1)['file'][0])
-    #print(parseDistributeCombination(df.head(1)['file'][0]))
+    #print(df.head(1)['file'][0])False #print(parseDistributeCombination(df.head(1)['file'][0]))
     
 
-    for elem in df.iterrows():
-        i += 1
-        # print(elem[1][0], elem[1][1], elem[1][2], elem[1][3], elem[1][4])
+    # for elem in df.iterrows():
+    #     break
+    #     i += 1
+    #     # print(elem[1][0], elem[1][1], elem[1][2], elem[1][3], elem[1][4])
 
-        x_acc.append(elem[1][2])
-        for j in range(4):
-            y_acc[j].append(elem[1][j+3])
+    #     x_acc.append(elem[1][2])
+    #     for j in range(4):
+    #         y_acc[j].append(elem[1][j+3])
 
-        if i == 5:
-            #print(x_acc)
-            #print(y_acc)
-            #print(elem[1]['file'])
-            names.append(elem[1][1])
+    #     if i == 5:
+    #         #print(x_acc)
+    #         #print(y_acc)
+    #         #print(elem[1]['file'])
+    #         names.append(elem[1][1])
             
-            average_heatmap_matrix.append(y_acc[0])
-            range_heatmap_matrix.append(y_acc[1])
-            similarity_heatmap_matrix.append(y_acc[2])
-            knn_heatmap_matrix.append(y_acc[3])
+    #         average_heatmap_matrix.append(y_acc[0])
+    #         range_heatmap_matrix.append(y_acc[1])
+    #         similarity_heatmap_matrix.append(y_acc[2])
+    #         knn_heatmap_matrix.append(y_acc[3])
 
-            plotname = f"{parseDistributeCombination(elem[1][1])[0]}_and_{parseDistributeCombination(elem[1][1])[1]}_plot"
+    #         #plotname = f"{parseDistributeCombination(elem[1][1])[0]}_and_{parseDistributeCombination(elem[1][1])[1]}_plot"
 
-            plotF1Scores(y_acc, x_acc, distribute_variants=parseDistributeCombination(elem[1]['file']), plotname=plotname, show=False)
+    #         #plotF1Scores(y_acc, x_acc, distribute_variants=parseDistributeCombination(elem[1]['file']), plotname=plotname, show=False)
 
-            i = 0
-            x_acc = []
-            y_acc = [[], [], [], []]
-            continue
+    #         i = 0
+    #         x_acc = []
+    #         y_acc = [[], [], [], []]
+    #         continue
 
-    parsed_names = [f"{parseDistributeCombination(name)[0]}\n{parseDistributeCombination(name)[1]}" for name in names]
+    # parsed_names = [f"{parseDistributeCombination(name)[0]}\n{parseDistributeCombination(name)[1]}" for name in names]
 
-    plotResultHeatmap(average_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="average F1 score", show=False)
-    plotResultHeatmap(range_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="range F1 score", show=False)
-    plotResultHeatmap(similarity_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="similarity F1 score", show=False)
-    plotResultHeatmap(knn_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="kNN F1 score", show=False)
+    # plotResultHeatmap(average_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="average F1 score", show=False)
+    # plotResultHeatmap(range_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="range F1 score", show=False)
+    # plotResultHeatmap(similarity_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="similarity F1 score", show=False)
+    # plotResultHeatmap(knn_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="kNN F1 score", show=False)
+
+    rangeNameIds = {
+        "RangeWTA": 0,
+        "RangeOneEven": 1,
+        "RangeFracEven": 2,
+        "RangeGradient": 3
+    }
+    similarityNameIds = {
+        "SimilarAll": 0,
+        "SimilarClosest": 1,
+        "SimilarClosestAndFurthest": 2,
+        "SimilarRecedes": 3
+    }
+
+    avgF1ScoreHeatmap = np.zeros(shape=(5, 4, 4))
+    rangeF1ScoreHeatmap = np.zeros(shape=(5, 4, 4))
+    similarityF1ScoreHeatmap = np.zeros(shape=(5, 4, 4))
+    kNNF1ScoreHeatmap = np.zeros(shape=(5, 4, 4))
+
+    cr_list = []
+    xlabels = []
+    ylabels = []
+
+    for i in range(df.shape[0]):
+        # Find the name of the distribute methods used
+        parsedName = parseDistributeCombination(df.iloc[i]['file'])
+
+        # Map their names to the indices to be used in the heatmaps
+        rangeId = rangeNameIds[parsedName[0]]
+        similarityId = similarityNameIds[parsedName[1]]
+
+        if i < 5:
+            cr_list.append(df.iloc[i]['cr'])
+        if i % 5 == 0 and i < 20:
+            ylabels.append(parsedName[1])
+        if i % 20 == 0:
+            xlabels.append(parsedName[0])
+        
+        # Transfer the F1 scores to their heatmaps ('i' can be mapped to the compression rate)
+        avgF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['Average f1']
+        rangeF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['Range f1']
+        similarityF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['similarity f1']
+        kNNF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['knn f1']
+    # print(kNNF1ScoreHeatmap)
+    for i in range(len(cr_list)):
+        #plotDistributeHeatmap(avgF1ScoreHeatmap[i], xlabels, ylabels, "Avg", cr_list[i], show=False)
+        #plotDistributeHeatmap(rangeF1ScoreHeatmap[i], xlabels, ylabels, "Range", cr_list[i], show=False)
+        #plotDistributeHeatmap(similarityF1ScoreHeatmap[i], xlabels, ylabels, "Similarity", cr_list[i], show=False)
+        plotDistributeHeatmap(kNNF1ScoreHeatmap[i], xlabels, ylabels, "kNN", cr_list[i], show=False)

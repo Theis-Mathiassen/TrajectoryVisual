@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import re
+import os
 from Trajectory import Trajectory as T
 import math
 from Node import Node as N
@@ -172,18 +175,6 @@ def plotkNNQuery(trajectories: list[T], query: KNN, rtree):
 def plotClusterQuery(trajectories: list[T], query: CQ, rtree):
     # Needs refactoring of the abstract class before this works
     pass
-
-def plotF1Scores(f1scores, cr_list, bar_labels):
-    fig, ax = plt.subplots()
-
-    input_cr = [str(cr) for cr in cr_list]
-
-    ax.bar(input_cr, f1scores, width=0.3, label=bar_labels)
-    ax.set_xlabel("Compression Rate")
-    ax.set_ylabel("F1Score")
-    ax.set_title("F1Scores by compression rate")
-
-    plt.show()
 
 def plotSimpVsOrig(origTraj, simpTraj):
     # We assume that the input is a tuple of x-coordinates and y-coordinates in both cases.
@@ -369,7 +360,143 @@ def plotGP2(trajectories: list, query: RQ, rtree):
     #plt.tight_layout()
     plt.show()
 
+def parseDistributeCombination(filename: str):
+    # Parses the filename of the 'pkl' file to extract the exact combination of distribute methods used
+    # Returns a list of names of the distribute methods used
+    
+    # Example filename: "scores_knn1_range1_simc.pkl"
+    # Example output: ["RangeWTA", "SimilarClosest"]
+    # Note that kNN is not included in the output, since there is only one variant of kNN distribute method
+    # and it is always used
 
+    # Split the filename by underscores
+    parts = re.split(r'[_.]', filename)
+    #print(parts)
+    rangeType, similarType = None, None
+
+    for part in parts:
+        if part == "range1":
+            rangeType = "RangeWTA"
+        if part == "range2":
+            rangeType = "RangeOneEven"
+        if part == "range3":
+            rangeType = "RangeFracEven"
+        if part == "range4":
+            rangeType = "RangeGradient"
+        if part == "sima":
+            similarType = "SimilarAll"
+        if part == "simc":
+            similarType = "SimilarClosest"
+        if part == "simc+f":
+            similarType = "SimilarClosestAndFurthest"
+        if part == "simm":
+            similarType = "SimilarRecedes"
+    
+    return rangeType, similarType
+
+def plotF1Scores(f1scores, cr_list, width=0.15, bar_labels=['averageF1Score', 'rangeF1', 'similarityF1', 'kNNF1'],
+                 color_list=["red", "blue", "orange", "green"], distribute_variants=None, plotname="" , show=False):
+    fig, ax = plt.subplots(figsize=(16,10))
+
+    br0 = np.arange(len(cr_list)) 
+    br1 = [x - 1.5 * width for x in br0]
+    br2 = [x - 0.5 * width for x in br0]
+    br3 = [x + 0.5 * width for x in br0] 
+    br4 = [x + 1.5 * width for x in br0]
+    
+    ax.bar(br1, f1scores[0], width=width, label=bar_labels[0], color=color_list[0])
+    ax.bar(br2, f1scores[1], width=width, label=bar_labels[1], color=color_list[1])
+    ax.bar(br3, f1scores[2], width=width, label=bar_labels[2], color=color_list[2])
+    ax.bar(br4, f1scores[3], width=width, label=bar_labels[3], color=color_list[3])
+
+    ax.set_xlabel("Compression Rate", fontsize=14)
+    ax.set_ylabel("F1Score", fontsize=14)
+
+    ax.set_xticks([x for x in range(len(cr_list))], [str(x) for x in cr_list])
+    
+    ax.set_title(f"F1Scores by compression rate using {distribute_variants[0]} and {distribute_variants[1]}", fontweight='bold', fontsize=14)
+
+    ax.legend()
+
+    if show:
+        plt.show()
+    else:
+        tempPath = os.path.dirname(__file__)
+        path = os.path.join(tempPath, "../Plots")
+        plt.savefig(f"{path}\Bar Plots\{plotname}.png", bbox_inches='tight')
+        plt.close()
+
+def plotResultHeatmap(data, xlabels, ylabels, f1score_type="F1 Score", show=False):
+    fig, ax = plt.subplots(figsize=(16, 10))
+    ax.imshow(data, cmap='Blues', label='F1 Score')
+
+    ax.set_title(f"Heatmap of {f1score_type} in relation to \n compression rate and distribution method", fontweight='bold', fontsize=14)
+
+    ax.set_xlabel("Compression Rate", fontsize=14)
+    ax.set_ylabel("Distribution Methods", fontsize=14)
+
+    ax.set_xticks(range(len(data[0])), xlabels)
+    ax.set_yticks(range(len(data)), ylabels)
+    
+    temp = f1score_type.split(" ")
+    saveName = '_'.join(temp)
+    
+    if show:
+        plt.show()
+    else:
+        tempPath = os.path.dirname(__file__)
+        path = os.path.join(tempPath, "../Plots")
+        plt.savefig(f"{path}\Heatmaps\heatmap_{saveName}.png", bbox_inches='tight')
+        plt.close()
 
 if __name__ == "__main__":
-    plotF1Scores([1, 0.9, 0.8], [0.9, 0.85, 0.8])
+    df = pd.read_csv('scores_summary - scores_summary.csv')
+
+    average_heatmap_matrix = []
+    range_heatmap_matrix = []
+    similarity_heatmap_matrix = []
+    knn_heatmap_matrix = []
+
+    i = 0
+    x_acc = []
+    y_acc = [[], [], [], []]
+    names = []
+
+    #print(df.head(1)['file'][0])
+    #print(parseDistributeCombination(df.head(1)['file'][0]))
+    
+
+    for elem in df.iterrows():
+        i += 1
+        # print(elem[1][0], elem[1][1], elem[1][2], elem[1][3], elem[1][4])
+
+        x_acc.append(elem[1][2])
+        for j in range(4):
+            y_acc[j].append(elem[1][j+3])
+
+        if i == 5:
+            #print(x_acc)
+            #print(y_acc)
+            #print(elem[1]['file'])
+            names.append(elem[1][1])
+            
+            average_heatmap_matrix.append(y_acc[0])
+            range_heatmap_matrix.append(y_acc[1])
+            similarity_heatmap_matrix.append(y_acc[2])
+            knn_heatmap_matrix.append(y_acc[3])
+
+            plotname = f"{parseDistributeCombination(elem[1][1])[0]}_and_{parseDistributeCombination(elem[1][1])[1]}_plot"
+
+            plotF1Scores(y_acc, x_acc, distribute_variants=parseDistributeCombination(elem[1]['file']), plotname=plotname, show=False)
+
+            i = 0
+            x_acc = []
+            y_acc = [[], [], [], []]
+            continue
+
+    parsed_names = [f"{parseDistributeCombination(name)[0]}\n{parseDistributeCombination(name)[1]}" for name in names]
+
+    plotResultHeatmap(average_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="average F1 score", show=False)
+    plotResultHeatmap(range_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="range F1 score", show=False)
+    plotResultHeatmap(similarity_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="similarity F1 score", show=False)
+    plotResultHeatmap(knn_heatmap_matrix, xlabels=[0.8, 0.9, 0.95, 0.975, 0.99], ylabels=parsed_names, f1score_type="kNN F1 score", show=False)

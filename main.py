@@ -3,7 +3,7 @@ from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
-from src.load import build_Rtree, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
+from src.load import build_Rtree, get_geolife, load_Tdrive, loadRtree, load_Tdrive_Rtree, get_Tdrive
 from src.dropNodes import dropNodes
 from src.log import logger, ERROR_LOG_FILENAME
 from tqdm import tqdm
@@ -24,7 +24,7 @@ output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
-DATABASENAME = 'original_Taxi'
+DATABASENAME = 'geolife'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
@@ -131,9 +131,9 @@ def main(config):
         os.remove(CACHE_FILE)
         logger.info(f"Cleared cache file: {CACHE_FILE}")
 
-    logger.info('Starting get_Tdrive.')
-    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-    logger.info('Completed get_Tdrive.')
+    logger.info('Starting load for: ' + DATABASENAME)
+    origRtree, origTrajectories = get_geolife(filename=DATABASENAME)
+    logger.info('Completed loading: ' + DATABASENAME)
 
     logger.info('Copying trajectories.')
     uncompressedTrajectories = {

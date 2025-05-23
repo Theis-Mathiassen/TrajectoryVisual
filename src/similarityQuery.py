@@ -242,7 +242,7 @@ class SimilarityQuery(Query):
             nodeIdsToScore = nodesPerTrajectory.get(trajectory)
             for nodeId in nodeIdsToScore:
                 trajectoryNodes = trajectories[trajectory].nodes
-                trajectoryNodes[nodeId].score += 1
+                trajectoryNodes[nodeId].score['similarity'] += 1
         
         """ # Sort for faster scores
         nodesIdsRewardSorted = sorted(nodesIdsReward, key = lambda x: x[0])

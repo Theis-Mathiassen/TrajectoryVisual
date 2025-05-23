@@ -455,7 +455,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
             if dist < 1: # Set distance to a minimum of 1
                 dist = 1
 
-            otherTrajectory.nodes[closestNodeIndex].score += weight / dist
+            otherTrajectory.nodes[closestNodeIndex].score['knn'] += weight / dist
 
            
 def get_min_dist_node(origin_node, nodes, func):

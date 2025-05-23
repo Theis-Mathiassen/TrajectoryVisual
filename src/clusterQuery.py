@@ -310,7 +310,7 @@ class ClusterQuery(Query):
             trajectoryId = list(trajectories.keys())[trajectoryIndex]
 
             for nodeIndex in nodeIndexes:
-                trajectories[trajectoryId].nodes[nodeIndex].score += scoreToAward
+                trajectories[trajectoryId].nodes[nodeIndex].score['cluster'] += scoreToAward
 
 
 if __name__ == "__main__":

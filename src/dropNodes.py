@@ -18,6 +18,8 @@ def getNodes(trajectories, trajectoriesWithMask = False):
             trajectories[trajectoryidx].nodes.mask = trajectoriesWithMask[trajectoryidx].nodes.mask
     
     for trajectory in trajectories.values():
+        if not trajectoriesWithMask:
+            trajectory.nodes.mask = False
         zipped = [[node, trajectory.id] for node in trajectory.nodes.compressed()[1:-1]]
         nodes += zipped
         

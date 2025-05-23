@@ -170,43 +170,45 @@ def main(config):
         file.close()
 
 
-def gridSearch(allCombinations, args):
+def gridSearch(config, args):
     configScore = list()
-    for config in tqdm(allCombinations):
-        # we need to clear cache file for each configuration
-        if os.path.exists(CACHE_FILE):
-            os.remove(CACHE_FILE)
-            logger.info(f"Cleared cache file: {CACHE_FILE}")
+    # we need to clear cache file for each configuration
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+        logger.info(f"Cleared cache file: {CACHE_FILE}")
 
-        origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-        
-        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
+    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
+    
+    #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
 
-        uncompressedTrajectories = copy.deepcopy(origTrajectories)
+    uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
-        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
-        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
-        simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
+    giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
+    for weight in config.weights:
+        for compression_rate in config.compression_rate:
+            simpTrajectories = dropNodes(origRtree, origTrajectories, compression_rate, weights=weight)
+            logger.info('Loading simplified trajectories into Rtree.')
+            simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
+            simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
 
-        logger.info('Loading simplified trajectories into Rtree.')
-        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
 
-        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
-        simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
 
-        configScore.append({
-            'cr': config.compression_rate,
-            'f1Scores': f1score,
-            'simplificationError': simplificationError
-        })
-        logger.info('Run info: %s', configScore[-1]['f1Scores'])
+            configScore.append({
+                'cr': compression_rate,
+                'weights': weight,
+                'f1Scores': f1score,
+                'simplificationError': simplificationError
+            })
+            logger.info('Run info: %s, weights: %s, compression rate: %s', configScore[-1]['f1Scores'], configScore[-1]['weights'], configScore[-1]['cr'])
 
-        simpRtree.close()
+            simpRtree.close()
 
-        if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
-            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
-            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
+            if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
+                os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
+                os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
 
     ## Save results with unique filename based on the combo of query methods through cmd args
     try:
@@ -237,7 +239,7 @@ if __name__ == "__main__":
     
     # Create a single configuration object
     config = Configuration(
-        compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
+        compression_rate=[0.95, 0.975, 0.99],
         DB_size=100,
         trainTestSplit=0,
         numberOfEachQuery=100,
@@ -246,7 +248,10 @@ if __name__ == "__main__":
         knn_method=args.knn,
         range_flag=args.range,
         similarity_system=args.similarity,
-        weights = {'range' : 2,  'knn' : 1, 'similarity' : 1, 'cluster' : 10}
+        weights = [{'range' : 1,  'knn' : 0.25, 'similarity' : 1, 'cluster' : 0},
+                   {'range' : 1,  'knn' : 1, 'similarity' : 0.5, 'cluster' : 0},
+                   {'range' : 0.5,  'knn' : 1, 'similarity' : 1, 'cluster' : 0},
+                   {'range' : 1,  'knn' : 1, 'similarity' : 2, 'cluster' : 0}]
     )
 
     try:
@@ -266,7 +271,7 @@ if __name__ == "__main__":
                 [config.similarity_system],
                 [config.weights]
             )
-            gridSearch(allCombinations, args)
+            gridSearch(config, args)
         else:
             # For single config testing
             print("Not running grid search")

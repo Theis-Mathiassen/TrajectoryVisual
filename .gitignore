@@ -1,5 +1,6 @@
 .venv
 datasets/
+src/utils/plots
 *.md
 *.dat
 *.idx
@@ -20,7 +21,6 @@ datasets/
 *.data
 *.index
 .DS_Store
-*.nbi
-*.nbc
 *.pkl
-*.log
+*.nbc
+*.nbi

@@ -45,7 +45,7 @@ def runAndGenerateSet(rtree, query, use_cache = False, differentTrajs = None):
     if differentTrajs is not None:
         oldTrajs = query.trajectories
         query.trajectories = differentTrajs
-    result = query.run(rtree)
+    result = query.run(rtree, query.trajectories)
     
     if differentTrajs is not None:
         query.trajectories = oldTrajs

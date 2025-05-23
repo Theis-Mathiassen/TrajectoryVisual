@@ -4,6 +4,7 @@ from src.Trajectory import Trajectory
 from src.Util import DTWDistance, DTWDistanceWithScoring, spatio_temporal_linear_combine_distance, spatio_temporal_linear_combine_distance_with_scoring
 import math
 import numpy as np
+import numpy.ma as ma
 
 class KnnQuery(Query):
     trajectory: Trajectory
@@ -12,6 +13,7 @@ class KnnQuery(Query):
     
     def __init__(self, params):
         self.trajectory = params["origin"]
+        self.originId = params["origin"].id
         self.k = params["k"]
         self.t1 = params["t1"]
         self.t2 = params["t2"]
@@ -25,65 +27,7 @@ class KnnQuery(Query):
     def __str__(self):
         return "KnnQuery"
 
-    def run(self, rtree):
-        # Finds trajectory segments that match the time window of the query
-        return self.run2(rtree, self.trajectories)
-        originSegment = self.getSegmentInTimeWindow(self.trajectory)
-        listOfTrajectorySegments = []
-
-        hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
-        # Reconstruct trajectories
-        trajectories = {}
-        # For each node
-        for hit in hits:
-            # Extract node info
-            trajectory_id, node_id = hit
-            x = self.trajectories.get(trajectory_id).nodes.data[node_id].x
-            y = self.trajectories.get(trajectory_id).nodes.data[node_id].y
-            t = self.trajectories.get(trajectory_id ).nodes.data[node_id].t
-
-
-            # Ignore origin trajectory
-            if trajectory_id == self.trajectory.id:
-                continue
-
-            node = Node(node_id, x, y, t)
-
-            # Get list of nodes by trajectories
-            if trajectory_id not in trajectories:
-                trajectories[trajectory_id] = []
-
-            trajectories[trajectory_id].append(node)
-
-        # If fewer than k 
-        if len(trajectories.keys()) <= self.k:
-            return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
-
-        listOfTrajectorySegments = trajectories.items()
-
-        # Use DTW distance to compute similarity
-        similarityMeasures = {}
-        
-        # Must be of type trajectory to be accepted
-        originSegmentTrajectory = Trajectory(-1, originSegment)
-        for segment in listOfTrajectorySegments:
-            segmentTrajectory = Trajectory(segment[0], segment[1])
-            similarityMeasures[segment[0]] = DTWDistance(originSegmentTrajectory, segmentTrajectory)
-
-        # Sort by most similar, where the most similar have the smallest value
-        similarityMeasures = sorted(similarityMeasures.items(), key=lambda x: x[1], reverse=False)
-
-        # get top k ids
-        topKIds = [x[0] for x in similarityMeasures[:self.k]]
-
-        trajectories_output = [Trajectory(trajectory_id, nodes) for trajectory_id, nodes in trajectories.items()]
-
-
-
-        # Get top k trajectories
-        return [x for x in trajectories_output if x.id in topKIds]
-
-    def run2(self, rtree, T):
+    def run(self, rtree, T):
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         
         hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
@@ -97,11 +41,11 @@ class KnnQuery(Query):
         
         
         for trajectory in trajectories: 
-            #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
-            minIndex = min(trajectories[trajectory])
-            maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = T[trajectory].nodes[minIndex : maxIndex + 1]
-            
+            sortedNodes = sorted(trajectories[trajectory], key=lambda x: x, reverse=False)
+            nodes = [T[trajectory].nodes[nodeid] for nodeid in sortedNodes]
+            trajectories[trajectory] = nodes
+
+
         
         if len(trajectories.keys()) <= self.k:
             return [Trajectory(id, nodes) for id, nodes in trajectories.items()]
@@ -113,6 +57,7 @@ class KnnQuery(Query):
         
         # Must be of type trajectory to be accepted
         originSegmentTrajectory = self.trajectory
+        
 
         # If statement out here so it does not need repeating 
         if self.distanceMethod == 0: # Use DTW

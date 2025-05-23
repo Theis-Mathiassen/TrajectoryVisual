@@ -1,6 +1,12 @@
 # Based on https://github.com/fhirschmann/rdp/blob/master/rdp/__init__.py
 # Adapted to fit our datastructures
 import numpy as np
+import numpy.ma as ma
+from tqdm import tqdm
+import numba as nb
+import pickle
+import os
+
 
 def pldist(point, start, end):
     """
@@ -97,10 +103,35 @@ def rdpFilterTrajectories(trajectories, epsilon, score = 10, dist=pldist):
         # Go through each node kept and award points
         for nodeIndex in nodeIndicies:
             trajectories[trajectoryIndex].nodes[nodeIndex].score += score # Currently we also give points to start and end points
+   
+   
+        
+def rdpMaskTrajectories(trajectories : dict, epsilon, dist=pldist):
+    for trajectoryIndex in tqdm(trajectories.keys(), desc="RDP mask calculation"):
+        nodes = extractNodes(trajectories[trajectoryIndex]) # Convert to numpy array
+        mask = rdpMask(nodes, epsilon, dist)
+        mask[0] = True
+        mask[-1] = True
+        trajectories[trajectoryIndex].nodes[~mask] = ma.masked
         
 
+
 if __name__ == "__main__":
-    print("\nTesting RDP...\n")
+    path = os.getcwd()
+    
+    with open(os.path.join(path, 'rdpTrajectories.pkl'), 'rb') as file:
+        trajectoriesWithRdpMask = pickle.load(file)
+    
+    totalNodes = 0
+    totalUnmaskedNodes = 0
+    
+    for trajectoryidx, trajectory in trajectoriesWithRdpMask.items():
+        totalNodes += trajectory.pointCount()
+        totalUnmaskedNodes += trajectory.unmaskedCount()
+        
+    print(str.join("total: ", str(totalNodes), "\n", "unmasked: ", str(totalUnmaskedNodes), "\n", "ratio: ", str(totalUnmaskedNodes / totalNodes)))
+    
+    """print("\nTesting RDP...\n")
     arr = np.array([1, 1, 2, 2, 3, 3, 4, 4]).reshape(4, 2)
 
     print(arr)
@@ -142,4 +173,4 @@ if __name__ == "__main__":
     print("Indicies to score: ", indicies)
 
     for i in range(len(mask)):
-        print("Node index: ", i, "\nScore: ", trajectory.nodes[i].score, "\n")
+        print("Node index: ", i, "\nScore: ", trajectory.nodes[i].score, "\n")"""

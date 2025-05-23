@@ -45,6 +45,7 @@ class ClusterQuery(Query):
         self.eps = params["eps"]  # max distance for clustering
         self.min_lines = params["linesMin"]  # min number of lines in a cluster
         self.origin = params["origin"]  # the query trajectory
+        self.originId = params["origin"].id
         self.hits = []  # stores hits. hit = an entry in R-tree that satisfies the search cond. (i.e. within time window)
         self.params = params
         self.trajectories = params["trajectories"]
@@ -166,7 +167,7 @@ class ClusterQuery(Query):
         
         return filtered
     
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # get all trajectories with points in the time window
 
         #trajectories = self._filter_trajectories_by_time(self.trajectories, rtree)
@@ -179,25 +180,25 @@ class ClusterQuery(Query):
         
         #hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
         
-        trajectories = {}
+        T = {}
         
         for trajectory_id, node_id in hits:
-            if trajectory_id not in trajectories:
-                trajectories[trajectory_id] = []
-            trajectories[trajectory_id].append(node_id)
+            if trajectory_id not in T:
+                T[trajectory_id] = []
+            T[trajectory_id].append(node_id)
         
         
-        for trajectory in trajectories: 
+        for trajectory in T: 
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
-            minIndex = min(trajectories[trajectory])
-            maxIndex = max(trajectories[trajectory])
-            trajectories[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
+            minIndex = min(T[trajectory])
+            maxIndex = max(T[trajectory])
+            T[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
 
         # convert trajectories to numpy arrays for TRACLUS
         #numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
         numpy_trajectories = [] #[np.array([[node.x, node.y] for node in nodes]) for nodes in trajectories_id_to_nodes.values()]
 
-        for trajectory in trajectories.values():
+        for trajectory in T.values():
             coords = np.ascontiguousarray([[node.x, node.y] for node in trajectory])
             numpy_trajectories.append(coords)
 
@@ -221,7 +222,7 @@ class ClusterQuery(Query):
             trajectory_index = map_segment_to_trajectory_index[index]
 
             # We have to convert back such that we can get the ids
-            dict_for_clusters[value].append(list(trajectories.keys())[trajectory_index])
+            dict_for_clusters[value].append(list(T.keys())[trajectory_index])
 
         clusters = list(dict_for_clusters.values())
         clusters = [list(set(cluster)) for cluster in clusters]

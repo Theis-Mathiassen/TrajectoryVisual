@@ -7,7 +7,7 @@ import copy
 import random
 from rtree import index
 import math
-from numba import vectorize, float64, jit, njit
+from numba import vectorize, float64,float32, jit, njit, types, prange
 
 # Util to init params for different query types.
 class ParamUtil:
@@ -62,12 +62,29 @@ class ParamUtil:
         yMax = self.yMax """
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
     
-    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None):
+    def gaussianRangeParams(self, point, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2):
+        centerX = point[0]
+        centerY = point[1]
+        centerT = point[2]
+        tMin = max(centerT - temporalWindowSize, self.tMin)
+        tMax = min(centerT + temporalWindowSize, self.tMax)
+        xMin = max(centerX - centerToEdge, self.xMin)
+        xMax = min(centerX + centerToEdge, self.xMax)
+        yMin = max(centerY - centerToEdge, self.yMin)
+        yMax = min(centerY + centerToEdge, self.yMax)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = None, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories, flag = flag)
+
+
+    def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None, nodeIndex = None):
         if index == None:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        
+        if nodeIndex == None:
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        else:
+            centerNode: Node = randomTrajectory.nodes[nodeIndex]
         centerTime = centerNode.t
         minId = 0
         maxId = len(randomTrajectory.nodes) - 1
@@ -98,12 +115,16 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None):
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None, nodeIndex = None):
         if index == None:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        
+        if nodeIndex == None:
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
+        else:
+            centerNode: Node = randomTrajectory.nodes[nodeIndex]
         centerTime = centerNode.t
         tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
         tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
@@ -318,54 +339,7 @@ def get_visited(pathTracker, length_x, length_y):
     
     return visited
 
-
-
-# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
-def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
-    """
-    Gets the spatio-temporal distance between two lists of nodes
-
-    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
-
-    result = spatial dist * weight + temporal dist * (1 - weight)`
-    """
-    originNodes = originTrajectory.nodes.compressed()
-    otherNodes = otherTrajectory.nodes.compressed()
-
-    # if len(originNodes) == 0 or len(otherNodes) == 0:
-    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
-
-    npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
-    npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
-
-    
-
-    def get_distances(evalNodes, referenceNodes):
-        spatial_similarity = 0
-        temporal_similarity = 0
-
-        for node in evalNodes:
-            spatial_similarity += spatial_distance(node, referenceNodes)
-            temporal_similarity += temporal_distance(node, referenceNodes)
-
-        evalLength = len(evalNodes)
-
-        spatial_similarity = spatial_similarity / evalLength
-        temporal_similarity = temporal_similarity / evalLength
-
-        return spatial_similarity, temporal_similarity
-    
-
-    spatial_similarity_1, temporal_similarity_1 = get_distances(npOrigin, npOther)
-    spatial_similarity_2, temporal_similarity_2 = get_distances(npOther, npOrigin)
-
-
-    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
-    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
-
-    return spatial_similarity * weight + temporal_similarity * (1 - weight)
-
-@jit(nopython=True, cache=True)
+@jit(float64(float64[:], float64[:,:]), nopython=True, cache=True)
 def spatial_distance(node, nodes):
 
     dx = np.abs(nodes[:,0] - node[0])
@@ -375,12 +349,88 @@ def spatial_distance(node, nodes):
 
     return np.min(distances)
 
-@jit(nopython=True, cache=True)
+@jit(float64(float64[:], float64[:,:]), nopython=True, cache=True)
 def temporal_distance(node, nodes):
     
     distances = np.abs(nodes[:,2] - node[2])
 
     return np.min(distances)
+
+
+
+@jit(float64(float64[:,:], float64[:,:]), cache=True, looplift=True)
+def get_distancesSpatial(evalNodes, referenceNodes):
+        spatial_similarity = 0
+        evalLength = len(evalNodes)
+
+        for idx in range(evalLength):
+            spatial_similarity += spatial_distance(evalNodes[idx], referenceNodes)
+
+
+
+        spatial_similarity = spatial_similarity / evalLength
+
+        return spatial_similarity
+
+
+@jit(float64(float64[:,:], float64[:,:]), cache=True, looplift=True)
+def get_distancesTemporal(evalNodes, referenceNodes):
+        temporal_similarity = 0
+        evalLength = len(evalNodes)
+
+        for idx in range(evalLength):
+            temporal_similarity += temporal_distance(evalNodes[idx], referenceNodes)
+
+
+        temporal_similarity = temporal_similarity / evalLength
+
+        return temporal_similarity
+
+
+def spatio_temporal_linear_combine_distance(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+    if len(originTrajectory.nodes.compressed()) == 0 or len(otherTrajectory.nodes) == 0:
+        return float('inf')
+
+    originNodes = originTrajectory.nodes.compressed()
+    otherNodes = otherTrajectory.nodes
+
+    otherNodes = [x for x in otherNodes if x is not np.ma.masked]
+
+    npOrigin = np.array([[n.x, n.y, n.t] for n in originNodes])
+    npOther = np.array([[n.x, n.y, n.t] for n in otherNodes])
+    
+    return spatio_temporal_linear_combine_distance_real(npOrigin, npOther, weight)
+    
+# Based on https://www.vldb.org/pvldb/vol10/p1178-shang.pdf
+@jit(float64(float64[:,:], float64[:,:], float64), nopython=True, cache=True, fastmath=True)
+def spatio_temporal_linear_combine_distance_real(npOrigin, npOther, weight):
+    """
+    Gets the spatio-temporal distance between two lists of nodes
+
+    weight is a value between 0 and 1 determining how much the spatio-temporal distance is weighted
+
+    result = spatial dist * weight + temporal dist * (1 - weight)`
+    """
+    #originNodes = originTrajectory.nodes.compressed()
+    #otherNodes = otherTrajectory.nodes.compressed()
+
+    # if len(originNodes) == 0 or len(otherNodes) == 0:
+    #     return float('inf') # If no nodes, return infinity so least likely to be selected. Also avoids errors
+
+    
+
+
+    spatial_similarity_1 = get_distancesSpatial(npOrigin, npOther)
+    temporal_similarity_1 = get_distancesTemporal(npOrigin, npOther)
+    spatial_similarity_2 = get_distancesSpatial(npOther, npOrigin)
+    temporal_similarity_2 = get_distancesTemporal(npOther, npOrigin)
+
+
+    spatial_similarity = spatial_similarity_1 + spatial_similarity_2
+    temporal_similarity = temporal_similarity_1 + temporal_similarity_2
+
+    return spatial_similarity * weight + temporal_similarity * (1 - weight)
+
 
 
 def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
@@ -391,10 +441,9 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
     Not which from the origin trajectory are closest to others, as we are rewarding others
 
     We also factor the alpha weight in
-
     """
     origin_nodes = originTrajectory.nodes.compressed()
-    other_nodes = otherTrajectory.nodes.compressed()
+    other_nodes = otherTrajectory.nodes
 
     npOrigin = np.array([[n.x, n.y, n.t] for n in origin_nodes])
     npOther = np.array([[n.x, n.y, n.t] for n in other_nodes])
@@ -406,8 +455,7 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
             if dist < 1: # Set distance to a minimum of 1
                 dist = 1
 
-            otherTrajectory.nodes.data[closestNodeIndex].score += weight / dist
-
+            otherTrajectory.nodes[closestNodeIndex].score += weight / dist
 
            
 def get_min_dist_node(origin_node, nodes, func):
@@ -441,3 +489,14 @@ def spatial_distance_func(node, other_nodes):
 
     min_idx = np.argmin(distances)
     return min_idx, np.min(distances)
+
+
+def getGaussianDist(avgVals, stdDeviation = 500):
+    """
+    We expect avgVals to be an array of 3
+
+    stdDeviation defaults to 500
+    """
+    result = np.random.normal(avgVals, stdDeviation, size=(1, 3))
+    return result
+

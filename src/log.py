@@ -1,10 +1,20 @@
 # log_config.py
 import logging
 import sys
+import os
+from pathlib import Path
+
+
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+
+
+print(f"Output dir: {output_dir}")
 
 # --- Configuration Variables ---
-ERROR_LOG_FILENAME = 'script_error_log.log' # Define a log file name
-STATUS_LOG_FILENAME = 'script_status_log.log' # Define a log file name
+ERROR_LOG_FILENAME = os.path.join(output_dir, 'script_error_log.log') # Define a log file name
+STATUS_LOG_FILENAME = os.path.join(output_dir, 'script_status_log.log') # Define a log file name
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 APP_LOG_LEVEL = logging.DEBUG # Or logging.INFO
 # Define a main logger name for your application
@@ -22,12 +32,12 @@ logger.propagate = False # Important to prevent duplicate logs if root is config
 if not logger.handlers:
     # Create Handlers
     status_formatter = logging.Formatter(LOG_FORMAT)
-    status_file_handler = logging.FileHandler(STATUS_LOG_FILENAME, mode='a')
+    status_file_handler = logging.FileHandler(STATUS_LOG_FILENAME, mode='a+')
     status_file_handler.setLevel(logging.INFO)
     status_file_handler.setFormatter(status_formatter)
 
     error_formatter = logging.Formatter(LOG_FORMAT)
-    error_file_handler = logging.FileHandler(ERROR_LOG_FILENAME, mode='a')
+    error_file_handler = logging.FileHandler(ERROR_LOG_FILENAME, mode='a+')
     error_file_handler.setLevel(logging.ERROR)
     error_file_handler.setFormatter(error_formatter)
 
@@ -42,11 +52,6 @@ if not logger.handlers:
     # logger.addHandler(console_handler)
 
     logger.info("Logging configured from log_config.py") # Optional: Log that setup happened
-
-# You don't *need* to export the logger instance itself,
-# but you *can* export the name if needed elsewhere.
-# logger_name = APP_LOGGER_NAME # Exporting the name is usually unnecessary
-
 
 # --- Example Usage ---
 

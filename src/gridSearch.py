@@ -50,8 +50,6 @@ def createConfigs(*configs):
             # Create an instance of Configuration, unpacking the tuple elements
             # as positional arguments to __init__
             config_object = Configuration(*combination_tuple)
-            for w in config_object.weights:
-                assert asdict(w) # Set weights to dicts
             all_config_objects.append(config_object)
         except TypeError as e:
             logger.error(f"Error creating Configuration object for tuple {combination_tuple}: {e}")

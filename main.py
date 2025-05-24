@@ -1,4 +1,4 @@
-from src.gridSearch import createConfigs, Configuration
+from src.gridSearch import createConfigs, Configuration, Weights
 from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
@@ -16,6 +16,7 @@ import math
 import os
 import traceback # traceback for information on python stack traces
 import argparse
+from dataclasses import asdict
 
 import numpy as np
 
@@ -186,6 +187,7 @@ def gridSearch(config, args):
 
     giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
     for weight in config.weights:
+        weight = asdict(weight) # convert to dict
         for compression_rate in config.compression_rate:
             simpTrajectories = dropNodes(origRtree, origTrajectories, compression_rate, weights=weight)
             logger.info('Loading simplified trajectories into Rtree.')
@@ -248,10 +250,15 @@ if __name__ == "__main__":
         knn_method=args.knn,
         range_flag=args.range,
         similarity_system=args.similarity,
-        weights = [{'range' : 1,  'knn' : 0.25, 'similarity' : 1, 'cluster' : 0},
-                   {'range' : 1,  'knn' : 1, 'similarity' : 0.5, 'cluster' : 0},
-                   {'range' : 0.5,  'knn' : 1, 'similarity' : 1, 'cluster' : 0},
-                   {'range' : 1,  'knn' : 1, 'similarity' : 2, 'cluster' : 0}]
+        # weights = [{'range' : 1,  'knn' : 0.25, 'similarity' : 1, 'cluster' : 0},
+        #            {'range' : 1,  'knn' : 1, 'similarity' : 0.5, 'cluster' : 0},
+        #            {'range' : 0.5,  'knn' : 1, 'similarity' : 1, 'cluster' : 0},
+        #            {'range' : 1,  'knn' : 1, 'similarity' : 2, 'cluster' : 0}]
+        weights = [Weights(range=1, similarity=1, knn=0.25, cluster=0),
+                   Weights(range=1, similarity=0.5, knn=1, cluster=0),
+                   Weights(range=0.5, similarity=1, knn=1, cluster=0),
+                   Weights(range=1, similarity=2, knn=1, cluster=0)]
+        
     )
 
     try:

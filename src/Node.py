@@ -39,7 +39,7 @@ class Node:
         return f"x: {self.x}\ny: {self.y}\ntime: {self.t}\n"
 
     def getScore(self, weights : dict) : 
-        return sum(weights[key] * value for key, value in self.score) / sum(weights.values())
+        return sum(weights[key] * value for key, value in self.score.items()) / sum(weights.values())
     
     """ def distanceEuclidean2D(self):
         # Calculates the norm of the 2D-node vector for this node

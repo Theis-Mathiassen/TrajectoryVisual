@@ -123,7 +123,9 @@ class KnnQuery(Query):
 
         elif self.distanceMethod == 1: # Use spatio temporal linear combine distance
             for trajectory in matches:   
-                spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5)
+                trajectoryInDB = self.trajectories[trajectory.id]
+                #nodes = [x for x in trajectoryInDB.nodes if x is not np.ma.masked]
+                spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5, nodesToAward  = trajectoryInDB.nodes)
 
         else: # If unimplemented distance
             raise Exception(f"Distance method not implemented under name {self.distanceMethod}")

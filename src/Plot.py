@@ -178,7 +178,7 @@ def plotClusterQuery(trajectories: list[T], query: CQ, rtree):
 
 def plotSimpVsOrig(origTraj: T, simpTraj: T):
     # We assume that the input is a tuple of x-coordinates and y-coordinates in both cases.
-    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig, ax1 = plt.subplots()
 
     xs, ys = trajCoordSplit(origTraj)
 
@@ -188,9 +188,12 @@ def plotSimpVsOrig(origTraj: T, simpTraj: T):
 
     xs, ys = trajCoordSplit(simpTraj)
 
-    ax2.plot(xs, ys)
-    ax2.set_xlabel("Degrees of latitude")
-    ax2.set_ylabel("Degrees of longitude")
+    ax1.plot(xs, ys, color='red', linestyle='dashed')
+    # ax1.set_xlabel("Degrees of latitude")
+    # ax1.set_ylabel("Degrees of longitude")
+
+    #ax1.set_aspect('equal')
+    #ax2.set_aspect('equal')
 
     plt.show()
 
@@ -479,8 +482,49 @@ def plotDistributeHeatmap(data, xlabels, ylabels, type, compressionrate, show=Fa
         plt.savefig(f"{path}/Heatmaps/heatmap_{saveName}.png", bbox_inches='tight')
         plt.close()
 
+def fillQueryRange(query: RQ):
+    # Fills the query range with a rectangle
+    x_range = [query.x1, query.x1, query.x2, query.x2]
+    y_range = [query.y1, query.y2, query.y2, query.y1]
+    
+    plt.fill(x_range, y_range, alpha=0.3)
+
+def generateSmallVis():
+    node_one = N(id=0,x=1,y=1,t=1)
+    node_two = N(id=1,x=2,y=1,t=2)
+    node_three = N(id=2,x=3,y=2,t=3)
+    node_four = N(id=3,x=4,y=2.2,t=4)
+
+    originalTrajectoryT = T(id=0, nodes=[node_one, node_two, node_three, node_four])
+
+    query1 = RQ({'x1':0.8, 'y1':0.9, 'x2':2.15, 'y2':1.2, 't1':0, 't2':5, 'delta':5, 'k':3, 'origin':originalTrajectoryT, 'eps':1, 'linesmin':3, 'trajectories':originalTrajectoryT, 'flag':2, 'centerx':2.5, 'centery':2.5})
+    query2 = RQ({'x1':3.5, 'y1':2, 'x2':4.5, 'y2':2.5, 't1':0, 't2':5, 'delta':5, 'k':3, 'origin':originalTrajectoryT, 'eps':1, 'linesmin':3, 'trajectories':originalTrajectoryT, 'flag':2, 'centerx':1.5, 'centery':1.5})
+
+    # plt.fill([query1.x1, query1.x1, query1.x2, query1.x2], [query1.y1, query1.y2, query1.y2, query1.y1], alpha=0.3)
+
+    fillQueryRange(query1)
+    fillQueryRange(query2)
+
+    xs, ys = trajCoordSplit(originalTrajectoryT)
+
+    plt.plot(xs, ys, linestyle='solid', alpha=1.0)
+
+    plt.show()
+
+    simplifiedTrajectoryT = T(id=1, nodes=[node_one, node_two, node_four])
+
+    xs, ys = trajCoordSplit(simplifiedTrajectoryT)
+
+    plt.plot(xs, ys, linestyle='solid', alpha=1.0)
+
+    plt.show()
+
+    plotSimpVsOrig(originalTrajectoryT, simplifiedTrajectoryT)
+
 if __name__ == "__main__":
-    df = pd.read_csv('21mayscores - scores_summary_knn.csv')
+    generateSmallVis()
+    exit()
+    df = pd.read_csv('21mayscores - entire_gridsearch.csv')
 
     average_heatmap_matrix = []
     range_heatmap_matrix = []
@@ -550,8 +594,10 @@ if __name__ == "__main__":
     kNNF1ScoreHeatmap = np.zeros(shape=(5, 4, 4))
 
     cr_list = []
-    xlabels = []
-    ylabels = []
+    xlabels = [None] * 4
+    ylabels = [None] * 4
+    xlabelsSet = set()
+    ylabelsSet = set()
 
     for i in range(df.shape[0]):
         # Find the name of the distribute methods used
@@ -563,19 +609,22 @@ if __name__ == "__main__":
 
         if i < 5:
             cr_list.append(df.iloc[i]['cr'])
-        if i % 5 == 0 and i < 20:
-            ylabels.append(parsedName[1])
-        if i % 20 == 0:
-            xlabels.append(parsedName[0])
-        
+        ylabelsSet.add(parsedName[1])
+        xlabelsSet.add(parsedName[0])
+
         # Transfer the F1 scores to their heatmaps ('i' can be mapped to the compression rate)
-        avgF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['Average f1']
-        rangeF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['Range f1']
-        similarityF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['similarity f1']
-        kNNF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['knn f1']
+        avgF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['f1_1']
+        rangeF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['f1_2']
+        similarityF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['f1_3']
+        kNNF1ScoreHeatmap[i % len(cr_list)][similarityId][rangeId] = df.iloc[i]['f1_4']
+    
+    for (xelem, yelem) in zip(xlabelsSet, ylabelsSet):
+        xlabels[rangeNameIds[xelem]] = xelem
+        ylabels[similarityNameIds[yelem]] = yelem
+    
     # print(kNNF1ScoreHeatmap)
     for i in range(len(cr_list)):
-        #plotDistributeHeatmap(avgF1ScoreHeatmap[i], xlabels, ylabels, "Avg", cr_list[i], show=False)
-        #plotDistributeHeatmap(rangeF1ScoreHeatmap[i], xlabels, ylabels, "Range", cr_list[i], show=False)
-        #plotDistributeHeatmap(similarityF1ScoreHeatmap[i], xlabels, ylabels, "Similarity", cr_list[i], show=False)
+        plotDistributeHeatmap(avgF1ScoreHeatmap[i], xlabels, ylabels, "Avg", cr_list[i], show=False)
+        plotDistributeHeatmap(rangeF1ScoreHeatmap[i], xlabels, ylabels, "Range", cr_list[i], show=False)
+        plotDistributeHeatmap(similarityF1ScoreHeatmap[i], xlabels, ylabels, "Similarity", cr_list[i], show=False)
         plotDistributeHeatmap(kNNF1ScoreHeatmap[i], xlabels, ylabels, "kNN", cr_list[i], show=False)

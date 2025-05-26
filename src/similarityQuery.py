@@ -299,16 +299,15 @@ class SimilarityQuery(Query):
             originNodes = sorted(originNodes, key = lambda node : node.t)
             for i in range(len(trajectoryNodes)):
                 nodeDistances.append((trajectoryNodes[i]. id, np.linalg.norm(np.array((trajectoryNodes[i].x, trajectoryNodes[i].y)) - np.array((originNodes[i].x, originNodes[i].y))))) """
-            for node_id in nodesPerTrajectory[trajectory_id]:
+            for idx, node_id in enumerate(nodesPerTrajectory[trajectory_id]):
                 node = self.trajectories[trajectory_id].nodes.data[node_id]
                 point1 = np.array((node.x, node.y))
-                for originNodeid in matchedOriginNodesIdx:
-                    point2 = np.array((originNodes[originNodeid].x, originNodes[originNodeid].y))
+                point2 = np.array((originNodes[matchedOriginNodesIdx[idx]].x, originNodes[matchedOriginNodesIdx[idx]].y))
+                nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
+                """if originNode.t == node.t:
+                    point2 = np.array((originNode.x, originNode.y))
                     nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
-                    """if originNode.t == node.t:
-                        point2 = np.array((originNode.x, originNode.y))
-                        nodeDistances.append((node_id, np.linalg.norm(point1 - point2)))
-                        break """
+                    break """
             nodeDistances = sorted(nodeDistances, key = lambda node : node[1])
             nodesPerTrajectory[trajectory_id] = nodeDistances
             

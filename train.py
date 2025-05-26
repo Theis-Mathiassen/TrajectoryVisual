@@ -1,5 +1,5 @@
+#from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from pathlib import Path
-from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
 from src.scoringQueries import giveQueryScorings
@@ -21,7 +21,7 @@ import traceback # traceback for information on python stack traces
 import numpy as np
 
 sys.path.append("src/")
-output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd())
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
 Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 CSVNAME = 'first_10000_train'
@@ -51,6 +51,7 @@ def main(config):
 
 
     avgCoordinatesValue = None
+    stdCoordinatesValue = None
     if USE_GAUSSIAN:
         avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
         stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)

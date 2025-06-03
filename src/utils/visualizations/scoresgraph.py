@@ -29,7 +29,7 @@ def parse_config_name(config_short):
         if sim_code == 'a': sim_abbrev = "A"
         elif sim_code == 'c': sim_abbrev = "C"
         elif sim_code == 'c+f': sim_abbrev = "C+F"
-        elif sim_code == 'm': sim_abbrev = "M"
+        elif sim_code == 'm': sim_abbrev = "R"
     
     if not range_abbrev or not sim_abbrev:
         if "knn1" in config_short and not range_match and not sim_part_match: # Only knn
@@ -51,7 +51,10 @@ def parse_config_name(config_short):
 
 
     # return f"{knn_part_str}, {range_abbrev}, {sim_abbrev}"
-    return f"{range_abbrev}, {sim_abbrev}"
+    #return f"{knn_part_str}"
+    #return f"{range_abbrev}"
+    return f"{sim_abbrev}"
+    #return f"{range_abbrev}, {sim_abbrev}"
 
 
 def plot_experimental_results(csv_file_path, output_filename="experimental_results_plot.pdf", core_f1_only=False):
@@ -80,14 +83,14 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
         }
         nrows, ncols = 3, 1 
         figsize = (12, 21) 
-        legend_bbox_anchor = (0.5, 0.02)
-        tight_layout_rect = [0.1, 0.08, 0.9, 0.95] 
-        suptitle = 'F1 Scores vs. Compression Rate' 
+        legend_bbox_anchor = (0.5, 0.04) # Adjusted for potentially larger legend
+        tight_layout_rect = [0.1, 0.2, 0.9, 0.92] # Adjusted for suptitle and legend
+        suptitle = 'F1 Scores vs. Compression Rate'
 
     else:
         metrics_to_plot = {
             'f1_1': 'Avg. F1 (Range, Sim., kNN)',
-            'f1_2': 'Range F1',
+            'f1_2': 'Range Query F1',
             'f1_3': 'Similarity F1',
             'f1_4': 'kNN F1',
             'simpl_err_1': 'Error$_1$',
@@ -95,8 +98,8 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
         }
         nrows, ncols = 3, 2 
         figsize = (18, 21) 
-        legend_bbox_anchor = (0.5, 0.01)
-        tight_layout_rect = [0, 0.06, 1, 0.95] 
+        legend_bbox_anchor = (0.5, 0.03) # Adjusted for potentially larger legend
+        tight_layout_rect = [0, 0.25, 1, 0.92] # Adjusted for suptitle and legend
         suptitle = 'Performance Metrics vs. Compression Rate for Different Configurations'
 
     metric_keys = list(metrics_to_plot.keys())
@@ -136,14 +139,14 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
                         label=config_name_display, 
                         linewidth=2.2, markersize=8)
         
-        ax.set_title(f'{plot_title} vs. CR', fontsize=16)
-        ax.set_ylabel(y_label, fontsize=14)
+        ax.set_title(f'{plot_title} vs. CR', fontsize=30) # Further Increased
+        ax.set_ylabel(y_label, fontsize=30) # Further Increased
         ax.grid(True, linestyle=':', alpha=0.6)
-        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.tick_params(axis='both', which='major', labelsize=26) # Further Increased
         
         # Set explicit x-ticks
         ax.set_xticks(cr_values)
-        ax.set_xticklabels(cr_values) # Ensure labels match the ticks
+        ax.set_xticklabels(cr_values, rotation=45, ha='right') # Rotate labels to prevent overlap
 
         if 'f1' in metric_key:
             ax.set_ylim(0, 1.05)
@@ -154,10 +157,10 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
     if nrows > 0 and ncols > 0: 
         if core_f1_only: # 3x1 layout
             for k in range(ncols): 
-                 axes_flat[nrows-1+k].set_xlabel('Compression Rate (CR)', fontsize=14)
+                 axes_flat[nrows-1+k].set_xlabel('Compression Rate (CR)', fontsize=30) # Further Increased
         else: # 3x2 layout
             for k in range(ncols):
-                axes_flat[(nrows-1)*ncols + k].set_xlabel('Compression Rate (CR)', fontsize=14)
+                axes_flat[(nrows-1)*ncols + k].set_xlabel('Compression Rate (CR)', fontsize=30) # Further Increased
 
 
     # Deduplicate handles and labels for the legend
@@ -172,7 +175,7 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
     final_labels = list(unique_labels_dict.keys())
     
     num_legend_cols = 3
-    if len(final_labels) > 12: num_legend_cols = 4
+    if len(final_labels) > 12: num_legend_cols = 3
     elif len(final_labels) > 9: num_legend_cols = 3 
     elif len(final_labels) > 4: num_legend_cols = 2
     else: num_legend_cols = 1 if len(final_labels) > 0 else 0
@@ -180,11 +183,14 @@ def plot_experimental_results(csv_file_path, output_filename="experimental_resul
 
     if final_handles: 
         fig.legend(final_handles, final_labels, loc='lower center', bbox_to_anchor=legend_bbox_anchor, 
-                   ncol=num_legend_cols, fontsize=11, title="Configurations (Range, Similarity)", title_fontsize=13,
+                   #ncol=num_legend_cols, fontsize=28, title="Configurations (kNN)", title_fontsize=30, # Further Increased
+                   #ncol=num_legend_cols, fontsize=28, title="Configurations (Range)", title_fontsize=30, # Further Increased
+                   ncol=num_legend_cols, fontsize=28, title="Configurations (Similarity)", title_fontsize=30, # Further Increased
+                   #ncol=num_legend_cols, fontsize=28, title="Configurations (Range, Similarity)", title_fontsize=30, # Further Increased
                    frameon=True, facecolor='white', framealpha=0.9, shadow=True)
 
     if not core_f1_only: # Only add suptitle if not core_f1_only
-        fig.suptitle(suptitle, fontsize=20, fontweight='bold')
+        fig.suptitle(suptitle, fontsize=40, fontweight='bold') # Further Increased
     
     current_tight_layout_rect = list(tight_layout_rect) 
     if not final_handles: 

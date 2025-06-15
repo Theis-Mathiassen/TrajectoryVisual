@@ -21,13 +21,13 @@ from dataclasses import asdict
 import numpy as np
 
 sys.path.append("src/")
-output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd())
 Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
+PICKLE_HITS = ['TDriveKnnQueryHits.pkl'] #['RangeQueryHits_geolife.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 
 # Prepare RTrees for training and testing
@@ -126,6 +126,23 @@ def getStandardDerivationNodeCoordinates(trajectories, averages):
     stdCoordinateValues = np.sqrt([stdx, stdy, stdt])
 
     return stdCoordinateValues
+
+def getDataDistribution(trajectories, spatialWindow, temporalWindow):
+    dataTrajGrid = {}
+    dataNodeGrid = {}
+    
+    for trajectory in trajectories.values():
+        for node in trajectory.nodes:
+            tup = (node.x // spatialWindow, node.y // spatialWindow, node.t // temporalWindow)
+            if tup not in dataTrajGrid:
+                dataTrajGrid[tup] = set()
+            if tup not in dataNodeGrid:
+                dataNodeGrid[tup] = set()
+            dataNodeGrid[tup].add([trajectory.id, node.id])
+            dataTrajGrid[tup].add(trajectory.id)
+    
+    return dataTrajGrid, dataNodeGrid
+
 #### main
 def main(config):
     if os.path.exists(CACHE_FILE):
@@ -241,7 +258,7 @@ if __name__ == "__main__":
     
     # Create a single configuration object
     config = Configuration(
-        compression_rate=[0.95, 0.975, 0.99],
+        compression_rate=[0.8, 0.9],
         DB_size=100,
         trainTestSplit=0,
         numberOfEachQuery=100,
@@ -254,10 +271,7 @@ if __name__ == "__main__":
         #            {'range' : 1,  'knn' : 1, 'similarity' : 0.5, 'cluster' : 0},
         #            {'range' : 0.5,  'knn' : 1, 'similarity' : 1, 'cluster' : 0},
         #            {'range' : 1,  'knn' : 1, 'similarity' : 2, 'cluster' : 0}]
-        weights = [Weights(range=1, similarity=1, knn=0.25, cluster=0),
-                   Weights(range=1, similarity=0.5, knn=1, cluster=0),
-                   Weights(range=0.5, similarity=1, knn=1, cluster=0),
-                   Weights(range=1, similarity=2, knn=1, cluster=0)]
+        weights = [Weights(range=1, similarity=1, knn=1, cluster=1)]
         
     )
 

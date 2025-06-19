@@ -111,7 +111,9 @@ def getF1Score(query : Query, rtree_original, rtree_simplified, trajectories_ori
 
     intersection = setOriginal_result & setSimplified_result
 
-    if (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
+    if len(setOriginal_result) == 0 and len(setSimplified_result) == 0:
+        return 1
+    elif (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
         return 0
     
     precision = len(intersection) / len(setSimplified_result)

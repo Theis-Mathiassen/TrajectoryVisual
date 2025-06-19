@@ -40,16 +40,23 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None):
-        if index == None:
-            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None, cell = None):
+        if cell is not None:
+            centerX = cell[0] * 2 * centerToEdge + centerToEdge
+            centerY = cell[1] * 2 * centerToEdge + centerToEdge
+            centerT = cell[2] * 2 * temporalWindowSize + temporalWindowSize
+            randomTrajectory = None
         else:
-            randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
-        centerX = centerNode.x
-        centerY = centerNode.y
-        tMin = max(centerNode.t - temporalWindowSize, self.tMin)
-        tMax = min(centerNode.t + temporalWindowSize, self.tMax)
+            if index is None:
+                randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+            else:
+                randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
+            centerX = centerNode.x
+            centerY = centerNode.y
+            centerT = centerNode.t
+        tMin = max(centerT - temporalWindowSize, self.tMin)
+        tMax = min(centerT + temporalWindowSize, self.tMax)
         xMin = max(centerX - centerToEdge, self.xMin)
         xMax = min(centerX + centerToEdge, self.xMax)
         yMin = max(centerY - centerToEdge, self.yMin)
@@ -76,12 +83,12 @@ class ParamUtil:
 
 
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None, nodeIndex = None):
-        if index == None:
+        if index is None:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
         
-        if nodeIndex == None:
+        if nodeIndex is None:
             centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         else:
             centerNode: Node = randomTrajectory.nodes[nodeIndex]

@@ -10,7 +10,7 @@ import random
 from rtree import index
 
 class QueryWrapper:
-    def __init__(self, numberOfEachQuery, random = True, trajectories = None, useGaussian = False, avgCoordinateValues = None, rtree: index.Index = None, sigma = 500):
+    def __init__(self, numberOfEachQuery, random = False, trajectories = None, useGaussian = False, avgCoordinateValues = None, rtree: index.Index = None, sigma = 500):
         self.numberOfEachQuery = numberOfEachQuery
         self.RangeQueries = []#list[RangeQuery]
         self.KNNQueries = []#list[KnnQuery]
@@ -24,7 +24,7 @@ class QueryWrapper:
         self.sigma = sigma
         self.bounds = rtree.bounds
         
-    def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1):
+    def createRangeQueries(self, rtree, paramUtil : ParamUtil, flag: int = 1, cellDist = None):
         if self.random:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.rangeParams(rtree)
@@ -39,13 +39,19 @@ class QueryWrapper:
                 params = paramUtil.gaussianRangeParams(randomPoint)
                 params["flag"] = flag
                 self.RangeQueries.append(RangeQuery(params))
+        elif cellDist is not None:
+            random.shuffle(cellDist)
+            for query in range(self.numberOfEachQuery):
+                params = paramUtil.rangeParams(rtree, cell=cellDist[query])
+                params["flag"] = flag
+                self.RangeQueries.append(RangeQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.rangeParams(rtree, index=trajectory.id)
                 params["flag"] = flag
                 self.RangeQueries.append(RangeQuery(params))
         
-    def createKNNQueries(self, rtree, paramUtil : ParamUtil, distance_method: int = 1):
+    def createKNNQueries(self, rtree, paramUtil : ParamUtil, distance_method: int = 1, cellDist = None, trajGrid = None):
         if self.random:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.knnParams(rtree)
@@ -58,13 +64,19 @@ class QueryWrapper:
                 params = paramUtil.knnParams(rtree, index=trajectory_id, nodeIndex=node_id)
                 params["distanceMethod"] = distance_method
                 self.KNNQueries.append(KnnQuery(params))
+        elif cellDist is not None:
+            random.shuffle(cellDist)
+            for query in range(self.numberOfEachQuery):
+                params = paramUtil.knnParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])))
+                params["distanceMethod"] = distance_method
+                self.RangeQueries.append(KnnQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.knnParams(rtree, index=trajectory.id)
                 params["distanceMethod"] = distance_method
                 self.KNNQueries.append(KnnQuery(params))
     
-    def createSimilarityQueries(self, rtree, paramUtil : ParamUtil, scoring_system: str = "c"):
+    def createSimilarityQueries(self, rtree, paramUtil : ParamUtil, scoring_system: str = "c", cellDist = None, trajGrid = None):
         if self.random:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.similarityParams(rtree)
@@ -77,6 +89,12 @@ class QueryWrapper:
                 params = paramUtil.similarityParams(rtree, index=trajectory_id, nodeIndex=node_id)
                 params["scoringSystem"] = scoring_system
                 self.SimilarityQueries.append(SimilarityQuery(params))
+        elif cellDist is not None:
+            random.shuffle(cellDist)
+            for query in range(self.numberOfEachQuery):
+                params = paramUtil.similarityParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])))
+                params["scoringSystem"] = scoring_system
+                self.RangeQueries.append(SimilarityQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.similarityParams(rtree, index=trajectory.id)

@@ -236,6 +236,28 @@ class ClusterQuery(Query):
         for index, partition in enumerate(partitions):
             amount = len(partition)
             map_segment_to_trajectory_index += [index] * amount
+        map_segment_to_trajectory_index = self.getTrajectoryFromPartitions(partitions)
+
+        # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
+        dict_for_clusters = defaultdict(list)
+        for index, value in enumerate(cluster_assignments):
+            trajectory_index = map_segment_to_trajectory_index[index]
+
+            # We have to convert back such that we can get the ids
+            dict_for_clusters[value].append(list(T.keys())[trajectory_index])
+
+        clusters = list(dict_for_clusters.values())
+        clusters = [list(set(cluster)) for cluster in clusters]
+
+        return clusters  # Return groupings
+
+    def getTrajectoryFromPartitions(self, partitions):
+        """ Get which trajectory index each segment corresponds to """
+
+        map_segment_to_trajectory_index = []
+        for index, partition in enumerate(partitions):
+            amount = len(partition)
+            map_segment_to_trajectory_index += [index] * amount
 
         return map_segment_to_trajectory_index
 

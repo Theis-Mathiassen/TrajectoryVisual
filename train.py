@@ -71,7 +71,7 @@ def main(config):
     listTrajCellCnt = np.array([len(cell) for cell in list(dataTrajGrid.values())])
     totalTrajCellCnt = np.sum(listTrajCellCnt)
     #listTrajCellProbDist = list
-    #sampleTrajCellDist = 
+    #sampleT    rajCellDist = 
     
     keys = np.random.choice(len(listTrajCellTup), config["numberOfEachQuery"], p=(listTrajCellCnt/totalTrajCellCnt))
     listSampleCellKeys = [listTrajCellTup[key] for key in keys]
@@ -91,7 +91,7 @@ def main(config):
     if query_type == "range":
         logger.info('Creating range queries.')
         if USE_DATADISTRIBUTION:
-            origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, listSampleCellKeys)
+            origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, cellDist=listSampleCellKeys)
         else:
             origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "similarity":

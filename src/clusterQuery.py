@@ -144,7 +144,7 @@ class ClusterQuery(Query):
         # Get trajectories that have nodes within the time window
 
         # Return a list of trajectories that appear in the hits
-        return [t for tid, t in trajectories.items() if tid in seen_trajectories]
+        #return [t for tid, t in trajectories.items() if tid in seen_trajectories]
 
     def _filter_trajectories_by_time(self, trajectories, rtree):
         """Filter trajectories based on temporal constraints using R-tree."""

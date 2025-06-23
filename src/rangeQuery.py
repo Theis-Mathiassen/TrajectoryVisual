@@ -4,7 +4,7 @@ from src.Node import Node
 from src.Query import Query
 import numpy as np
 from src.Util import euc_dist_diff_2d
-import rangeQuery
+#import rangeQuery
 
 
 class RangeQuery(Query):
@@ -36,7 +36,7 @@ class RangeQuery(Query):
     def __str__(self):
         return "RangeQuery"
 
-    def run(self, rtree):
+    def run(self, rtree, trajectories):
         # Gets nodes in range query
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
 
@@ -61,7 +61,10 @@ class RangeQuery(Query):
         #print(len(trajectories_output))
         self.hits = hits """
 
-        # Remove hits that are the origin node
+        # Remove hits that are the origin node, unless origin is None
+        if self.origin is None:
+            return hits
+        
         originId = self.origin.id
         hits = [(tid, nid) for (tid, nid) in hits if tid != originId]
 
@@ -88,8 +91,7 @@ class RangeQuery(Query):
         def give_point(trajectory: Trajectory, node_id) :
             for n in trajectory.nodes :
                 if n.id == node_id[0] :
-                    n.score += 1
-
+                    n.score['range'] += 1
 
         q_bbox = [self.centerx, self.centery, self.centert]
         q_bbox_dict = {'x' : q_bbox[0], 'y' : q_bbox[1], 't' : q_bbox[2]}
@@ -99,10 +101,9 @@ class RangeQuery(Query):
         # Get matches into correct format
         #matches = [(n.object, n.bbox) for n in self.hits]
 
-
-        for hit in matches : 
+        for hit in matches: 
             trajectory_id, node_id = hit
-            node = self.trajectories.get(trajectory_id).nodes[node_id]
+            node = trajectories.get(trajectory_id).nodes[node_id]
 
             dist_current = euc_dist_diff_2d(dict({'x' : node.x, 'y' : node.y, 't' : node.t}), q_bbox_dict)
 
@@ -146,7 +147,7 @@ class RangeQuery(Query):
                 amount /= len(nodes_ids)
                 
             for node_id in nodes_ids:
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score['range'] += amount
 
 
 
@@ -173,4 +174,4 @@ class RangeQuery(Query):
                 x_dir_point = 1 - (2*np.abs(node.x-self.centerx)/(width)) 
                 y_dir_point = 1 - (2*np.abs(node.y-self.centery)/(height))
                 amount =  x_dir_point / 2 + y_dir_point / 2
-                trajectories[trajectory_id].nodes[node_id].score += amount
+                trajectories[trajectory_id].nodes[node_id].score['range'] += amount

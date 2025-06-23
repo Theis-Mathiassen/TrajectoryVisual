@@ -4,27 +4,34 @@ from src.Node import Node
 from tqdm import tqdm
 import numpy.ma as ma
 import numpy as np
+from src.rdp import rdpMaskTrajectories
 
-def getNodes(trajectories):
+def getNodes(trajectories, trajectoriesWithMask = False):
     """ nodes = []
     for count, trajectory in enumerate(trajectories):
         for node in trajectory.nodes[1:-1]:
             nodes.append((node, count)) #Also stores index of associated trajectory, so we can easily find later """
     nodes = []
+    
+    if trajectoriesWithMask:
+        for trajectoryidx in trajectoriesWithMask.keys():
+            trajectories[trajectoryidx].nodes.mask = trajectoriesWithMask[trajectoryidx].nodes.mask
+    
     for trajectory in trajectories.values():
-        trajectory.nodes.mask = False
-        zipped = [[node, trajectory.id] for node in trajectory.nodes[1:-1]]
+        if not trajectoriesWithMask:
+            trajectory.nodes.mask = False
+        zipped = [[node, trajectory.id] for node in trajectory.nodes.compressed()[1:-1]]
         nodes += zipped
         
     return nodes
     
 
-def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0):
+def dropNodes(rtree, trajectories, compression_rate, amount_to_drop = 0,trajectoriesWithMask = False, weights = {'range' : 1, 'similarity' : 1, 'knn' : 1, 'cluster' : 1}):
     # Drops a percentage of nodes, alternatively can drop an amount of nodes
 
     # Gets all nodes except first and last one, and sorts based on score
-    nodes = getNodes(trajectories)
-    sorted_nodes = sorted(nodes, key=lambda node: node[0].score)
+    nodes = getNodes(trajectories, trajectoriesWithMask= trajectoriesWithMask)
+    sorted_nodes = sorted(nodes, key=lambda node: node[0].getScore(weights))
 
     
     total_nodes = sum([len(x.nodes) for x in trajectories.values()])

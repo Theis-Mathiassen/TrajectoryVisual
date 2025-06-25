@@ -69,7 +69,7 @@ class QueryWrapper:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.knnParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])), cell=cellDist[query])
                 params["distanceMethod"] = distance_method
-                self.RangeQueries.append(KnnQuery(params))
+                self.KNNQueries.append(KnnQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.knnParams(rtree, index=trajectory.id)
@@ -94,7 +94,7 @@ class QueryWrapper:
             for query in range(self.numberOfEachQuery):
                 params = paramUtil.similarityParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])))
                 params["scoringSystem"] = scoring_system
-                self.RangeQueries.append(SimilarityQuery(params))
+                self.SimilarityQueries.append(SimilarityQuery(params))
         else:
             for trajectory in self.trajectories.values():
                 params = paramUtil.similarityParams(rtree, index=trajectory.id)

@@ -282,8 +282,8 @@ def minimum_desription_length(start_idx, curr_idx, trajectory, w_angular=1, w_pe
                 # print()
                 # print(np.array([trajectory[start_idx], trajectory[i]]))
                 # print(np.array([trajectory[j], trajectory[j+1]]))
-                LDH += w_perpendicular * d_perpendicular(np.array([trajectory[start_idx], trajectory[i]]), np.array([trajectory[j], trajectory[j+1]]))
-                LDH += w_angular * d_angular(np.array([trajectory[start_idx], trajectory[i]]), np.array([trajectory[j], trajectory[j+1]]), directional=directional)
+                LDH += w_perpendicular * d_perpendicular(np.array([trajectory[start_idx], trajectory[i]]), trajectory[j:j+2]) #np.array([trajectory[j], trajectory[j+1]])
+                LDH += w_angular * d_angular(np.array([trajectory[start_idx], trajectory[i]]), trajectory[j:j+2], directional=directional)
     if par:
         return LH + LDH
     return LH
@@ -344,13 +344,15 @@ def smooth_trajectory(trajectory, window_size=5):
     return smoothed_trajectory
 
 # Get Distance Matrix
-@nb.jit(nb.float64[:,:](nb.float64[:,:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, parallel=True, cache=True)
+#@nb.jit(nb.float64[:,:](nb.float64[:,:, :], nb.bool, nb.float64, nb.float64, nb.float64), nopython = True, parallel=True, cache=True)
 def get_distance_matrix(partitions, directional=True, w_perpendicular=1, w_parallel=1, w_angular=1):
     # Create Distance Matrix between all trajectories
     n_partitions = len(partitions)
+    if n_partitions == 0:
+        return None
     dist_matrix = np.zeros((n_partitions, n_partitions))
     #for i in tqdm(range(n_partitions), desc="Creating distance matrix"):
-    for i in nb.prange(n_partitions):
+    for i in range(n_partitions):
     #for i in nb.prange(n_partitions):
         # if progress_bar: print(f'Progress: {i+1}/{n_partitions}', end='\r')
         for j in range(i+1):
@@ -477,7 +479,7 @@ def get_representative_trajectory(lines, min_lines=3):
                     # y_avg += line[np.argmin(np.abs(line[:, 0] - p[0])), 1]
             y_avg /= num_p
             # Add the p and its average y-value to representative_points
-            representative_points.append(np.array([p[0], y_avg]))
+            representative_points.append([p[0], y_avg])
 
     # Early return if there are no representative points
     if len(representative_points) == 0:
@@ -486,13 +488,13 @@ def get_representative_trajectory(lines, min_lines=3):
 
     # Undo the rotation for the generated representative points
     representative_points = np.array(representative_points)
-    rotation_matrix_inverse_transposed = np.array(np.linalg.inv(rotation_matrix).T, order='C')
+    rotation_matrix_inverse_transposed = np.linalg.inv(rotation_matrix).T
     representative_points = np.matmul(representative_points, rotation_matrix_inverse_transposed)
     
     return representative_points
 
 
-def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_segments=True, clustering_algorithm=OPTICS, mdl_weights=[1,1,1], d_weights=[1,1,1], progress_bar=False):
+def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_segments=True, clustering_algorithm=OPTICS, mdl_weights=[1,1,1], d_weights=[1,1,1], progress_bar=True):
     """
         Trajectory Clustering Algorithm
     """
@@ -549,7 +551,10 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
         clustering_model = clustering_algorithm(max_eps=max_eps, min_samples=min_samples)
     else:
         clustering_model = clustering_algorithm(min_samples=min_samples)
-    cluster_assignments = clustering_model.fit_predict(dist_matrix)
+    if dist_matrix is not None:
+        cluster_assignments = clustering_model.fit_predict(dist_matrix)
+    else:
+        cluster_assignments = []
     for c in range(min(cluster_assignments), max(cluster_assignments) + 1):
         clusters.append([segments[i] for i in range(len(segments)) if cluster_assignments[i] == c])
 
@@ -582,7 +587,8 @@ def DBSCAN(segments, epsilon = 2.0 , minLines = 3):
     clusterId = 0
     clusterLabels = {}
     for seg in segments:
-        if seg in clusterLabels: continue
+        if seg in clusterLabels: 
+            continue
         
         neighbors = neighbourhood(seg, segments, epsilon=epsilon)
         
@@ -595,14 +601,17 @@ def DBSCAN(segments, epsilon = 2.0 , minLines = 3):
         seedSet = neighbors.remove(seg)
         
         for otherSeg in seedSet:
-            if otherSeg in clusterLabels: continue #Maybe other way around?
-            if clusterLabels[otherSeg] == -1: clusterLabels[otherSeg] = clusterId
+            if otherSeg in clusterLabels: 
+                continue #Maybe other way around?
+            if clusterLabels[otherSeg] == -1: 
+                clusterLabels[otherSeg] = clusterId
             
             clusterLabels[otherSeg] = clusterId
             
             otherNeighbors = neighbourhood(otherSeg, segments, epsilon=epsilon)
             
-            if len(otherNeighbors) >= minLines: seedSet = seedSet.union(otherNeighbors)
+            if len(otherNeighbors) >= minLines: 
+                seedSet = seedSet.union(otherNeighbors)
   
   
 #Based on the original TRACLUS paper      
@@ -621,11 +630,13 @@ def lineSegmentClustering(segments, trajectoryDict, epsilon = 2.0, minLines =3):
                 Q = neighbors.discard(seg) 
                 expandCluster(Q, segments, clusterId, clusterLabels, epsilon=epsilon, minLines=minLines)
                 clusterId += 1
-            else: clusterLabels[seg] = -1
+            else: 
+                clusterLabels[seg] = -1
     
     clusterDict = {}
     for seg in clusterLabels:
-        if clusterDict[clusterLabels[seg]] is None: clusterDict[clusterLabels[seg]] = []
+        if clusterDict[clusterLabels[seg]] is None: 
+            clusterDict[clusterLabels[seg]] = []
         clusterDict[clusterLabels[seg]].append(seg)
       
     removedClusters = {}

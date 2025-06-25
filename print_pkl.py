@@ -16,7 +16,8 @@ def print_pickle_file(filepath: str) -> None:
         repeated = set()
         
         for (q, r) in tqdm(data):
-            if len(r) == 0: empty += 1
+            if len(r) == 0: 
+                empty += 1
             else: 
                 setTraj = set([trajId for (trajId, _) in r])
                 lst += len(setTraj)

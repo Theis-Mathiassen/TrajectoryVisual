@@ -75,7 +75,7 @@ def getClusterSet(rtree, query, use_cache = False, differentTrajs = None):
         oldTrajs = query.trajectories
         query.trajectories = differentTrajs
         
-    clusters = query.run(rtree)
+    clusters = query.run(rtree, query.trajectories)
     
     if differentTrajs is not None:
         query.trajectories = oldTrajs

@@ -27,7 +27,7 @@ Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['DataRangeQueryHits.pkl'] #['RangeQueryHits_geolife.pkl'] 
+PICKLE_HITS = []#['RangeQueryDataHits.pkl', 'KnnQueryDataHits.pkl', 'SimilarityQueryDataHits.pkl'] #['RangeQueryHits_geolife.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
 TEMPORAL_WINDOW = 10800
 SPATIAL_WINDOW = 2000
@@ -52,8 +52,9 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False, use
         #listTrajCellProbDist = list
         #sampleTrajCellDist = 
         
-        keys = np.random.choice(len(listTrajCellTup), len(listTrajCellTup), p=(listTrajCellCnt/totalTrajCellCnt))
+        keys = np.random.choice(len(listTrajCellTup), 10000, p=(listTrajCellCnt/totalTrajCellCnt))
         listSampleCellKeys = [listTrajCellTup[key] for key in keys]
+        print(len(set(listSampleCellKeys)))
 
     # ---- Create training queries -----
     logger.info('Creating training queries.')
@@ -68,7 +69,7 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False, use
         origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
         logger.info('Creating KNN queries.')
         origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
-        # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+        #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
     else:
         logger.info('Creating range queries.')
         origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, flag=config.range_flag)
@@ -76,7 +77,8 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False, use
         origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system)
         logger.info('Creating KNN queries.')
         origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method)
-        # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+        #logger.info('Creating cluster queries')
+        #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     logger.info('Creating evaluation queries.')
@@ -90,6 +92,8 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False, use
         origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation, scoring_system=config.similarity_system, cellDist=listSampleCellKeys, trajGrid = dataTrajGrid)
         logger.info('Creating KNN queries.')
         origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation, distance_method=config.knn_method, cellDist=listSampleCellKeys, trajGrid = dataTrajGrid)
+        #logger.info('Creating cluster queries.')
+        #origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation, cellDist=listSampleCellKeys, trajGrid= dataTrajGrid)
     else:
         logger.info('Creating range queries.')
         origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation, flag=config.range_flag)
@@ -233,7 +237,7 @@ def gridSearch(config, args):
 
     uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
-    giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config, numberToTrain=200)
+    giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config, numberToTrain=400)
     for weight in config.weights:
         weight = asdict(weight) # convert to dict
         for compression_rate in config.compression_rate:
@@ -291,8 +295,8 @@ if __name__ == "__main__":
     config = Configuration(
         compression_rate=[0.9, 0.95],
         DB_size=100,
-        trainTestSplit=0,
-        numberOfEachQuery=50,
+        trainTestSplit=0.8,
+        numberOfEachQuery=500,
         QueriesPerTrajectory=None,
         verbose=True,
         knn_method=args.knn,

@@ -11,9 +11,9 @@ import pickle
 import random
 
 def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, pickleFiles = None, numberToTrain = None, config = None):
-    if queryWrapper is not None and pickleFiles is None:
+    if queryWrapper is not None and not pickleFiles:
         # Extract all queries
-        for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
+        for query in tqdm(queryWrapper.getQueries(),desc="Scoring queries from query wrapper"):#[queryWrapper.RangeQueries + queryWrapper.KNNQueries + queryWrapper.SimilarityQueries + queryWrapper.ClusterQueries]:
             logger.info('Gives scores for query %s', type(query))
             # Get result of query
             result = query.run(Rtree, trajectories)
@@ -22,7 +22,7 @@ def giveQueryScorings(Rtree, trajectories, queryWrapper : QueryWrapper = None, p
                 query.distribute(trajectories, result)
             else:
                 query.distribute(trajectories)
-    elif pickleFiles is not None: 
+    elif pickleFiles: 
         for filename in pickleFiles:
             logger.info('Pickle file already exists with name: %s', filename)
             with open(filename, 'rb') as f:

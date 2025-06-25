@@ -30,6 +30,9 @@ class KnnQuery(Query):
     def run(self, rtree, T):
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         
+        # Must be of type trajectory to be accepted
+        originSegmentTrajectory = self.trajectory
+        
         hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
         
         trajectories = {}
@@ -55,8 +58,10 @@ class KnnQuery(Query):
         # Use DTW distance to compute similarity
         similarityMeasures = {}
         
-        # Must be of type trajectory to be accepted
-        originSegmentTrajectory = self.trajectory
+        """# Must be of type trajectory to be accepted
+        originSegmentTrajectory = sorted([node_id for (trajectory_id, node_id) in hits if trajectory_id == self.trajectory.id], key=lambda x: x, reverse=False) #self.trajectory
+        originNodes = [self.trajectory.nodes[node_id] for node_id in originSegmentTrajectory]
+        originSegmentTrajectory = Trajectory(self.trajectory.id, originNodes)"""
         
 
         # If statement out here so it does not need repeating 

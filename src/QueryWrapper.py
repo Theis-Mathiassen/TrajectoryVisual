@@ -67,7 +67,7 @@ class QueryWrapper:
         elif cellDist is not None:
             random.shuffle(cellDist)
             for query in range(self.numberOfEachQuery):
-                params = paramUtil.knnParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])))
+                params = paramUtil.knnParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])), cell=cellDist[query])
                 params["distanceMethod"] = distance_method
                 self.RangeQueries.append(KnnQuery(params))
         else:
@@ -101,11 +101,15 @@ class QueryWrapper:
                 params["scoringSystem"] = scoring_system
                 self.SimilarityQueries.append(SimilarityQuery(params))
         
-    def createClusterQueries(self, rtree, paramUtil : ParamUtil):
+    def createClusterQueries(self, rtree, paramUtil : ParamUtil, cellDist = None, trajGrid = None):
         #self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
         if self.random:
             for query in range(self.numberOfEachQuery):
                 self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree)))
+        elif cellDist is not None:
+            random.shuffle(cellDist)
+            for query in range(self.numberOfEachQuery):
+                self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree, index=random.choice(list(trajGrid[cellDist[query]])), cell=cellDist[query])))
         else:
             for trajectory in self.trajectories.values():
                 self.ClusterQueries.append(ClusterQuery(paramUtil.clusterParams(rtree, index=trajectory.id)))

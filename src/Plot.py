@@ -7,8 +7,13 @@ from Node import NodeDiff
 from rangeQuery import RangeQuery as RQ
 from similarityQuery import SimilarityQuery as SQ
 from knnQuery import KnnQuery as KNN
-from clusterQuery import ClusterQuery as CQ
+#from clusterQuery import ClusterQuery as CQ
 from rtree import Index
+from numpy import ma
+import contextily as cx
+import geopandas as gpd
+import tilemapbase
+import pandas as pd
 
 def trajectoryPlotting(traj: T):
         xs = []
@@ -49,9 +54,25 @@ def trajCoordSplit(trajectory: list[T]):
     ys = []
     
     # Create lists with the x and y coordinates of each point from a trajectory
-    for elem in trajectory.nodes:
+    for elem in trajectory.nodes.data:
         xs.append(elem.x)
         ys.append(elem.y)
+    
+    return xs, ys
+
+def trajCoordSplitMask(trajectory: list[T]):
+    xs = []
+    ys = []
+
+    mask = ma.getmaskarray(trajectory.nodes)
+    # Create lists with the x and y coordinates of each point from a trajectory
+    c = 0
+    for elem in trajectory.nodes.data:
+        print(mask.data[c])
+        if not mask[c] :
+            xs.append(elem.x)
+            ys.append(elem.y)
+        c += 1
     
     return xs, ys
 
@@ -109,6 +130,8 @@ def plotSimilarity(trajectories: list[T], query: SQ, rtree):
         # Plot a dotted line to this point from closest vantage within origin trajectory
         plt.plot([res_traj_min_node.x, q_traj_min_node.x],[res_traj_min_node.y, q_traj_min_node.y], linestyle='dotted')
 
+        plt.show()
+
     # Loop over all trajectories in the dataset
     for Trajectory in trajectories:
         xs, ys = trajCoordSplit(Trajectory)
@@ -144,6 +167,43 @@ def plotkNNQuery(trajectories: list[T], query: KNN, rtree):
 
     plt.show()
 
-def plotClusterQuery(trajectories: list[T], query: CQ, rtree):
+#def plotClusterQuery(trajectories: list[T], query: CQ, rtree):
     # Needs refactoring of the abstract class before this works
-    pass
+ #   pass
+
+def plotTrajectoryDiff(trajectory: T):
+    # Plots a trajectory with the differences highlighted
+    xs, ys = trajCoordSplit(trajectory)
+    c = [c for c in range(1,len(xs)+1)]
+    d = {'col1': c, 'geometry': [(x,y) for x,y in zip(xs, ys)]}
+    df = gpd.GeoDataFrame(d, crs="EPSG:4326", geometry=gpd.points_from_xy(xs, ys))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14,8))
+    # Plot the trajectory
+    ax1.set_title("Original Trajectory")
+    ax1.plot(xs,ys, color="navy", linestyle="dashed", alpha=0.3)
+    ax1.scatter(xs, ys, marker="o", color="navy", s=20)
+
+
+    # Plot the differences
+    xss, yss = trajCoordSplitMask(trajectory)
+    ax2.set_title("Simplified Trajectory")
+    ax2.plot(xss,yss, color="red", linestyle="dashed", alpha=0.3)
+    ax2.scatter(xss, yss, color="red", marker="^", s=20)
+
+    BBox = (min(xs), max(xs), min(ys), max(ys))
+
+    tilemapbase.start_logging()
+    tilemapbase.init(create=True)
+    #extent = tilemapbase.extent_from_frame(df, buffer = 25)   
+    #plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), width=1000)
+    #plotter.plot(ax1)
+    for ax in (ax1, ax2):
+        ax.set_xlabel("X Coordinate")
+        ax.set_ylabel("Y Coordinate")
+        #ax.grid(True)
+        ax.set_xlim(BBox[0]-0.001, BBox[1]+0.001)
+        ax.set_ylim(BBox[2]-0.002, BBox[3]+0.002)
+        cx.add_basemap(ax, crs=df.crs, source=cx.providers.OpenStreetMap.Mapnik)
+
+    plt.savefig("OriginalVsSimplified.pdf", format="pdf", bbox_inches='tight')
+    plt.show()

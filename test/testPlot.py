@@ -22,10 +22,13 @@ from rangeQuery import RangeQuery as RQ
 from similarityQuery import SimilarityQuery as SQ
 from knnQuery import KnnQuery as KNN
 from Util import ParamUtil
+import random
 import testFunctions as tF
 import Trajectory as T
 import Node as N
 import Plot
+import numpy.ma as ma
+import numpy as np
 
 def testSinglePlot():
     p1 = N.Node(1, 2.0, 3.0, 1.0)
@@ -68,9 +71,32 @@ def testKNNQueryPlot(trajectories, rtree, paramUtil: ParamUtil):
 def testClusterQuery(trajectories, rtree, paramUtil: ParamUtil):
     pass
 
+def testTrajectoryDiff(trajectories):
+    random.seed(42)
+    for traj in trajectories:
+        mask = np.zeros(len(trajectories[traj].nodes), dtype=bool)
+        for c in range(0, len(trajectories[traj].nodes)):
+            if random.random() < 0.8:
+                mask[c] = True
+
+        trajectories[traj].nodes.mask = mask
+
+    for traj in trajectories:
+        if len(trajectories[traj].nodes) > 10:
+            count = 0
+            mask = ma.getmaskarray(trajectories[traj].nodes)
+            for m in mask:
+                if m:
+                    count += 1
+        if 10 > count > 5:
+            Plot.plotTrajectoryDiff(trajectories[traj])
+            break
+            # Only plot the first trajectory with more than 5 unmasked nodes
+
 def testPlotting(trajectories, rtree, paramUtil):
-    testSinglePlot()
-    testMultiPlot()
-    testRangeQueryPlot(trajectories, rtree, paramUtil)
-    testSimilarityQueryPlot(trajectories, rtree, paramUtil)
-    testKNNQueryPlot(trajectories, rtree, paramUtil)
+    #testSinglePlot()
+    #testMultiPlot()
+    #testRangeQueryPlot(trajectories, rtree, paramUtil)
+    #testSimilarityQueryPlot(trajectories, rtree, paramUtil)
+    #testKNNQueryPlot(trajectories, rtree, paramUtil)
+    testTrajectoryDiff(trajectories)

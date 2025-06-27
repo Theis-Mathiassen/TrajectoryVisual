@@ -546,6 +546,7 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
     if progress_bar:
         print("Grouping partitions...")
     clusters = []
+    cluster_assignments = []
     clustering_model = None
     if max_eps is not None:
         clustering_model = clustering_algorithm(max_eps=max_eps, min_samples=min_samples)
@@ -553,10 +554,10 @@ def traclus(trajectories, max_eps=None, min_samples=10, directional=True, use_se
         clustering_model = clustering_algorithm(min_samples=min_samples)
     if dist_matrix is not None:
         cluster_assignments = clustering_model.fit_predict(dist_matrix)
-    else:
-        cluster_assignments = []
-    for c in range(min(cluster_assignments), max(cluster_assignments) + 1):
-        clusters.append([segments[i] for i in range(len(segments)) if cluster_assignments[i] == c])
+        for c in range(min(cluster_assignments), max(cluster_assignments) + 1):
+            clusters.append([segments[i] for i in range(len(segments)) if cluster_assignments[i] == c])
+    
+        
 
     if progress_bar:
         print()

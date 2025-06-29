@@ -159,6 +159,11 @@ def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/
     east = lon * 111320.0 * math.cos(0.017453292519943295*lat)
     return east, north
 
+def MetricToLonLat(east, north):  #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
+    lat = north / 110574.0
+    lon = east / (111320.0 * math.cos(0.017453292519943295 * lat))
+    return lon, lat
+
 # Based on wikipedia article on dynamic time warping https://en.wikipedia.org/wiki/Dynamic_time_warping
 # but changed to a dynamic window size such that we always can compare two trajectories
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:

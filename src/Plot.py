@@ -14,6 +14,7 @@ import contextily as cx
 import geopandas as gpd
 import tilemapbase
 import pandas as pd
+import Util
 
 def trajectoryPlotting(traj: T):
         xs = []
@@ -171,13 +172,47 @@ def plotkNNQuery(trajectories: list[T], query: KNN, rtree):
     # Needs refactoring of the abstract class before this works
  #   pass
 
-def plotTrajectoryDiff(trajectory: T):
+def plotTrajectoryDiffFromMain(trajectories: dict[int, T]):
+    counter = 0
+    for traj in trajectories:
+        if len(trajectories[traj].nodes) > 10:
+            count = 0
+            mask = ma.getmaskarray(trajectories[traj].nodes)
+            for m in mask:
+                if m:
+                    count += 1
+        if 10 > count > 5:
+            if counter < 2:
+                trajectories[traj].nodes = Util.ConvertAllMetricToLonLat(trajectories[traj])
+                plotTrajectoryDiff(trajectories[traj])
+                counter += 1
+                break
+    counter = 0
+    for traj in trajectories:
+        if len(trajectories[traj].nodes) > 10:
+            count = 0
+            mask = ma.getmaskarray(trajectories[traj].nodes)
+            for m in mask:
+                if not m:
+                    count += 1
+        if 10 > count > 5:
+            if counter < 2:
+                trajectories[traj].nodes = Util.ConvertAllMetricToLonLat(trajectories[traj])
+                plotTrajectoryDiff(trajectories[traj])
+                counter += 1
+                break
+            
+
+
+def plotTrajectoryDiff(trajectory: T, counter, mask):
     # Plots a trajectory with the differences highlighted
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14,8))
+
+
     xs, ys = trajCoordSplit(trajectory)
     c = [c for c in range(1,len(xs)+1)]
     d = {'col1': c, 'geometry': [(x,y) for x,y in zip(xs, ys)]}
     df = gpd.GeoDataFrame(d, crs="EPSG:4326", geometry=gpd.points_from_xy(xs, ys))
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14,8))
     # Plot the trajectory
     ax1.set_title("Original Trajectory")
     ax1.plot(xs,ys, color="navy", linestyle="dashed", alpha=0.3)
@@ -204,6 +239,9 @@ def plotTrajectoryDiff(trajectory: T):
         ax.set_xlim(BBox[0]-0.001, BBox[1]+0.001)
         ax.set_ylim(BBox[2]-0.002, BBox[3]+0.002)
         cx.add_basemap(ax, crs=df.crs, source=cx.providers.OpenStreetMap.Mapnik)
-
-    plt.savefig("OriginalVsSimplified.pdf", format="pdf", bbox_inches='tight')
-    plt.show()
+    if mask:
+        savepath = f"TrajectoryDiffTrueMask_{counter}.pdf"
+    else:
+        savepath = f"TrajectoryDiffFalseMask_{counter}.pdf"
+    plt.savefig(savepath, format="pdf", bbox_inches='tight')
+    #plt.show()

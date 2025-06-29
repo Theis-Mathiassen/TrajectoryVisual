@@ -164,6 +164,10 @@ def MetricToLonLat(east, north):  #top answer https://stackoverflow.com/question
     lon = east / (111320.0 * math.cos(0.017453292519943295 * lat))
     return lon, lat
 
+def ConvertAllMetricToLonLat(trajectory: Trajectory) -> Trajectory:
+    for node in trajectory.nodes.data:
+        node.x, node.y = MetricToLonLat(node.x, node.y)
+
 # Based on wikipedia article on dynamic time warping https://en.wikipedia.org/wiki/Dynamic_time_warping
 # but changed to a dynamic window size such that we always can compare two trajectories
 def DTWDistance(origin : Trajectory, other : Trajectory) -> int:

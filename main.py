@@ -154,6 +154,8 @@ def main(config):
     simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
     simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
 
+
+
     compressionRateScores = list()
     compressionRateScores.append({ 'cr' : config.compression_rate, 'f1Scores' : getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories), 'simplificationError' : GetSimplificationError(uncompressedTrajectories, simpTrajectories), 'simplifiedTrajectories' : copy.deepcopy(simpTrajectories)}) #, GetSimplificationError(origTrajectories, simpTrajectories)
     print(compressionRateScores[-1]['f1Scores'])
@@ -237,7 +239,7 @@ if __name__ == "__main__":
     
     # Create a single configuration object
     config = Configuration(
-        compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
+        compression_rate=[0.8],
         DB_size=100,
         trainTestSplit=0,
         numberOfEachQuery=100,

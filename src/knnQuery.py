@@ -30,6 +30,9 @@ class KnnQuery(Query):
     def run(self, rtree, T):
         hits = list(rtree.intersection((self.x1, self.y1, self.t1, self.x2, self.y2, self.t2), objects="raw"))
         
+        # Must be of type trajectory to be accepted
+        originSegmentTrajectory = self.trajectory
+        
         hits = [(trajectory_id, node_id) for (trajectory_id, node_id) in hits if trajectory_id != self.trajectory.id]
         
         trajectories = {}
@@ -55,8 +58,10 @@ class KnnQuery(Query):
         # Use DTW distance to compute similarity
         similarityMeasures = {}
         
-        # Must be of type trajectory to be accepted
-        originSegmentTrajectory = self.trajectory
+        """# Must be of type trajectory to be accepted
+        originSegmentTrajectory = sorted([node_id for (trajectory_id, node_id) in hits if trajectory_id == self.trajectory.id], key=lambda x: x, reverse=False) #self.trajectory
+        originNodes = [self.trajectory.nodes[node_id] for node_id in originSegmentTrajectory]
+        originSegmentTrajectory = Trajectory(self.trajectory.id, originNodes)"""
         
 
         # If statement out here so it does not need repeating 
@@ -123,7 +128,9 @@ class KnnQuery(Query):
 
         elif self.distanceMethod == 1: # Use spatio temporal linear combine distance
             for trajectory in matches:   
-                spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5)
+                trajectoryInDB = trajectories[trajectory.id]
+                #nodes = [x for x in trajectoryInDB.nodes if x is not np.ma.masked]
+                spatio_temporal_linear_combine_distance_with_scoring(originSegmentTrajectory, trajectory, 0.5, nodesToAward  = trajectoryInDB.nodes)
 
         else: # If unimplemented distance
             raise Exception(f"Distance method not implemented under name {self.distanceMethod}")

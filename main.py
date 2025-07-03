@@ -1,4 +1,4 @@
-from src.gridSearch import createConfigs, Configuration
+from src.gridSearch import createConfigs, Configuration, Weights
 from src.evaluation import getAverageF1ScoreAll, GetSimplificationError
 from src.Util import ParamUtil
 from src.QueryWrapper import QueryWrapper
@@ -16,21 +16,24 @@ import math
 import os
 import traceback # traceback for information on python stack traces
 import argparse
+from dataclasses import asdict
 
 import numpy as np
 
 sys.path.append("src/")
-output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd());
+output_dir = os.environ.get('JOB_OUTPUT_DIR', os.getcwd())
 Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
 DATABASENAME = 'original_Taxi'
 SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
-PICKLE_HITS = ['RangeQueryHits.pkl', 'KnnQueryHits.pkl', 'SimilarityQueryHits.pkl'] 
+PICKLE_HITS = []#['RangeQueryDataHits.pkl', 'KnnQueryDataHits.pkl', 'SimilarityQueryDataHits.pkl'] #['RangeQueryHits_geolife.pkl'] 
 CACHE_FILE = os.path.join(output_dir, 'cached_rtree_query_eval_results.pkl')
+TEMPORAL_WINDOW = 10800
+SPATIAL_WINDOW = 2000
 
 # Prepare RTrees for training and testing
-def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
+def prepareQueries(config, origRtree, origTrajectories, useGaussian = False, useDataDistribution = False):
 
     # ---- 
     avgCoordinateValues = None
@@ -40,32 +43,64 @@ def prepareQueries(config, origRtree, origTrajectories, useGaussian = False):
         stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)
         print(avgCoordinatesValue)
         print(stdCoordinatesValue)
-
+    elif useDataDistribution:
+        dataTrajGrid, dataNodeGrid = getDataDistribution(origTrajectories, SPATIAL_WINDOW, TEMPORAL_WINDOW)
+        listTrajCellTup = list(dataTrajGrid.keys())
+        #listTrajCell = np.array(list(dataTrajGrid.values()))
+        listTrajCellCnt = np.array([len(cell) for cell in list(dataTrajGrid.values())])
+        totalTrajCellCnt = np.sum(listTrajCellCnt)
+        #listTrajCellProbDist = list
+        #sampleTrajCellDist = 
+        
+        keys = np.random.choice(len(listTrajCellTup), 10000, p=(listTrajCellCnt/totalTrajCellCnt))
+        listSampleCellKeys = [listTrajCellTup[key] for key in keys]
+        print(len(set(listSampleCellKeys)))
 
     # ---- Create training queries -----
     logger.info('Creating training queries.')
-    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=stdCoordinatesValue)
-    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    origRtreeQueriesTraining : QueryWrapper = QueryWrapper(math.ceil(config.numberOfEachQuery * config.trainTestSplit), random=False, useGaussian=useGaussian, avgCoordinateValues=avgCoordinateValues, rtree=origRtree, sigma=stdCoordinatesValue)
+    origRtreeParamsTraining : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=TEMPORAL_WINDOW) # Temporal window for T-Drive is 3 hours
 
-    logger.info('Creating range queries.')
-    origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, flag=config.range_flag)
-    logger.info('Creating similarity queries.')
-    origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system)
-    logger.info('Creating KNN queries.')
-    origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method)
-    # origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    
+    if useDataDistribution:
+        logger.info('Creating range queries.')
+        origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, flag=config.range_flag, cellDist=listSampleCellKeys)
+        logger.info('Creating similarity queries.')
+        origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
+        logger.info('Creating KNN queries.')
+        origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
+        #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+    else:
+        logger.info('Creating range queries.')
+        origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, flag=config.range_flag)
+        logger.info('Creating similarity queries.')
+        origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, scoring_system=config.similarity_system)
+        logger.info('Creating KNN queries.')
+        origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, distance_method=config.knn_method)
+        #logger.info('Creating cluster queries')
+        #origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
 
     # ---- Create evaluation queries -----
     logger.info('Creating evaluation queries.')
-    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config.numberOfEachQuery - config.numberOfEachQuery * config.trainTestSplit), rtree=origRtree)
-    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=10800) # Temporal window for T-Drive is 3 hours
+    origRtreeQueriesEvaluation : QueryWrapper = QueryWrapper(math.floor(config.numberOfEachQuery - config.numberOfEachQuery * config.trainTestSplit),random=False, rtree=origRtree)
+    origRtreeParamsEvaluation : ParamUtil = ParamUtil(origRtree, origTrajectories, delta=TEMPORAL_WINDOW) # Temporal window for T-Drive is 3 hours
 
-    logger.info('Creating range queries.')
-    origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation, flag=config.range_flag)
-    logger.info('Creating similarity queries.')
-    origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation, scoring_system=config.similarity_system)
-    logger.info('Creating KNN queries.')
-    origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation, distance_method=config.knn_method)
+    if useDataDistribution:
+        logger.info('Creating range queries.')
+        origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation, flag=config.range_flag, cellDist=listSampleCellKeys)
+        logger.info('Creating similarity queries.')
+        origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation, scoring_system=config.similarity_system, cellDist=listSampleCellKeys, trajGrid = dataTrajGrid)
+        logger.info('Creating KNN queries.')
+        origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation, distance_method=config.knn_method, cellDist=listSampleCellKeys, trajGrid = dataTrajGrid)
+        #logger.info('Creating cluster queries.')
+        #origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation, cellDist=listSampleCellKeys, trajGrid= dataTrajGrid)
+    else:
+        logger.info('Creating range queries.')
+        origRtreeQueriesEvaluation.createRangeQueries(origRtree, origRtreeParamsEvaluation, flag=config.range_flag)
+        logger.info('Creating similarity queries.')
+        origRtreeQueriesEvaluation.createSimilarityQueries(origRtree, origRtreeParamsEvaluation, scoring_system=config.similarity_system)
+        logger.info('Creating KNN queries.')
+        origRtreeQueriesEvaluation.createKNNQueries(origRtree, origRtreeParamsEvaluation, distance_method=config.knn_method)
     # origRtreeQueriesEvaluation.createClusterQueries(origRtree, origRtreeParamsEvaluation)
     return origRtreeQueriesTraining, origRtreeQueriesEvaluation
 
@@ -125,6 +160,24 @@ def getStandardDerivationNodeCoordinates(trajectories, averages):
     stdCoordinateValues = np.sqrt([stdx, stdy, stdt])
 
     return stdCoordinateValues
+
+def getDataDistribution(trajectories, spatialWindow, temporalWindow):
+    dataTrajGrid = {}
+    dataNodeGrid = {}
+    
+    logger.info('Creating data distribution')
+    for trajectory in tqdm(trajectories.values()):
+        for node in trajectory.nodes:
+            tup = (node.x // spatialWindow, node.y // spatialWindow, node.t // temporalWindow)
+            if tup not in dataTrajGrid:
+                dataTrajGrid[tup] = set()
+            if tup not in dataNodeGrid:
+                dataNodeGrid[tup] = set()
+            dataNodeGrid[tup].add((trajectory.id, node.id))
+            dataTrajGrid[tup].add(trajectory.id)
+    
+    return dataTrajGrid, dataNodeGrid
+
 #### main
 def main(config):
     if os.path.exists(CACHE_FILE):
@@ -141,12 +194,12 @@ def main(config):
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
     }
 
-    if config.QueriesPerTrajectory != None:
+    if config.QueriesPerTrajectory is not None:
         config.numberOfEachQuery = math.floor(config.QueriesPerTrajectory * len(origTrajectories.values()))
     logger.info(f"Number of queries to be created: {config.numberOfEachQuery}")
 
     #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
-    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
+    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False, useDataDistribution=True)
 
     giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
     #giveQueryScorings(origRtree, origTrajectories, origRtreeQueriesTraining, pickleFiles=None, config=config)
@@ -170,43 +223,46 @@ def main(config):
         file.close()
 
 
-def gridSearch(allCombinations, args):
+def gridSearch(config, args):
     configScore = list()
-    for config in tqdm(allCombinations):
-        # we need to clear cache file for each configuration
-        if os.path.exists(CACHE_FILE):
-            os.remove(CACHE_FILE)
-            logger.info(f"Cleared cache file: {CACHE_FILE}")
+    # we need to clear cache file for each configuration
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+        logger.info(f"Cleared cache file: {CACHE_FILE}")
 
-        origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
-        
-        #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
-        origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False)
+    origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
+    
+    #origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=True)
+    origRtreeQueriesTraining, origRtreeQueriesEvaluation = prepareQueries(config, origRtree, origTrajectories, useGaussian=False, useDataDistribution=True)
 
-        uncompressedTrajectories = copy.deepcopy(origTrajectories)
+    uncompressedTrajectories = copy.deepcopy(origTrajectories)
 
-        giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config)
-        #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
-        simpTrajectories = dropNodes(origRtree, origTrajectories, config.compression_rate)
+    giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=PICKLE_HITS, config=config, numberToTrain=400)
+    for weight in config.weights:
+        weight = asdict(weight) # convert to dict
+        for compression_rate in config.compression_rate:
+            simpTrajectories = dropNodes(origRtree, origTrajectories, compression_rate, weights=weight)
+            logger.info('Loading simplified trajectories into Rtree.')
+            simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
+            simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
 
-        logger.info('Loading simplified trajectories into Rtree.')
-        simpRtree, simpTrajectories = loadRtree(SIMPLIFIEDDATABASENAME, simpTrajectories)
+            #giveQueryScorings(origRtree, origTrajectories, queryWrapper = origRtreeQueriesTraining, pickleFiles=None, config=config)
 
-        f1score = getAverageF1ScoreAll(origRtreeQueriesEvaluation, origRtree, simpRtree, uncompressedTrajectories)
-        simplificationError = GetSimplificationError(uncompressedTrajectories, simpTrajectories)
 
-        configScore.append({
-            'cr': config.compression_rate,
-            'f1Scores': f1score,
-            'simplificationError': simplificationError
-        })
-        logger.info('Run info: %s', configScore[-1]['f1Scores'])
+            configScore.append({
+                'cr': compression_rate,
+                'weights': weight,
+                'f1Scores': f1score,
+                'simplificationError': simplificationError
+            })
+            logger.info('Run info: %s, weights: %s, compression rate: %s', configScore[-1]['f1Scores'], configScore[-1]['weights'], configScore[-1]['cr'])
 
-        simpRtree.close()
+            simpRtree.close()
 
-        if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
-            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
-            os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
+            if os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data')) and os.path.exists(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index')):
+                os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.data'))
+                os.remove(os.path.join(output_dir, SIMPLIFIEDDATABASENAME + '.index'))
 
     ## Save results with unique filename based on the combo of query methods through cmd args
     try:
@@ -237,16 +293,21 @@ if __name__ == "__main__":
     
     # Create a single configuration object
     config = Configuration(
-        compression_rate=[0.8, 0.9, 0.95, 0.975, 0.99],
+        compression_rate=[0.9, 0.95],
         DB_size=100,
-        trainTestSplit=0,
-        numberOfEachQuery=100,
+        trainTestSplit=0.8,
+        numberOfEachQuery=500,
         QueriesPerTrajectory=None,
         verbose=True,
         knn_method=args.knn,
         range_flag=args.range,
         similarity_system=args.similarity,
-        weights = {'range' : 2,  'knn' : 1, 'similarity' : 1, 'cluster' : 10}
+        # weights = [{'range' : 1,  'knn' : 0.25, 'similarity' : 1, 'cluster' : 0},
+        #            {'range' : 1,  'knn' : 1, 'similarity' : 0.5, 'cluster' : 0},
+        #            {'range' : 0.5,  'knn' : 1, 'similarity' : 1, 'cluster' : 0},
+        #            {'range' : 1,  'knn' : 1, 'similarity' : 2, 'cluster' : 0}]
+        weights = [Weights(range=1, similarity=1, knn=1, cluster=1)]
+        
     )
 
     try:
@@ -266,7 +327,7 @@ if __name__ == "__main__":
                 [config.similarity_system],
                 [config.weights]
             )
-            gridSearch(allCombinations, args)
+            gridSearch(config, args)
         else:
             # For single config testing
             print("Not running grid search")
@@ -275,7 +336,7 @@ if __name__ == "__main__":
         print("Script finished successfully.") 
 
     except Exception as e:
-        print(f"\n--- SCRIPT CRASHED ---")
+        print("\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
         print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
@@ -290,6 +351,6 @@ if __name__ == "__main__":
     filesToClear = ["cached_rtree_query_eval_results.pkl"]
 
     for fileString in filesToClear:
-        filePath = os.path.join(output_dir, fileString);
+        filePath = os.path.join(output_dir, fileString)
         if os.path.exists(filePath):
             os.remove(filePath)

@@ -1,10 +1,17 @@
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 from typing import Union, List
 import argparse
 from src.log import logger
 
 @dataclass
+class Weights:
+    range: float
+    similarity: float
+    knn: float
+    cluster: float
+
+@dataclass()
 class Configuration:
     compression_rate: Union[float, List[float]]  # Can be either a single float or a list of floats
     DB_size: int
@@ -16,7 +23,7 @@ class Configuration:
     knn_method: int = 1  # Only 1 is implemented (spatio temporal linear combine distance)
     range_flag: int = 1  # 1-4 for different distribute methods
     similarity_system: str = "c"  # "c", "a", "c+f", "m"
-    weights: dict = dict()
+    weights: list[Weights] = field(default_factory=list)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run trajectory simplification with specified query methods')
@@ -49,6 +56,7 @@ def createConfigs(*configs):
             logger.error(f"Check if the number of elements in the tuple matches the "
                     f"expected arguments for {Configuration.__name__}.__init__")
             continue
+
 
     return all_config_objects
 

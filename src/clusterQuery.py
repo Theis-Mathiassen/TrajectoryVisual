@@ -19,7 +19,7 @@ sys.path.append(full_path_test)
 from src.Query import Query
 from src.Trajectory import Trajectory
 import numpy as np
-from src.TRACLUS import traclus
+from src.TRACLUS import traclus, traclusOrig
 from sklearn.cluster import OPTICS
 from src.Node import Node
 from rtree import index
@@ -145,7 +145,7 @@ class ClusterQuery(Query):
         # Get trajectories that have nodes within the time window
 
         # Return a list of trajectories that appear in the hits
-        return [t for tid, t in trajectories.items() if tid in seen_trajectories]
+        #return [t for tid, t in trajectories.items() if tid in seen_trajectories]
 
     def _filter_trajectories_by_time(self, trajectories, rtree):
         """Filter trajectories based on temporal constraints using R-tree."""
@@ -190,17 +190,20 @@ class ClusterQuery(Query):
         
         for trajectory in T: 
             #boundingNodes = [min(trajectories[trajectory], max(trajectories[trajectory]))]
-            minIndex = min(T[trajectory])
-            maxIndex = max(T[trajectory])
-            T[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
+            #minIndex = min(T[trajectory])
+            #maxIndex = max(T[trajectory])
+            #T[trajectory] = self.trajectories[trajectory].nodes[minIndex : maxIndex + 1]
+            sortedNodes = sorted(T[trajectory], key=lambda x:x)
+            T[trajectory] = [self.trajectories[trajectory].nodes[nodeidx] for nodeidx in sortedNodes]
 
         # convert trajectories to numpy arrays for TRACLUS
         #numpy_trajectories = [self._trajectory_to_numpy(t) for t in trajectories]
         numpy_trajectories = [] #[np.array([[node.x, node.y] for node in nodes]) for nodes in trajectories_id_to_nodes.values()]
 
         for trajectory in T.values():
-            coords = np.ascontiguousarray([[node.x, node.y] for node in trajectory])
-            numpy_trajectories.append(coords)
+            if len(trajectory) >= 2:
+                coords = np.ascontiguousarray([[node.x, node.y] for node in trajectory])
+                numpy_trajectories.append(coords)
 
 
         # run TRACLUS
@@ -211,9 +214,32 @@ class ClusterQuery(Query):
             directional=True,
             use_segments=True,
             clustering_algorithm=OPTICS,
-            progress_bar=False
+            progress_bar=True
         )
 
+        map_segment_to_trajectory_index = self.getTrajectoryFromPartitions(partitions)
+
+        # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
+        dict_for_clusters = defaultdict(list)
+        for idx, value in enumerate(cluster_assignments):
+            trajectory_index = map_segment_to_trajectory_index[idx]
+
+            # We have to convert back such that we can get the ids
+            dict_for_clusters[value].append(list(T.keys())[trajectory_index])
+        
+
+        clusters = list(dict_for_clusters.values())
+        clusters = [list(set(cluster)) for cluster in clusters]
+
+        return clusters  # Return groupings
+
+    """def getTrajectoryFromPartitions(self, partitions):
+        #Get which trajectory index each segment corresponds to
+
+        map_segment_to_trajectory_index = []
+        for index, partition in enumerate(partitions):
+            amount = len(partition)
+            map_segment_to_trajectory_index += [index] * amount
         map_segment_to_trajectory_index = self.getTrajectoryFromPartitions(partitions)
 
         # Since none are filtered out, they are in the same order. We then group them by values (Cluster ids)
@@ -227,15 +253,15 @@ class ClusterQuery(Query):
         clusters = list(dict_for_clusters.values())
         clusters = [list(set(cluster)) for cluster in clusters]
 
-        return clusters  # Return groupings
+        return clusters  # Return groupings"""
 
     def getTrajectoryFromPartitions(self, partitions):
         """ Get which trajectory index each segment corresponds to """
 
         map_segment_to_trajectory_index = []
-        for index, partition in enumerate(partitions):
+        for idx, partition in enumerate(partitions):
             amount = len(partition)
-            map_segment_to_trajectory_index += [index] * amount
+            map_segment_to_trajectory_index += [idx] * amount
 
         return map_segment_to_trajectory_index
 

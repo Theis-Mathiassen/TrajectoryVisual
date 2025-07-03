@@ -12,7 +12,7 @@ spec = [
 
 #@jitclass(spec)
 class Node:
-    __slots__ = ['score', 'id', 'x', 'y', 't', 'scoreCluster', 'scoreRange', 'scoreKNN', 'scoreSimilarity']
+    __slots__ = ['score', 'id', 'x', 'y', 't', 'scoreCluster', 'scoreRange', 'scoreKNN', 'scoreSimilarity', 'normalizationScore']
     """ score: int
     id: int
 
@@ -31,15 +31,18 @@ class Node:
         self.y = y
         self.t = t
         # self.score = 0
-
+        self.normalizationScore = 1
         # For now just 4 scores to track but consider making this more modular if we add more query types or more scoring options
         self.score = {'range' : 0, 'knn' : 0, 'similarity' : 0, 'cluster' : 0}
 
     def __str__(self):
         return f"x: {self.x}\ny: {self.y}\ntime: {self.t}\n"
 
-    def getScore(self, weights : dict) : 
-        return sum(weights[key] * value for key, value in self.score) / sum(weights.values())
+    def getScore(self, weights : dict, normalize = False) : 
+        score = sum(weights[key] * value for key, value in self.score.items()) / sum(weights.values())
+        if normalize:
+            score /= self.normalizationScore
+        return score
     
     """ def distanceEuclidean2D(self):
         # Calculates the norm of the 2D-node vector for this node

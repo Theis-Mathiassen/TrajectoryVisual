@@ -41,3 +41,10 @@ class Trajectory:
     
     def unmaskedCount(self):
         return len(self.nodes.compressed())
+    
+    def setNormalizationScore(self, weights):
+        nodes = self.nodes.compressed()
+        maxScore = max(map(lambda node: node.getScore(weights), nodes))
+        if maxScore >0:
+            for node in nodes:
+                self.nodes[node.id].normalizationScore = maxScore

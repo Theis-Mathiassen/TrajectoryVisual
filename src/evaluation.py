@@ -75,7 +75,7 @@ def getClusterSet(rtree, query, use_cache = False, differentTrajs = None):
         oldTrajs = query.trajectories
         query.trajectories = differentTrajs
         
-    clusters = query.run(rtree)
+    clusters = query.run(rtree, query.trajectories)
     
     if differentTrajs is not None:
         query.trajectories = oldTrajs
@@ -111,7 +111,9 @@ def getF1Score(query : Query, rtree_original, rtree_simplified, trajectories_ori
 
     intersection = setOriginal_result & setSimplified_result
 
-    if (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
+    if len(setOriginal_result) == 0 and len(setSimplified_result) == 0:
+        return 1
+    elif (len(setOriginal_result) == 0 or len(setSimplified_result) == 0 or len(intersection) == 0):
         return 0
     
     precision = len(intersection) / len(setSimplified_result)

@@ -40,16 +40,23 @@ class ParamUtil:
     
     # The following presents different functions to generate params (dictionary) for the different types of queries. 
     # Note that some values are None and needs changing depending on how we choose queries
-    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None):
-        if index == None:
-            randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+    def rangeParams(self, rtree: index.Index, centerToEdge = 1000, temporalWindowSize = 5400, flag = 2, index = None, cell = None):
+        if cell is not None:
+            centerX = cell[0] * 2 * centerToEdge + centerToEdge
+            centerY = cell[1] * 2 * centerToEdge + centerToEdge
+            centerT = cell[2] * 2 * temporalWindowSize + temporalWindowSize
+            randomTrajectory = None
         else:
-            randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
-        centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
-        centerX = centerNode.x
-        centerY = centerNode.y
-        tMin = max(centerNode.t - temporalWindowSize, self.tMin)
-        tMax = min(centerNode.t + temporalWindowSize, self.tMax)
+            if not index:
+                randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
+            else:
+                randomTrajectory: Trajectory = self.trajectories[index] #self.trajectories.keys()[index]
+            centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
+            centerX = centerNode.x
+            centerY = centerNode.y
+            centerT = centerNode.t
+        tMin = max(centerT - temporalWindowSize, self.tMin)
+        tMax = min(centerT + temporalWindowSize, self.tMax)
         xMin = max(centerX - centerToEdge, self.xMin)
         xMax = min(centerX + centerToEdge, self.xMax)
         yMin = max(centerY - centerToEdge, self.yMin)
@@ -76,12 +83,12 @@ class ParamUtil:
 
 
     def similarityParams(self, rtree: index.Index, delta = 5000, temporalWindowSize = 5400, index = None, nodeIndex = None):
-        if index == None:
+        if not index:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
         
-        if nodeIndex == None:
+        if not nodeIndex :
             centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         else:
             centerNode: Node = randomTrajectory.nodes[nodeIndex]
@@ -115,49 +122,78 @@ class ParamUtil:
         delta = delta
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = delta, k = self.k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, index = None, nodeIndex = None):
-        if index == None:
+    def knnParams(self, rtree: index.Index, k = 3, temporalWindowSize = 5400, spatialWindowSize = 1000, index = None, nodeIndex = None, cell = None):
+        if not index:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
         
-        if nodeIndex == None:
+        if not nodeIndex :
             centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2]
         else:
             centerNode: Node = randomTrajectory.nodes[nodeIndex]
         centerTime = centerNode.t
-        tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
-        tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
+        
         #tMax = self.tMax
-        xMin = self.xMin
-        xMax = self.xMax
-        yMin = self.yMin
-        yMax = self.yMax
+        if cell is not None:
+            centerX = cell[0] * 2 * spatialWindowSize + spatialWindowSize
+            centerY = cell[1] * 2 * spatialWindowSize + spatialWindowSize
+            centerT = cell[2] * 2 * temporalWindowSize + temporalWindowSize
+            xMin = centerX - spatialWindowSize
+            xMax = centerX + spatialWindowSize
+            yMin = centerY - spatialWindowSize
+            yMax = centerY + spatialWindowSize
+            tMin = centerT - temporalWindowSize
+            tMax = centerT + temporalWindowSize
+        else:
+            xMin = self.xMin
+            xMax = self.xMax
+            yMin = self.yMin
+            yMax = self.yMax
+            tMin = max(self.tMin, centerTime - temporalWindowSize // 2)
+            tMax = min(self.tMax, centerTime + temporalWindowSize // 2)
+            
+        
         k = k
         return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = k, origin = randomTrajectory, eps = self.eps, linesMin = self.linesMin, trajectories = self.trajectories)
     
-    def clusterParams(self, rtree: index.Index, temporalWindowSize = 5400, minLines = 2, centerToEdge = 1000, index = None, eps = None):
-        if index == None:
+    def clusterParams(self, rtree: index.Index, temporalWindowSize = 5400, minLines = 2, spatialWindowSize = 1000, index = None, eps = None, cell = None):
+        if not index:
             randomTrajectory: Trajectory = random.choice(list(self.trajectories.values()))
         else:
             randomTrajectory: Trajectory = self.trajectories[index]
+        if cell:
+            centerX = cell[0] * 2 * spatialWindowSize + spatialWindowSize
+            centerY = cell[1] * 2 * spatialWindowSize + spatialWindowSize
+            centerT = cell[2] * 2 * temporalWindowSize + temporalWindowSize
+            xMin = centerX - spatialWindowSize
+            xMax = centerX + spatialWindowSize
+            yMin = centerY - spatialWindowSize
+            yMax = centerY + spatialWindowSize
+            tMin = centerT - temporalWindowSize
+            tMax = centerT + temporalWindowSize
         centerNode: Node = randomTrajectory.nodes[len(randomTrajectory.nodes) // 2] # May be deleted depending on choice of range query generation
         centerX = centerNode.x
         centerY = centerNode.y
         tMin = max(centerNode.t - temporalWindowSize, self.tMin)
         tMax = min(centerNode.t + temporalWindowSize, self.tMax)
-        xMin = max(centerX - centerToEdge, self.xMin)
-        xMax = min(centerX + centerToEdge, self.xMax)
-        yMin = max(centerY - centerToEdge, self.yMin)
-        yMax = min(centerY + centerToEdge, self.yMax)
+        xMin = max(centerX - spatialWindowSize, self.xMin)
+        xMax = min(centerX + spatialWindowSize, self.xMax)
+        yMin = max(centerY - spatialWindowSize, self.yMin)
+        yMax = min(centerY + spatialWindowSize, self.yMax)
         eps = eps
         linesMin = minLines
-        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = eps, linesMin = linesMin, trajectories = self.trajectories, centerToEdge = centerToEdge, temporalWindowSize = temporalWindowSize)
+        return dict(t1 = tMin, t2= tMax, x1 = xMin, x2 = xMax, y1 = yMin, y2 = yMax, delta = self.delta, k = self.k, origin = randomTrajectory, eps = eps, linesMin = linesMin, trajectories = self.trajectories, centerToEdge = spatialWindowSize, temporalWindowSize = temporalWindowSize)
     
 def lonLatToMetric(lon, lat):   #top answer https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
     north = lat * 110574.0
     east = lon * 111320.0 * math.cos(0.017453292519943295*lat)
     return east, north
+
+def metricToLonLat(east, north):
+    lat = north / 110574.0
+    lon = east / (111320.0*math.cos(0.017453292519943295*lat))
+    return lon, lat
 
 # Based on wikipedia article on dynamic time warping https://en.wikipedia.org/wiki/Dynamic_time_warping
 # but changed to a dynamic window size such that we always can compare two trajectories
@@ -433,7 +469,7 @@ def spatio_temporal_linear_combine_distance_real(npOrigin, npOther, weight):
 
 
 
-def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight):
+def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Trajectory, otherTrajectory : Trajectory, weight, nodesToAward):
     """
     We give points to each node where it is the minimum distance. Divided by the distance
 
@@ -455,7 +491,17 @@ def spatio_temporal_linear_combine_distance_with_scoring(originTrajectory : Traj
             if dist < 1: # Set distance to a minimum of 1
                 dist = 1
 
-            otherTrajectory.nodes[closestNodeIndex].score['knn'] += weight / dist
+            nodeID = otherTrajectory.nodes[closestNodeIndex].id
+
+            length = len(nodesToAward)
+            if nodeID >= length:
+                print("Node ID is bigger than length of nodes to award")
+                print("Node ID: " + str(nodeID) + " Length: " + str(length))
+
+            node = nodesToAward[nodeID]
+
+            node.score['knn'] += weight / dist
+            #otherTrajectory.nodes[closestNodeIndex].score['knn'] += weight / dist
 
            
 def get_min_dist_node(origin_node, nodes, func):

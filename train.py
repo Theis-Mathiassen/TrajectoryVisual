@@ -30,7 +30,8 @@ SIMPLIFIEDDATABASENAME = 'simplified_Taxi'
 LOG_FILENAME = 'script_error_log.log' # Define a log file name
 PICKLE_HITS = ['RangeQueryHits.pkl']
 
-USE_GAUSSIAN = True
+USE_GAUSSIAN = False
+USE_DATADISTRIBUTION = True
 
 #### main
 def main(config):
@@ -43,26 +44,38 @@ def main(config):
     logger.info('Starting get_Tdrive.')
     origRtree, origTrajectories = get_Tdrive(filename=DATABASENAME)
     logger.info('Completed get_Tdrive.')
-    logger.info('Copying trajectories.')
-    ORIGTrajectories = {
+    #logger.info('Copying trajectories.')
+    """ORIGTrajectories = {
         tid : copy.deepcopy(traj)
         for tid, traj, in tqdm(origTrajectories.items(), desc = "Copying trajectories")
-    } 
+    } """
 
     ## Setup data collection environment, that is evaluation after each epoch
 
     # ---- Set number of queries to be created ----
-    if config["QueriesPerTrajectory"] != None : config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
+    if config["QueriesPerTrajectory"] is not None:
+        config["numberOfEachQuery"] = math.floor(config["QueriesPerTrajectory"] * len(origTrajectories.values()))
 
 
     avgCoordinatesValue = None
     stdCoordinatesValue = None
     if USE_GAUSSIAN:
         avgCoordinatesValue = getAverageNodeCoordinates(origTrajectories)
-        stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue)
+        stdCoordinatesValue = getStandardDerivationNodeCoordinates(origTrajectories, avgCoordinatesValue) * 0.25
         print(avgCoordinatesValue)
         print(stdCoordinatesValue)
 
+    dataTrajGrid, dataNodeGrid = getDataDistribution(origTrajectories, 2000, 10800)
+    listTrajCellTup = list(dataTrajGrid.keys())
+    listTrajCell = np.array(list(dataTrajGrid.values()))
+    listTrajCellCnt = np.array([len(cell) for cell in list(dataTrajGrid.values())])
+    totalTrajCellCnt = np.sum(listTrajCellCnt)
+    #listTrajCellProbDist = list
+    #sampleT    rajCellDist = 
+    
+    keys = np.random.choice(len(listTrajCellTup), config["numberOfEachQuery"], p=(listTrajCellCnt/totalTrajCellCnt))
+    listSampleCellKeys = [listTrajCellTup[key] for key in keys]
+    
 
 
     # ---- Create training queries -----
@@ -77,16 +90,28 @@ def main(config):
     
     if query_type == "range":
         logger.info('Creating range queries.')
-        origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
+        if USE_DATADISTRIBUTION:
+            origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining, cellDist=listSampleCellKeys)
+        else:
+            origRtreeQueriesTraining.createRangeQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "similarity":
         logger.info('Creating similarity queries.')
-        origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
+        if USE_DATADISTRIBUTION:
+            origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
+        else:
+            origRtreeQueriesTraining.createSimilarityQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "knn":
         logger.info('Creating KNN queries.')
-        origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
+        if USE_DATADISTRIBUTION:
+            origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining, cellDist=listSampleCellKeys, trajGrid=dataTrajGrid)
+        else:
+            origRtreeQueriesTraining.createKNNQueries(origRtree, origRtreeParamsTraining)
     elif query_type == "cluster":
         logger.info('Creating cluster queries.')
-        origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
+        if USE_DATADISTRIBUTION:
+            origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining, cellDist=listSampleCellKeys, trajGrid= dataTrajGrid)
+        else:
+            origRtreeQueriesTraining.createClusterQueries(origRtree, origRtreeParamsTraining)
     else:
         print(f"Unknown query type: {query_type}")
         print("Available query types: range, similarity, knn, cluster")
@@ -99,6 +124,7 @@ def main(config):
         # Get result of query
         logger.info('Running query %s', type(Query))
         result = Query.run(origRtree, origTrajectories)
+        logger.info('Result:%s', result)
         # Distribute points
         queryResults.append((Query, result))
     #print("Done!")
@@ -119,7 +145,7 @@ def main(config):
 
     for queryType in dictQueryResults.keys():    
         try:
-            with open(os.path.join(output_dir, gaussianExtra + str(queryType) + 'Hits.pkl'), 'wb') as file:
+            with open(os.path.join(output_dir, gaussianExtra + str(queryType) + 'DataHits.pkl'), 'wb') as file:
                 pickle.dump(dictQueryResults[queryType], file)
                 file.close()
         except Exception as e:
@@ -186,6 +212,23 @@ def getStandardDerivationNodeCoordinates(trajectories, averages):
 
     return stdCoordinateValues
 
+def getDataDistribution(trajectories, spatialWindow, temporalWindow):
+    dataTrajGrid = {}
+    dataNodeGrid = {}
+    
+    logger.info('Creating data distribution')
+    for trajectory in tqdm(trajectories.values()):
+        for node in trajectory.nodes:
+            tup = (node.x // spatialWindow, node.y // spatialWindow, node.t // temporalWindow)
+            if tup not in dataTrajGrid:
+                dataTrajGrid[tup] = set()
+            if tup not in dataNodeGrid:
+                dataNodeGrid[tup] = set()
+            dataNodeGrid[tup].add((trajectory.id, node.id))
+            dataTrajGrid[tup].add(trajectory.id)
+    
+    return dataTrajGrid, dataNodeGrid
+
 if __name__ == "__main__":
     logger.info("---------------------------    Train.py Main Start    ---------------------------")
     # Set up command line argument parsing
@@ -197,9 +240,9 @@ if __name__ == "__main__":
     config["compression_rate"] = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]      # Compression rate of the trajectory database
     config["DB_size"] = 100                 # Amount of trajectories to load (Potentially irrelevant)
     config["verbose"] = True                # Print progress
-    config["trainTestSplit"] = 0.8          # Train/test split
-    config["numberOfEachQuery"] = 100     # Number of queries used to simplify database    
-    config["QueriesPerTrajectory"] = 1   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
+    config["trainTestSplit"] = None        # Train/test split
+    config["numberOfEachQuery"] = 10     # Number of queries used to simplify database    
+    config["QueriesPerTrajectory"] = None   # Number of queries per trajectory, in percentage. Overrides numberOfEachQuery if not none
     config["query_type"] = args.query_type  # Query type from command line args
 
     try:
@@ -208,7 +251,7 @@ if __name__ == "__main__":
         logger.info("Script finished successfully.")
 
     except Exception as e:
-        print(f"\n--- SCRIPT CRASHED ---")
+        print("\n--- SCRIPT CRASHED ---")
         print(f"!!! error occurred: {e}")
         print(f"See {ERROR_LOG_FILENAME} for detailed err traces.")
 
